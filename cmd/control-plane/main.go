@@ -51,6 +51,25 @@ func main() {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
 
+	// Health endpoints
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		// Check if database is accessible
+		ctx := r.Context()
+		if _, err := database.ListNodes(ctx); err != nil {
+			logger.Warn("readiness check failed", slog.String("error", err.Error()))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("database not ready"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ready"))
+	})
+
 	logger.Info("control plane ready", slog.String("addr", *addr))
 
 	// Create HTTP server with h2c support (HTTP/2 without TLS)
