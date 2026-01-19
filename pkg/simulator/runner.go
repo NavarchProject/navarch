@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"sort"
 	"time"
@@ -158,15 +159,24 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(server)
 	mux.Handle(path, handler)
 
+	// Use a listener to get an available port
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return fmt.Errorf("failed to create listener: %w", err)
+	}
+
+	// Update the control plane address with the actual port
+	addr := listener.Addr().(*net.TCPAddr)
+	r.controlPlaneAddr = fmt.Sprintf("http://localhost:%d", addr.Port)
+
 	r.server = &http.Server{
-		Addr:    ":8080",
 		Handler: h2c.NewHandler(mux, &http2.Server{}),
 	}
 	r.serverDone = make(chan struct{})
 
 	go func() {
 		defer close(r.serverDone)
-		if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := r.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			r.logger.Error("control plane server error", slog.String("error", err.Error()))
 		}
 	}()
