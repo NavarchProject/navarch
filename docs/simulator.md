@@ -57,13 +57,13 @@ Once running, use the CLI in another terminal:
 
 ```bash
 # List all nodes
-navarch list --addr http://localhost:8080
+navarch list -s http://localhost:8080
 
 # Get details about a node
-navarch get node-1 --addr http://localhost:8080
+navarch get node-1 -s http://localhost:8080
 
 # Cordon a node
-navarch cordon node-1 --addr http://localhost:8080
+navarch cordon node-1 -s http://localhost:8080
 ```
 
 Press `Ctrl+C` to stop the simulation.
@@ -303,14 +303,58 @@ Recoverable XID codes (may resolve without replacement):
 
 ## Example scenarios
 
-The `scenarios/` directory contains example scenarios:
+The `scenarios/` directory contains example scenarios that validate core Navarch functionality. Each scenario is designed to test a specific aspect of the system.
 
-| File | Description |
-|------|-------------|
-| `basic-fleet.yaml` | Start a fleet and verify all nodes register. |
-| `gpu-failure.yaml` | Inject a fatal XID error and verify detection. |
-| `xid-classification.yaml` | Test fatal vs. recoverable XID handling. |
-| `cordon-drain.yaml` | Test the cordon and drain command flow. |
+### basic-fleet.yaml
+
+Tests that nodes can register with the control plane and reach a healthy state.
+
+This scenario validates:
+
+- Node registration with the control plane works correctly.
+- Health reporting establishes an active status.
+- Multi-cloud fleets (GCP and AWS nodes together) function properly.
+
+The scenario starts a three-node fleet spanning GCP and AWS, waits for all nodes to register and report healthy, then asserts that each node reaches the `active` status.
+
+### gpu-failure.yaml
+
+Tests detection and handling of a fatal GPU failure.
+
+This scenario validates:
+
+- Fatal XID errors are detected by the health monitoring system.
+- Affected nodes transition to an unhealthy status.
+- Commands (cordon) can be issued to unhealthy nodes.
+- Unaffected nodes remain healthy and active.
+
+The scenario starts a two-node fleet, injects XID 79 (GPU has fallen off the bus) on one node, waits for the node to become unhealthy, then issues a cordon command. It asserts that the affected node is unhealthy while the other node remains active.
+
+### xid-classification.yaml
+
+Tests that XID error codes are correctly classified as fatal or recoverable.
+
+This scenario validates:
+
+- Fatal XID codes (like XID 48 - Double Bit ECC Error) mark a node as unhealthy.
+- Recoverable XID codes (like XID 31 - GPU memory page fault) allow the node to recover.
+- The `recover_failure` action clears transient failures.
+- Nodes return to healthy status after recovering from a recoverable error.
+
+The scenario starts two nodes, injects a fatal XID on one and a recoverable XID on the other, recovers the recoverable node, then asserts that the fatal node is unhealthy while the recovered node is healthy.
+
+### cordon-drain.yaml
+
+Tests the cordon and drain command flow for graceful node removal.
+
+This scenario validates:
+
+- The cordon command is accepted and processed by nodes.
+- The drain command is accepted and processed by nodes.
+- Commands can be issued in sequence.
+- Other nodes in the fleet are not affected by commands targeting a specific node.
+
+The scenario starts a two-node fleet, issues cordon then drain commands to one node, and asserts that the other node remains active throughout the process.
 
 ## Writing custom scenarios
 

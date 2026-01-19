@@ -19,8 +19,8 @@ go install github.com/NavarchProject/navarch/cmd/navarch@latest
 
 The CLI communicates with the Navarch control plane via HTTP. You can configure the control plane address using any of these methods, in order of precedence:
 
-1. **Command-line flag** (highest priority): `--control-plane`
-2. **Environment variable**: `NAVARCH_CONTROL_PLANE`
+1. **Command-line flag** (highest priority): `--server` or `-s`
+2. **Environment variable**: `NAVARCH_SERVER`
 3. **Default value** (lowest priority): `http://localhost:50051`
 
 ### Global flags
@@ -28,7 +28,7 @@ The CLI communicates with the Navarch control plane via HTTP. You can configure 
 All commands support these flags:
 
 ```
---control-plane string   Control plane address (default "http://localhost:50051")
+-s, --server string      Control plane address (default "http://localhost:50051")
 --insecure               Skip TLS certificate verification
 -o, --output string      Output format: table, json (default "table")
 --timeout duration       Request timeout (default 30s)
@@ -40,21 +40,21 @@ All commands support these flags:
 Connect to a remote control plane using the flag:
 
 ```bash
-navarch --control-plane https://navarch.example.com list
+navarch -s https://navarch.example.com list
 ```
 
 Set the control plane address using an environment variable:
 
 ```bash
-export NAVARCH_CONTROL_PLANE=https://navarch.example.com
+export NAVARCH_SERVER=https://navarch.example.com
 navarch list
 ```
 
 Override the environment variable with a flag:
 
 ```bash
-export NAVARCH_CONTROL_PLANE=https://prod.example.com
-navarch --control-plane https://staging.example.com list  # Uses staging
+export NAVARCH_SERVER=https://prod.example.com
+navarch -s https://staging.example.com list  # Uses staging
 ```
 
 Get JSON output for scripting:
@@ -434,16 +434,16 @@ navarch list
 
 Error message: `failed to connect to control plane`
 
-To resolve this issue, specify the correct control plane address using the `--control-plane` flag:
+To resolve this issue, specify the correct control plane address using the `--server` flag:
 
 ```bash
-navarch --control-plane http://control-plane.example.com:50051 list
+navarch -s http://control-plane.example.com:50051 list
 ```
 
-Or set the `NAVARCH_CONTROL_PLANE` environment variable:
+Or set the `NAVARCH_SERVER` environment variable:
 
 ```bash
-export NAVARCH_CONTROL_PLANE=http://control-plane.example.com:50051
+export NAVARCH_SERVER=http://control-plane.example.com:50051
 navarch list
 ```
 

@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	controlPlaneAddr := flag.String("control-plane", "http://localhost:50051", "Control plane HTTP address")
+	controlPlaneAddr := flag.String("server", "http://localhost:50051", "Control plane address")
 	nodeID := flag.String("node-id", "", "Node ID (defaults to hostname)")
 	provider := flag.String("provider", "gcp", "Cloud provider")
 	region := flag.String("region", "", "Cloud region")
