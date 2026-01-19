@@ -44,9 +44,9 @@ This document tracks the tasks required to make Navarch production-ready for ope
 - [ ] Document all configuration options
 
 ### Health & Readiness
-- [ ] Add `/healthz` endpoint for liveness probes
-- [ ] Add `/readyz` endpoint for readiness probes
-- [ ] Implement proper health check logic
+- [x] Add `/healthz` endpoint for liveness probes
+- [x] Add `/readyz` endpoint for readiness probes
+- [x] Implement proper health check logic
 
 ### Graceful Shutdown
 - [ ] Add configurable shutdown timeout
