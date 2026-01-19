@@ -22,7 +22,6 @@ func main() {
 		Long:  `Navarch provisions and maintains GPU instances across cloud providers.`,
 	}
 
-	// Get default server address from env var if set
 	defaultAddr := "http://localhost:50051"
 	if envAddr := os.Getenv("NAVARCH_SERVER"); envAddr != "" {
 		defaultAddr = envAddr

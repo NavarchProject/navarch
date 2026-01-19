@@ -102,7 +102,6 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		slog.Int("check_count", len(req.Msg.Results)),
 	)
 
-	// Validate request
 	if req.Msg.NodeId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
@@ -116,7 +115,6 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
-	// Record health check
 	healthRecord := &db.HealthCheckRecord{
 		NodeID:    req.Msg.NodeId,
 		Timestamp: time.Now(),
@@ -152,12 +150,10 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.HeartbeatRequest]) (*connect.Response[pb.HeartbeatResponse], error) {
 	s.logger.DebugContext(ctx, "heartbeat received", slog.String("node_id", req.Msg.NodeId))
 
-	// Validate request
 	if req.Msg.NodeId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
 
-	// Update heartbeat timestamp
 	timestamp := time.Now()
 	if req.Msg.Timestamp != nil {
 		timestamp = req.Msg.Timestamp.AsTime()
@@ -179,7 +175,6 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 
 // GetNodeCommands returns pending commands for a node.
 func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.GetNodeCommandsRequest]) (*connect.Response[pb.GetNodeCommandsResponse], error) {
-	// Validate request
 	if req.Msg.NodeId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
@@ -200,7 +195,6 @@ func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.Ge
 		)
 	}
 
-	// Convert to proto messages
 	pbCommands := make([]*pb.NodeCommand, len(commands))
 	for i, cmd := range commands {
 		pbCommands[i] = &pb.NodeCommand{
@@ -210,7 +204,6 @@ func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.Ge
 			IssuedAt:   timestamppb.New(cmd.IssuedAt),
 		}
 
-		// Mark as acknowledged
 		if err := s.db.UpdateCommandStatus(ctx, cmd.CommandID, "acknowledged"); err != nil {
 			s.logger.WarnContext(ctx, "failed to mark command as acknowledged",
 				slog.String("command_id", cmd.CommandID),
@@ -235,25 +228,20 @@ func (s *Server) ListNodes(ctx context.Context, req *connect.Request[pb.ListNode
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list nodes: %w", err))
 	}
 
-	// Apply filters
 	var filtered []*db.NodeRecord
 	for _, node := range nodes {
-		// Filter by provider
 		if req.Msg.Provider != "" && node.Provider != req.Msg.Provider {
 			continue
 		}
-		// Filter by region
 		if req.Msg.Region != "" && node.Region != req.Msg.Region {
 			continue
 		}
-		// Filter by status
 		if req.Msg.Status != pb.NodeStatus_NODE_STATUS_UNKNOWN && node.Status != req.Msg.Status {
 			continue
 		}
 		filtered = append(filtered, node)
 	}
 
-	// Convert to proto
 	pbNodes := make([]*pb.NodeInfo, len(filtered))
 	for i, node := range filtered {
 		pbNodes[i] = &pb.NodeInfo{
@@ -314,7 +302,6 @@ func (s *Server) GetNode(ctx context.Context, req *connect.Request[pb.GetNodeReq
 
 // IssueCommand issues a command to a specific node.
 func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.IssueCommandRequest]) (*connect.Response[pb.IssueCommandResponse], error) {
-	// Validate request
 	if req.Msg.NodeId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
@@ -322,7 +309,6 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("command_type is required"))
 	}
 
-	// Verify node exists
 	_, err := s.db.GetNode(ctx, req.Msg.NodeId)
 	if err != nil {
 		s.logger.WarnContext(ctx, "cannot issue command to unknown node",
