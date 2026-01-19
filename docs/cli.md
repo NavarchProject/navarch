@@ -17,9 +17,13 @@ go install github.com/NavarchProject/navarch/cmd/navarch@latest
 
 ## Configuration
 
-The CLI communicates with the Navarch control plane via HTTP. By default, it connects to `http://localhost:50051`.
+The CLI communicates with the Navarch control plane via HTTP. You can configure the control plane address using any of these methods, in order of precedence:
 
-### Global Flags
+1. **Command-line flag** (highest priority): `--control-plane`
+2. **Environment variable**: `NAVARCH_CONTROL_PLANE`
+3. **Default value** (lowest priority): `http://localhost:50051`
+
+### Global flags
 
 All commands support these flags:
 
@@ -31,11 +35,29 @@ All commands support these flags:
 
 ### Examples
 
-```bash
-# Connect to remote control plane
-navarch --control-plane https://navarch.example.com list
+Connect to a remote control plane using the flag:
 
-# Get JSON output for scripting
+```bash
+navarch --control-plane https://navarch.example.com list
+```
+
+Set the control plane address using an environment variable:
+
+```bash
+export NAVARCH_CONTROL_PLANE=https://navarch.example.com
+navarch list
+```
+
+Override the environment variable with a flag:
+
+```bash
+export NAVARCH_CONTROL_PLANE=https://prod.example.com
+navarch --control-plane https://staging.example.com list  # Uses staging
+```
+
+Get JSON output for scripting:
+
+```bash
 navarch list -o json | jq '.[] | select(.status == "ACTIVE")'
 ```
 
@@ -409,12 +431,14 @@ navarch list
 
 Error message: `failed to connect to control plane`
 
-To resolve this issue, specify the correct control plane address:
+To resolve this issue, specify the correct control plane address using the `--control-plane` flag:
+
 ```bash
 navarch --control-plane http://control-plane.example.com:50051 list
 ```
 
-Or set it as an environment variable:
+Or set the `NAVARCH_CONTROL_PLANE` environment variable:
+
 ```bash
 export NAVARCH_CONTROL_PLANE=http://control-plane.example.com:50051
 navarch list

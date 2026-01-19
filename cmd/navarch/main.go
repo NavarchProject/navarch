@@ -19,8 +19,14 @@ func main() {
 		Long:  `Navarch provisions and maintains GPU instances across cloud providers.`,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&controlPlaneAddr, "control-plane", "http://localhost:50051", "Control plane address")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json, yaml)")
+	// Get default control plane address from env var if set
+	defaultAddr := "http://localhost:50051"
+	if envAddr := os.Getenv("NAVARCH_CONTROL_PLANE"); envAddr != "" {
+		defaultAddr = envAddr
+	}
+
+	rootCmd.PersistentFlags().StringVar(&controlPlaneAddr, "control-plane", defaultAddr, "Control plane address (env: NAVARCH_CONTROL_PLANE)")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json)")
 
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())
