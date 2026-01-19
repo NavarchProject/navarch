@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package navarch;
-
-option go_package = "github.com/NavarchProject/navarch/proto";
-
-// Placeholder for gRPC service definitions
-// Service definitions will be added here
-

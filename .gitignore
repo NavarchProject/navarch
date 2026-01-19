@@ -31,3 +31,7 @@ go.work
 .DS_Store
 Thumbs.db
 
+# Generated proto files
+*.pb.go
+*_grpc.pb.go
+
