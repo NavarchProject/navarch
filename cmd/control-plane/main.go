@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -22,6 +23,7 @@ func main() {
 	addr := flag.String("addr", ":50051", "HTTP server address")
 	healthCheckInterval := flag.Int("health-check-interval", 60, "Default health check interval in seconds")
 	heartbeatInterval := flag.Int("heartbeat-interval", 30, "Default heartbeat interval in seconds")
+	shutdownTimeout := flag.Int("shutdown-timeout", 30, "Graceful shutdown timeout in seconds")
 	flag.Parse()
 
 	// Set up structured logging
@@ -30,11 +32,13 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	logger.Info("starting Navarch Control Plane", slog.String("addr", *addr))
+	logger.Info("starting Navarch Control Plane",
+		slog.String("addr", *addr),
+		slog.Int("shutdown_timeout_seconds", *shutdownTimeout),
+	)
 
 	// Create in-memory database
 	database := db.NewInMemDB()
-	defer database.Close()
 
 	logger.Info("using in-memory database")
 
@@ -90,10 +94,31 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	<-sigChan
-	logger.Info("shutting down control plane")
-	if err := httpServer.Shutdown(context.Background()); err != nil {
-		logger.Error("error during shutdown", slog.String("error", err.Error()))
+	sig := <-sigChan
+	logger.Info("received shutdown signal",
+		slog.String("signal", sig.String()),
+		slog.Int("timeout_seconds", *shutdownTimeout),
+	)
+
+	// Create context with timeout for shutdown
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(*shutdownTimeout)*time.Second)
+	defer cancel()
+
+	// Shutdown HTTP server (drains in-flight requests)
+	logger.Info("stopping HTTP server")
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("error shutting down HTTP server", slog.String("error", err.Error()))
+	} else {
+		logger.Info("HTTP server stopped cleanly")
 	}
+
+	// Close database connections
+	logger.Info("closing database connections")
+	if err := database.Close(); err != nil {
+		logger.Error("error closing database", slog.String("error", err.Error()))
+	} else {
+		logger.Info("database closed cleanly")
+	}
+
 	logger.Info("control plane stopped")
 }
