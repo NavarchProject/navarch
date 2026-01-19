@@ -795,3 +795,142 @@ func TestListNodes(t *testing.T) {
 		}
 	})
 }
+
+// TestGetNode tests the GetNode admin API
+func TestGetNode(t *testing.T) {
+	t.Run("get_existing_node", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register a node with full details
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:       "node-1",
+			Provider:     "gcp",
+			Region:       "us-central1",
+			Zone:         "us-central1-a",
+			InstanceType: "a3-highgpu-8g",
+			Gpus: []*pb.GPUInfo{
+				{
+					Index:       0,
+					Uuid:        "GPU-12345",
+					Name:        "NVIDIA H100",
+					MemoryTotal: 85899345920,
+				},
+			},
+			Metadata: &pb.NodeMetadata{
+				Hostname:   "node-1.example.com",
+				InternalIp: "10.0.0.1",
+				Labels: map[string]string{
+					"env": "production",
+				},
+			},
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Get the node
+		getReq := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: "node-1",
+		})
+		resp, err := srv.GetNode(ctx, getReq)
+		if err != nil {
+			t.Fatalf("GetNode failed: %v", err)
+		}
+
+		// Verify all details
+		node := resp.Msg.Node
+		if node.NodeId != "node-1" {
+			t.Errorf("Expected node-1, got %s", node.NodeId)
+		}
+		if node.Provider != "gcp" {
+			t.Errorf("Expected gcp, got %s", node.Provider)
+		}
+		if node.Region != "us-central1" {
+			t.Errorf("Expected us-central1, got %s", node.Region)
+		}
+		if node.Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected ACTIVE status, got %v", node.Status)
+		}
+		if len(node.Gpus) != 1 {
+			t.Errorf("Expected 1 GPU, got %d", len(node.Gpus))
+		}
+		if node.Metadata.Hostname != "node-1.example.com" {
+			t.Errorf("Expected hostname node-1.example.com, got %s", node.Metadata.Hostname)
+		}
+	})
+
+	t.Run("node_not_found", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		getReq := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: "nonexistent-node",
+		})
+		_, err := srv.GetNode(ctx, getReq)
+		if err == nil {
+			t.Fatal("Expected error for nonexistent node")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeNotFound {
+			t.Errorf("Expected NotFound code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("missing_node_id", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		getReq := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: "",
+		})
+		_, err := srv.GetNode(ctx, getReq)
+		if err == nil {
+			t.Fatal("Expected error for missing node_id")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeInvalidArgument {
+			t.Errorf("Expected InvalidArgument code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("node_with_updated_status", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Update status to unhealthy
+		database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_UNHEALTHY)
+
+		// Get node and verify status
+		getReq := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: "node-1",
+		})
+		resp, err := srv.GetNode(ctx, getReq)
+		if err != nil {
+			t.Fatalf("GetNode failed: %v", err)
+		}
+		if resp.Msg.Node.Status != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+			t.Errorf("Expected UNHEALTHY status, got %v", resp.Msg.Node.Status)
+		}
+	})
+}
