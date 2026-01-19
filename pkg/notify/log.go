@@ -27,4 +27,3 @@ func (n *LogNotifier) Notify(ctx context.Context, event Event) error {
 	)
 	return nil
 }
-

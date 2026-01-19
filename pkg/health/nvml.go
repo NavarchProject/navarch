@@ -34,4 +34,3 @@ func (c *NvmlCheck) Run(ctx context.Context, node *provider.Node) (*HealthResult
 func (c *NvmlCheck) Interval() time.Duration {
 	return 30 * time.Second
 }
-

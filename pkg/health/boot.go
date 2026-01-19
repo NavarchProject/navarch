@@ -34,4 +34,3 @@ func (c *BootCheck) Run(ctx context.Context, node *provider.Node) (*HealthResult
 func (c *BootCheck) Interval() time.Duration {
 	return 0
 }
-

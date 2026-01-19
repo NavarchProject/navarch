@@ -36,4 +36,3 @@ func (p *GCPProvider) Terminate(ctx context.Context, nodeID string) error {
 func (p *GCPProvider) List(ctx context.Context) ([]*provider.Node, error) {
 	return nil, fmt.Errorf("not implemented yet")
 }
-

@@ -67,4 +67,3 @@ type DB interface {
 	// Cleanup
 	Close() error
 }
-

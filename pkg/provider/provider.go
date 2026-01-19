@@ -24,4 +24,3 @@ type Provider interface {
 	Terminate(ctx context.Context, nodeID string) error
 	List(ctx context.Context) ([]*Node, error)
 }
-

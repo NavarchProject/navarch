@@ -262,4 +262,3 @@ func (n *Node) pollCommands(ctx context.Context) error {
 
 	return nil
 }
-

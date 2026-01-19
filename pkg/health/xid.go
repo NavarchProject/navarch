@@ -34,4 +34,3 @@ func (c *XidCheck) Run(ctx context.Context, node *provider.Node) (*HealthResult,
 func (c *XidCheck) Interval() time.Duration {
 	return 60 * time.Second
 }
-

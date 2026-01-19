@@ -23,4 +23,3 @@ type HealthCheck interface {
 	// Return 0 for boot-only checks.
 	Interval() time.Duration
 }
-

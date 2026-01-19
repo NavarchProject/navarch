@@ -14,4 +14,3 @@ func NewFirstAvailable() *FirstAvailable {
 func (s *FirstAvailable) Score(ctx context.Context, option ProvisionOption) (float64, error) {
 	return 1.0, nil
 }
-

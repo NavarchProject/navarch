@@ -20,4 +20,3 @@ const (
 type Remediator interface {
 	Remediate(ctx context.Context, node *provider.Node, result *health.HealthResult) (Action, error)
 }
-

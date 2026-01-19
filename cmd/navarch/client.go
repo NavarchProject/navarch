@@ -25,4 +25,3 @@ func newClient() protoconnect.ControlPlaneServiceClient {
 		controlPlaneAddr,
 	)
 }
-

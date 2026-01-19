@@ -14,4 +14,3 @@ type ProvisionOption struct {
 type Scheduler interface {
 	Score(ctx context.Context, option ProvisionOption) (float64, error)
 }
-

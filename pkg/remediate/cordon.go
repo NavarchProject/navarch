@@ -19,4 +19,3 @@ func NewCordonAndReplace() *CordonAndReplace {
 func (r *CordonAndReplace) Remediate(ctx context.Context, node *provider.Node, result *health.HealthResult) (Action, error) {
 	return ActionCordon, nil
 }
-

@@ -13,4 +13,3 @@ type Event struct {
 type Notifier interface {
 	Notify(ctx context.Context, event Event) error
 }
-

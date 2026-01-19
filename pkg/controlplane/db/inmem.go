@@ -192,4 +192,3 @@ func (db *InMemDB) UpdateCommandStatus(ctx context.Context, commandID, status st
 func (db *InMemDB) Close() error {
 	return nil
 }
-
