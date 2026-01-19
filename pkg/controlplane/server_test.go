@@ -934,3 +934,196 @@ func TestGetNode(t *testing.T) {
 		}
 	})
 }
+
+// TestIssueCommand tests the IssueCommand admin API
+func TestIssueCommand(t *testing.T) {
+	t.Run("issue_cordon_command", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue command
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			Parameters: map[string]string{
+				"reason": "maintenance",
+			},
+		})
+		resp, err := srv.IssueCommand(ctx, issueReq)
+		if err != nil {
+			t.Fatalf("IssueCommand failed: %v", err)
+		}
+
+		// Verify response
+		if resp.Msg.CommandId == "" {
+			t.Error("Expected command_id to be returned")
+		}
+		if resp.Msg.IssuedAt == nil {
+			t.Error("Expected issued_at timestamp")
+		}
+
+		// Verify command was stored
+		commands, _ := database.GetPendingCommands(ctx, "node-1")
+		if len(commands) != 1 {
+			t.Fatalf("Expected 1 pending command, got %d", len(commands))
+		}
+		if commands[0].Type != pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON {
+			t.Errorf("Expected CORDON command, got %v", commands[0].Type)
+		}
+		if commands[0].Parameters["reason"] != "maintenance" {
+			t.Error("Expected reason parameter to be stored")
+		}
+	})
+
+	t.Run("issue_to_nonexistent_node", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "nonexistent-node",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		_, err := srv.IssueCommand(ctx, issueReq)
+		if err == nil {
+			t.Fatal("Expected error for nonexistent node")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeNotFound {
+			t.Errorf("Expected NotFound code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("missing_node_id", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		_, err := srv.IssueCommand(ctx, issueReq)
+		if err == nil {
+			t.Fatal("Expected error for missing node_id")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeInvalidArgument {
+			t.Errorf("Expected InvalidArgument code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("missing_command_type", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNKNOWN,
+		})
+		_, err := srv.IssueCommand(ctx, issueReq)
+		if err == nil {
+			t.Fatal("Expected error for missing command_type")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeInvalidArgument {
+			t.Errorf("Expected InvalidArgument code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("multiple_commands_to_same_node", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue multiple commands
+		commandTypes := []pb.NodeCommandType{
+			pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+			pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+
+		for _, cmdType := range commandTypes {
+			issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+				NodeId:      "node-1",
+				CommandType: cmdType,
+			})
+			resp, err := srv.IssueCommand(ctx, issueReq)
+			if err != nil {
+				t.Fatalf("IssueCommand failed for %v: %v", cmdType, err)
+			}
+			if resp.Msg.CommandId == "" {
+				t.Errorf("Expected command_id for %v", cmdType)
+			}
+		}
+
+		// Verify all commands stored
+		commands, _ := database.GetPendingCommands(ctx, "node-1")
+		if len(commands) != 3 {
+			t.Errorf("Expected 3 pending commands, got %d", len(commands))
+		}
+	})
+
+	t.Run("command_with_no_parameters", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue command without parameters
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_RUN_DIAGNOSTIC,
+		})
+		resp, err := srv.IssueCommand(ctx, issueReq)
+		if err != nil {
+			t.Fatalf("IssueCommand failed: %v", err)
+		}
+		if resp.Msg.CommandId == "" {
+			t.Error("Expected command_id even without parameters")
+		}
+	})
+}
