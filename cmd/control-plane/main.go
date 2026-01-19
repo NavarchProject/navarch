@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,14 +24,19 @@ func main() {
 	heartbeatInterval := flag.Int("heartbeat-interval", 30, "Default heartbeat interval in seconds")
 	flag.Parse()
 
-	log.Println("Navarch Control Plane")
-	log.Printf("Server address: %s", *addr)
+	// Set up structured logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	logger.Info("starting Navarch Control Plane", slog.String("addr", *addr))
 
 	// Create in-memory database
 	database := db.NewInMemDB()
 	defer database.Close()
 
-	log.Println("Using in-memory database")
+	logger.Info("using in-memory database")
 
 	// Create control plane server
 	cfg := controlplane.Config{
@@ -39,15 +44,14 @@ func main() {
 		HeartbeatIntervalSeconds:   int32(*heartbeatInterval),
 		EnabledHealthChecks:        []string{"boot", "nvml", "xid"},
 	}
-	srv := controlplane.NewServer(database, cfg)
+	srv := controlplane.NewServer(database, cfg, logger)
 
 	// Create HTTP mux and register Connect handler
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
 
-	log.Printf("Control plane listening on %s", *addr)
-	fmt.Println("Control plane started successfully")
+	logger.Info("control plane ready", slog.String("addr", *addr))
 
 	// Create HTTP server with h2c support (HTTP/2 without TLS)
 	httpServer := &http.Server{
@@ -58,7 +62,8 @@ func main() {
 	// Start serving in a goroutine
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to serve: %v", err)
+			logger.Error("server failed", slog.String("error", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
@@ -67,9 +72,9 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	<-sigChan
-	log.Println("Shutting down control plane...")
-	if err := httpServer.Close(); err != nil {
-		log.Printf("Error during shutdown: %v", err)
+	logger.Info("shutting down control plane")
+	if err := httpServer.Shutdown(context.Background()); err != nil {
+		logger.Error("error during shutdown", slog.String("error", err.Error()))
 	}
-	log.Println("Control plane stopped")
+	logger.Info("control plane stopped")
 }

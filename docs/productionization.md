@@ -12,25 +12,25 @@ This document tracks the tasks required to make Navarch production-ready for ope
 ## Priority 1: Critical (Required for Alpha)
 
 ### Logging
-- [ ] Replace `log` package with `slog` for structured logging
-- [ ] Add log levels (debug, info, warn, error)
+- [x] Replace `log` package with `slog` for structured logging
+- [x] Add log levels (debug, info, warn, error)
 - [ ] Add request ID / correlation ID to logs
-- [ ] Remove `log.Printf` calls from all packages
+- [x] Remove `log.Printf` calls from all packages
 
 ### Error Handling
-- [ ] Use Connect error codes instead of `success` boolean in responses
-- [ ] Fix swallowed errors (e.g., `_ = s.db.UpdateCommandStatus(...)`)
-- [ ] Consistent error wrapping with `%w`
-- [ ] Add context to all error messages
+- [x] Use Connect error codes instead of `success` boolean in responses
+- [x] Fix swallowed errors (e.g., `_ = s.db.UpdateCommandStatus(...)`)
+- [x] Consistent error wrapping with `%w`
+- [x] Add context to all error messages
 
 ### Code Cleanup
-- [ ] Remove or fix broken packages (`pkg/health`, `pkg/notify`, `pkg/remediate`)
-- [ ] Remove unused `google.golang.org/grpc` dependency from go.mod
+- [x] Remove or fix broken packages (`pkg/health`, `pkg/notify`, `pkg/remediate`)
+- [x] Remove unused `google.golang.org/grpc` dependency from go.mod
 - [ ] Remove all unnecessary TODOs or convert to GitHub issues
-- [ ] Run `go mod tidy`
+- [x] Run `go mod tidy`
 
 ### Legal
-- [ ] Add LICENSE file (Apache 2.0 or MIT)
+- [x] Add LICENSE file (Apache 2.0)
 - [ ] Add copyright headers to source files
 
 ---
@@ -142,10 +142,10 @@ This document tracks the tasks required to make Navarch production-ready for ope
 ## Current Sprint
 
 ### Active Tasks
-1. ⬜ Switch to slog for structured logging
-2. ⬜ Fix error handling with Connect errors
-3. ⬜ Clean up broken packages
-4. ⬜ Add LICENSE file
+1. ✅ Switch to slog for structured logging
+2. ✅ Fix error handling with Connect errors
+3. ✅ Clean up broken packages
+4. ✅ Add LICENSE file
 
 ### Next Up
 - Configuration via environment variables
@@ -160,9 +160,10 @@ This document tracks the tasks required to make Navarch production-ready for ope
 - Using Connect RPC instead of gRPC for HTTP/1.1 compatibility
 - Using in-memory database for initial development
 - Package naming: `controlplane` (single word, lowercase)
+- Apache 2.0 License (provides explicit patent grants, enterprise-friendly)
+- Using slog for structured logging (standard library, no external deps)
 
 ### Open Questions
-- Which license? (Apache 2.0 vs MIT)
 - Authentication strategy for v1?
 - Should we support streaming RPCs?
 
