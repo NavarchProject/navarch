@@ -3,6 +3,9 @@
 * If I am consistently asking you to do something, you might suggest I add it to the AGENTS.md when it makes sense.
 * IMPORTANT: The goal is to make this a production ready open source repo. All decisions should be made with that in mind. Ensure you use idiomatic Go and always question your decisions to ensure we do things in the most idiomatic way possible.
 * Every line of code must earn its place. Do not add unnecessary comments, blank lines, or code that does not directly contribute to the functionality or readability. Be intentional and concise.
+  - Keep field/struct comments that describe non-obvious data structures or relationships
+  - Keep comments that explain WHY something is done a certain way (not WHAT the code does)
+  - Remove comments that just restate what the code already shows
 * All documentation must follow the Google Developer Documentation Style Guide (https://developers.google.com/style). Key points:
   - Use sentence case for headings (not title case)
   - Use active voice and present tense
