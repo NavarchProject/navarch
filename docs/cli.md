@@ -1,6 +1,6 @@
-# Navarch CLI Documentation
+# Navarch CLI reference
 
-The Navarch CLI provides a command-line interface for managing your GPU fleet across cloud providers.
+The Navarch CLI is a command-line tool for managing your GPU fleet across cloud providers.
 
 ## Installation
 
@@ -45,21 +45,22 @@ navarch list -o json | jq '.[] | select(.status == "ACTIVE")'
 
 List all nodes in your fleet.
 
-**Usage:**
+Usage:
+
 ```bash
 navarch list [flags]
 ```
 
-**Flags:**
+Flags:
 ```
 --provider string   Filter by cloud provider (gcp, aws, azure)
 --region string     Filter by region (us-central1, us-east-1, etc.)
 --status string     Filter by status (NODE_STATUS_ACTIVE, NODE_STATUS_CORDONED, etc.)
 ```
 
-**Examples:**
+Examples:
 
-List all nodes:
+To list all nodes:
 ```bash
 $ navarch list
 ┌─────────────┬──────────┬─────────────┬───────────────┬───────────────┬────────┬─────────┬────────────────┬──────┐
@@ -70,7 +71,7 @@ $ navarch list
 └─────────────┴──────────┴─────────────┴───────────────┴───────────────┴────────┴─────────┴────────────────┴──────┘
 ```
 
-Filter by provider:
+To filter by provider:
 ```bash
 $ navarch list --provider gcp
 ┌─────────────┬──────────┬─────────────┬───────────────┬───────────────┬────────┬─────────┬────────────────┬──────┐
@@ -80,12 +81,13 @@ $ navarch list --provider gcp
 └─────────────┴──────────┴─────────────┴───────────────┴───────────────┴────────┴─────────┴────────────────┴──────┘
 ```
 
-Filter by region:
+To filter by region:
+
 ```bash
 $ navarch list --region us-central1
 ```
 
-Get JSON output:
+To get JSON output:
 ```bash
 $ navarch list -o json
 [
@@ -103,7 +105,7 @@ $ navarch list -o json
 ]
 ```
 
-Combine filters:
+To combine filters:
 ```bash
 $ navarch list --provider gcp --region us-central1 --status NODE_STATUS_ACTIVE
 ```
@@ -112,16 +114,17 @@ $ navarch list --provider gcp --region us-central1 --status NODE_STATUS_ACTIVE
 
 ### `navarch get`
 
-Get detailed information about a specific node.
+Returns detailed information about a specific node.
 
-**Usage:**
+Usage:
+
 ```bash
 navarch get <node-id> [flags]
 ```
 
-**Examples:**
+Examples:
 
-Get node details:
+To get node details:
 ```bash
 $ navarch get node-gcp-1
 Node ID:       node-gcp-1
@@ -150,7 +153,8 @@ Metadata:
   External IP: 34.123.45.67
 ```
 
-Get JSON output:
+To get JSON output:
+
 ```bash
 $ navarch get node-gcp-1 -o json
 {
@@ -171,23 +175,24 @@ $ navarch get node-gcp-1 -o json
 
 ### `navarch cordon`
 
-Mark a node as unschedulable. This prevents new workloads from being scheduled on the node but doesn't affect existing workloads.
+Marks a node as unschedulable. This prevents new workloads from being scheduled on the node but does not affect existing workloads.
 
-**Usage:**
+Usage:
+
 ```bash
 navarch cordon <node-id>
 ```
 
-**Examples:**
+Examples:
 
-Cordon a node:
+To cordon a node:
 ```bash
 $ navarch cordon node-gcp-1
 Node node-gcp-1 cordoned successfully
 Command ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
-Verify the node is cordoned:
+To verify the node is cordoned:
 ```bash
 $ navarch get node-gcp-1
 Node ID:       node-gcp-1
@@ -200,126 +205,135 @@ Health:        Healthy
 Last Heartbeat: 1m ago
 ```
 
-**When to use:**
-- Before performing maintenance on a node
-- When you suspect a node may have issues but want to observe it
-- To prevent scheduling on a node without disrupting running workloads
+When to use this command:
+
+- Before you perform maintenance on a node.
+- When you suspect a node may have issues but want to observe it.
+- To prevent scheduling on a node without disrupting running workloads.
 
 ---
 
 ### `navarch drain`
 
-Drain a node by evicting workloads and marking it unschedulable. This is a more forceful operation than cordoning.
+Drains a node by evicting workloads and marking it unschedulable. This is a more forceful operation than cordoning.
 
-**Usage:**
+Usage:
+
 ```bash
 navarch drain <node-id>
 ```
 
-**Examples:**
+Examples:
 
-Drain a node:
+To drain a node:
 ```bash
 $ navarch drain node-gcp-1
 Node node-gcp-1 draining
 Command ID: b2c3d4e5-f6a7-8901-bcde-f12345678901
 ```
 
-**When to use:**
-- Before decommissioning a node
-- When a node is unhealthy and workloads need to be moved
-- For planned downtime or upgrades
+When to use this command:
 
-**Note:** The drain operation:
-1. Marks the node as unschedulable (like cordon)
-2. Evicts all running workloads
-3. Transitions the node to `DRAINING` status
+- Before you decommission a node.
+- When a node is unhealthy and workloads need to be moved.
+- For planned downtime or upgrades.
+
+The drain operation performs the following steps:
+1. Marks the node as unschedulable (like cordon).
+2. Evicts all running workloads.
+3. Transitions the node to `DRAINING` status.
 
 ---
 
 ### `navarch uncordon`
 
-Mark a cordoned node as schedulable again.
+Marks a cordoned node as schedulable again.
 
-**Usage:**
+Usage:
+
 ```bash
 navarch uncordon <node-id>
 ```
 
-**Status:** Not yet implemented in the control plane. Coming soon.
+This command is not yet implemented.
 
 ---
 
-## Common Workflows
+## Common workflows
 
-### Monitor Fleet Health
+### Monitor fleet health
 
-Check all nodes and their health status:
+To check all nodes and their health status:
+
 ```bash
 $ navarch list
 ```
 
-Filter for unhealthy nodes:
+To filter for unhealthy nodes:
 ```bash
 $ navarch list -o json | jq '.[] | select(.health_status != "HEALTH_STATUS_HEALTHY")'
 ```
 
-### Maintenance Window
+### Perform maintenance
 
 1. Cordon the node to prevent new work:
    ```bash
    navarch cordon node-gcp-1
    ```
 
-2. Verify no new workloads are being scheduled (check your workload scheduler)
+2. Verify that no new workloads are being scheduled. Check your workload scheduler.
 
-3. Perform maintenance
+3. Perform maintenance on the node.
 
-4. Uncordon the node when ready:
+4. When ready, uncordon the node:
+
    ```bash
-   navarch uncordon node-gcp-1  # Coming soon
+   navarch uncordon node-gcp-1  # Not yet implemented
    ```
 
-### Decommission a Node
+### Decommission a node
 
 1. Drain the node to evict workloads:
    ```bash
    navarch drain node-gcp-1
    ```
 
-2. Wait for workloads to evacuate (check your workload scheduler)
+2. Wait for workloads to evacuate. Check your workload scheduler.
 
-3. Terminate via cloud provider or let Navarch handle it
+3. Terminate the node through your cloud provider, or let Navarch handle the termination.
 
-### Investigate a Problematic Node
+### Investigate a problematic node
 
 1. Get detailed information:
+
    ```bash
    navarch get node-gcp-1
    ```
 
-2. Check GPU details and health status
+2. Check the GPU details and health status.
 
-3. Decide whether to cordon, drain, or leave as-is
+3. Decide whether to cordon, drain, or leave the node as-is.
 
-### Scripting and Automation
+### Scripting and automation
 
-Count active nodes per region:
+To count active nodes per region:
 ```bash
 navarch list -o json | jq 'group_by(.region) | map({region: .[0].region, count: length})'
 ```
 
-Get all node IDs in a specific region:
+To get all node IDs in a specific region:
+
 ```bash
 navarch list --region us-central1 -o json | jq -r '.[].node_id'
 ```
 
-Check if any nodes have been offline for over 5 minutes:
+To check if any nodes have been offline for over 5 minutes:
+
 ```bash
 navarch list -o json | jq '.[] | select(.last_heartbeat < (now - 300))'
 ```
 
-Cordon all nodes in a specific zone:
+To cordon all nodes in a specific zone:
 ```bash
 for node in $(navarch list --region us-central1 -o json | jq -r '.[] | select(.zone == "us-central1-a") | .node_id'); do
   navarch cordon $node
@@ -328,11 +342,11 @@ done
 
 ---
 
-## Output Formats
+## Output formats
 
 ### Table (default)
 
-Human-readable table with aligned columns. Best for interactive use.
+The table format provides a human-readable table with aligned columns for interactive use.
 
 ```bash
 navarch list
@@ -340,13 +354,13 @@ navarch list
 
 ### JSON
 
-Machine-readable JSON output. Best for scripting and automation.
+The JSON format provides machine-readable output for scripting and automation.
 
 ```bash
 navarch list -o json
 ```
 
-Combine with `jq` for powerful filtering:
+You can combine JSON output with `jq` for filtering:
 ```bash
 # Get all active GCP nodes
 navarch list -o json | jq '.[] | select(.provider == "gcp" and .status == "NODE_STATUS_ACTIVE")'
@@ -360,20 +374,20 @@ navarch list -o json | jq '.[] | select((.gpus | length) > 4)'
 
 ---
 
-## Exit Codes
+## Exit codes
 
-- `0` - Success
-- `1` - General error (connection failed, command failed, etc.)
+- `0` - Success.
+- `1` - General error, such as connection failed or command failed.
 
 ---
 
 ## Troubleshooting
 
-### Connection Refused
+### Connection refused
 
-**Error:** `failed to list nodes: connection refused`
+Error message: `failed to list nodes: connection refused`
 
-**Solution:** Ensure the control plane is running:
+To resolve this issue, verify that the control plane is running:
 ```bash
 # Check if control plane is running
 curl http://localhost:50051/healthz
@@ -382,20 +396,20 @@ curl http://localhost:50051/healthz
 control-plane -addr :50051
 ```
 
-### Invalid Node ID
+### Invalid node ID
 
-**Error:** `failed to get node: node not found`
+Error message: `failed to get node: node not found`
 
-**Solution:** Verify the node ID exists:
+To resolve this issue, verify that the node ID exists:
 ```bash
 navarch list
 ```
 
-### Control Plane Not Found
+### Control plane not found
 
-**Error:** `failed to connect to control plane`
+Error message: `failed to connect to control plane`
 
-**Solution:** Specify the correct control plane address:
+To resolve this issue, specify the correct control plane address:
 ```bash
 navarch --control-plane http://control-plane.example.com:50051 list
 ```
@@ -408,9 +422,9 @@ navarch list
 
 ---
 
-## Next Steps
+## What's next
 
-- Check out the [Control Plane documentation](control-plane.md) for setup
-- Read about [Node daemon configuration](node.md)
-- Learn about [Extending Navarch](extending.md) with custom providers and health checks
+- For information about setting up the control plane, see [Control Plane documentation](control-plane.md).
+- For information about node daemon configuration, see [Node daemon configuration](node.md).
+- To learn about extending Navarch with custom providers and health checks, see [Extending Navarch](extending.md).
 
