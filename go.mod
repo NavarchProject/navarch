@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	github.com/NVIDIA/go-nvml v0.13.0-1 // indirect
 	github.com/clipperhouse/displaywidth v0.6.2 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect

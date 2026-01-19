@@ -33,7 +33,8 @@ The daemon accepts the following command-line flags:
 
 Environment variables:
 
-- `NAVARCH_GPU_COUNT`: Number of fake GPUs to create when running without hardware (default: `8`).
+- `NAVARCH_FAKE_GPU`: Set to `true` to force fake GPU mode even when NVML is available.
+- `NAVARCH_GPU_COUNT`: Number of fake GPUs to create in fake mode (default: `8`).
 
 ## Running the daemon
 
@@ -52,11 +53,32 @@ The daemon automatically detects the hostname if `--node-id` is not provided.
 
 ## GPU support
 
-The node daemon uses an abstraction layer (`pkg/gpu`) to support different GPU environments:
+The node daemon uses an abstraction layer (`pkg/gpu`) to support different GPU environments. The daemon automatically detects the best GPU manager to use:
+
+1. If `NAVARCH_FAKE_GPU=true`, use fake GPU manager.
+2. If NVML is available (NVIDIA driver installed), use NVML GPU manager.
+3. Otherwise, fall back to fake GPU manager.
+
+### NVML GPU manager (production)
+
+On systems with NVIDIA GPUs and drivers installed, the daemon automatically uses NVML (NVIDIA Management Library) to:
+
+- Detect all GPU devices in the system.
+- Query device information (UUID, name, PCI bus ID, memory).
+- Monitor health metrics (temperature, power, utilization).
+- Report accurate GPU status to the control plane.
+
+No configuration is required. The daemon detects NVML availability at startup.
 
 ### Fake GPU manager (development)
 
-When running without actual GPU hardware, the daemon uses a fake GPU manager that simulates GPU devices. This mode is useful for development and testing.
+When NVML is not available or when explicitly requested, the daemon uses a fake GPU manager that simulates GPU devices. This mode is useful for development and testing.
+
+To force fake GPU mode:
+
+```bash
+NAVARCH_FAKE_GPU=true ./node --server http://localhost:50051 --node-id test-node
+```
 
 To configure the number of fake GPUs:
 
@@ -66,15 +88,11 @@ NAVARCH_GPU_COUNT=4 ./node --server http://localhost:50051 --node-id test-node
 
 The fake GPU manager generates realistic device information:
 
-- Device UUIDs and names
-- PCI bus IDs
-- Memory capacity (80GB per device)
-- Temperature and utilization metrics
-- Power usage statistics
-
-### Real GPU manager (production)
-
-Production deployments will use the NVML-based GPU manager to interact with actual NVIDIA GPUs. The daemon automatically selects the appropriate implementation based on environment detection.
+- Device UUIDs and names (NVIDIA H100 80GB HBM3).
+- PCI bus IDs.
+- Memory capacity (80GB per device).
+- Randomized temperature and utilization metrics.
+- Power usage statistics.
 
 ## Health checks
 

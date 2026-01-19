@@ -63,27 +63,44 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		logger = slog.Default()
 	}
 
-	gpuInterface := cfg.GPU
-	if gpuInterface == nil {
-		gpuInterface = createGPUInterface(logger)
+	gpuManager := cfg.GPU
+	if gpuManager == nil {
+		gpuManager = createGPUManager(logger)
 	}
 
 	return &Node{
 		config:              cfg,
 		logger:              logger,
-		gpu:                 gpuInterface,
+		gpu:                 gpuManager,
 		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
 	}, nil
 }
 
-// createGPUInterface creates a GPU manager based on environment.
-func createGPUInterface(logger *slog.Logger) gpu.Manager {
+// createGPUManager creates a GPU manager based on environment and hardware.
+// It uses NVML if available, otherwise falls back to a fake implementation.
+func createGPUManager(logger *slog.Logger) gpu.Manager {
+	// Check if user explicitly wants fake GPUs
+	if os.Getenv("NAVARCH_FAKE_GPU") == "true" {
+		return createFakeGPU(logger)
+	}
+
+	// Try to use real NVML
+	if gpu.IsNVMLAvailable() {
+		logger.Info("using NVML GPU manager")
+		return gpu.NewNVML()
+	}
+
+	// Fall back to fake
+	logger.Info("NVML not available, using fake GPU manager")
+	return createFakeGPU(logger)
+}
+
+func createFakeGPU(logger *slog.Logger) gpu.Manager {
 	gpuCount := 8
 	if envCount := os.Getenv("NAVARCH_GPU_COUNT"); envCount != "" {
 		fmt.Sscanf(envCount, "%d", &gpuCount)
 	}
-
 	logger.Info("using fake GPU manager", slog.Int("device_count", gpuCount))
 	return gpu.NewFake(gpuCount)
 }
