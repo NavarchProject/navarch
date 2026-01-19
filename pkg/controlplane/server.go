@@ -23,14 +23,9 @@ type Server struct {
 
 // Config holds configuration for the control plane server.
 type Config struct {
-	// Default health check interval in seconds
 	HealthCheckIntervalSeconds int32
-
-	// Default heartbeat interval in seconds
-	HeartbeatIntervalSeconds int32
-
-	// Enabled health checks
-	EnabledHealthChecks []string
+	HeartbeatIntervalSeconds   int32
+	EnabledHealthChecks        []string
 }
 
 // DefaultConfig returns a sensible default configuration.

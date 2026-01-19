@@ -12,8 +12,7 @@ import (
 // InMemDB is an in-memory implementation of the DB interface.
 // Suitable for testing and development.
 type InMemDB struct {
-	mu sync.RWMutex
-	
+	mu           sync.RWMutex
 	nodes        map[string]*NodeRecord
 	healthChecks map[string][]*HealthCheckRecord // nodeID -> list of health checks
 	commands     map[string]*CommandRecord       // commandID -> command
@@ -34,22 +33,16 @@ func NewInMemDB() *InMemDB {
 func (db *InMemDB) RegisterNode(ctx context.Context, record *NodeRecord) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	
-	// Check if node already exists
 	if existing, ok := db.nodes[record.NodeID]; ok {
-		// Update existing node but preserve some runtime state
 		record.RegisteredAt = existing.RegisteredAt
 		record.LastHeartbeat = existing.LastHeartbeat
 		record.LastHealthCheck = existing.LastHealthCheck
 	} else {
 		record.RegisteredAt = time.Now()
 	}
-	
-	// Set initial status if not set
 	if record.Status == pb.NodeStatus_NODE_STATUS_UNKNOWN {
 		record.Status = pb.NodeStatus_NODE_STATUS_ACTIVE
 	}
-	
 	db.nodes[record.NodeID] = record
 	return nil
 }
@@ -58,12 +51,10 @@ func (db *InMemDB) RegisterNode(ctx context.Context, record *NodeRecord) error {
 func (db *InMemDB) GetNode(ctx context.Context, nodeID string) (*NodeRecord, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	
 	node, ok := db.nodes[nodeID]
 	if !ok {
 		return nil, fmt.Errorf("node not found: %s", nodeID)
 	}
-	
 	return node, nil
 }
 
@@ -71,12 +62,10 @@ func (db *InMemDB) GetNode(ctx context.Context, nodeID string) (*NodeRecord, err
 func (db *InMemDB) UpdateNodeStatus(ctx context.Context, nodeID string, status pb.NodeStatus) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	
 	node, ok := db.nodes[nodeID]
 	if !ok {
 		return fmt.Errorf("node not found: %s", nodeID)
 	}
-	
 	node.Status = status
 	return nil
 }
@@ -85,12 +74,10 @@ func (db *InMemDB) UpdateNodeStatus(ctx context.Context, nodeID string, status p
 func (db *InMemDB) UpdateNodeHeartbeat(ctx context.Context, nodeID string, timestamp time.Time) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	
 	node, ok := db.nodes[nodeID]
 	if !ok {
 		return fmt.Errorf("node not found: %s", nodeID)
 	}
-	
 	node.LastHeartbeat = timestamp
 	return nil
 }
@@ -112,11 +99,9 @@ func (db *InMemDB) ListNodes(ctx context.Context) ([]*NodeRecord, error) {
 func (db *InMemDB) DeleteNode(ctx context.Context, nodeID string) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	
 	delete(db.nodes, nodeID)
 	delete(db.healthChecks, nodeID)
 	delete(db.nodeCommands, nodeID)
-	
 	return nil
 }
 
@@ -124,15 +109,9 @@ func (db *InMemDB) DeleteNode(ctx context.Context, nodeID string) error {
 func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRecord) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	
-	// Add to health check history
 	db.healthChecks[record.NodeID] = append(db.healthChecks[record.NodeID], record)
-	
-	// Update node's last health check time and status
 	if node, ok := db.nodes[record.NodeID]; ok {
 		node.LastHealthCheck = record.Timestamp
-		
-		// Compute overall health status (worst status wins)
 		overallStatus := pb.HealthStatus_HEALTH_STATUS_HEALTHY
 		for _, result := range record.Results {
 			if result.Status == pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
@@ -145,13 +124,10 @@ func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRec
 			}
 		}
 		node.HealthStatus = overallStatus
-		
-		// Update node status based on health
 		if overallStatus == pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
 			node.Status = pb.NodeStatus_NODE_STATUS_UNHEALTHY
 		}
 	}
-	
 	return nil
 }
 
@@ -159,13 +135,10 @@ func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRec
 func (db *InMemDB) GetLatestHealthCheck(ctx context.Context, nodeID string) (*HealthCheckRecord, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	
 	checks, ok := db.healthChecks[nodeID]
 	if !ok || len(checks) == 0 {
 		return nil, fmt.Errorf("no health checks found for node: %s", nodeID)
 	}
-	
-	// Return the last check (most recent)
 	return checks[len(checks)-1], nil
 }
 
