@@ -120,9 +120,8 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 	// Get node to determine current status
 	node, err := s.db.GetNode(ctx, req.Msg.NodeId)
 	if err != nil {
-		s.logger.WarnContext(ctx, "node not found for health report",
+		s.logger.WarnContext(ctx, "received health report from unregistered node",
 			slog.String("node_id", req.Msg.NodeId),
-			slog.String("error", err.Error()),
 		)
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
@@ -175,9 +174,8 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 	}
 
 	if err := s.db.UpdateNodeHeartbeat(ctx, req.Msg.NodeId, timestamp); err != nil {
-		s.logger.ErrorContext(ctx, "failed to update heartbeat",
+		s.logger.WarnContext(ctx, "received heartbeat from unregistered node",
 			slog.String("node_id", req.Msg.NodeId),
-			slog.String("error", err.Error()),
 		)
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
