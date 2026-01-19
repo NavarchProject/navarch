@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -10,6 +11,7 @@ import (
 var (
 	controlPlaneAddr string
 	outputFormat     string
+	requestTimeout   time.Duration
 )
 
 func main() {
@@ -27,6 +29,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&controlPlaneAddr, "control-plane", defaultAddr, "Control plane address (env: NAVARCH_CONTROL_PLANE)")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json)")
+	rootCmd.PersistentFlags().DurationVar(&requestTimeout, "timeout", 30*time.Second, "Request timeout")
 
 	rootCmd.AddCommand(listCmd())
 	rootCmd.AddCommand(getCmd())

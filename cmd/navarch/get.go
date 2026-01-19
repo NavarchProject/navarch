@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
 	pb "github.com/NavarchProject/navarch/proto"
-	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
 func getCmd() *cobra.Command {
@@ -21,17 +19,16 @@ func getCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			nodeID := args[0]
-
-			client := protoconnect.NewControlPlaneServiceClient(
-				http.DefaultClient,
-				controlPlaneAddr,
-			)
+			client := newClient()
 
 			req := &pb.GetNodeRequest{
 				NodeId: nodeID,
 			}
 
-			resp, err := client.GetNode(context.Background(), connect.NewRequest(req))
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
+			resp, err := client.GetNode(ctx, connect.NewRequest(req))
 			if err != nil {
 				return fmt.Errorf("failed to get node: %w", err)
 			}

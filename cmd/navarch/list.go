@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	pb "github.com/NavarchProject/navarch/proto"
-	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
 func listCmd() *cobra.Command {
@@ -24,10 +22,7 @@ func listCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all nodes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := protoconnect.NewControlPlaneServiceClient(
-				http.DefaultClient,
-				controlPlaneAddr,
-			)
+			client := newClient()
 
 			req := &pb.ListNodesRequest{
 				Provider: provider,
@@ -42,7 +37,10 @@ func listCmd() *cobra.Command {
 				req.Status = pb.NodeStatus(statusValue)
 			}
 
-			resp, err := client.ListNodes(context.Background(), connect.NewRequest(req))
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
+			resp, err := client.ListNodes(ctx, connect.NewRequest(req))
 			if err != nil {
 				return fmt.Errorf("failed to list nodes: %w", err)
 			}

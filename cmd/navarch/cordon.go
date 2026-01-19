@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 
 	pb "github.com/NavarchProject/navarch/proto"
-	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
 func cordonCmd() *cobra.Command {
@@ -19,18 +17,17 @@ func cordonCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			nodeID := args[0]
-
-			client := protoconnect.NewControlPlaneServiceClient(
-				http.DefaultClient,
-				controlPlaneAddr,
-			)
+			client := newClient()
 
 			req := &pb.IssueCommandRequest{
 				NodeId:      nodeID,
 				CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
 			}
 
-			resp, err := client.IssueCommand(context.Background(), connect.NewRequest(req))
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
+			resp, err := client.IssueCommand(ctx, connect.NewRequest(req))
 			if err != nil {
 				return fmt.Errorf("failed to cordon node: %w", err)
 			}
