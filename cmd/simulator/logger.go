@@ -181,4 +181,3 @@ func formatAttr(a slog.Attr) string {
 		return fmt.Sprintf("%s=%v", key, val.Any())
 	}
 }
-

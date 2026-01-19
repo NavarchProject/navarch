@@ -159,13 +159,11 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(server)
 	mux.Handle(path, handler)
 
-	// Use a listener to get an available port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
 	}
 
-	// Update the control plane address with the actual port
 	addr := listener.Addr().(*net.TCPAddr)
 	r.controlPlaneAddr = fmt.Sprintf("http://localhost:%d", addr.Port)
 

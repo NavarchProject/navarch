@@ -376,8 +376,6 @@ events:
 	}
 }
 
-// Helper functions
-
 func writeTempFile(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()

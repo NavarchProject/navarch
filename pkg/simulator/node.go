@@ -399,7 +399,6 @@ func (n *SimulatedNode) pollCommands(ctx context.Context) error {
 	return nil
 }
 
-// Simple hash for generating pseudo-random but deterministic values.
 func hash(s string) int {
 	h := 0
 	for _, c := range s {
