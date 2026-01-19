@@ -34,4 +34,9 @@ Thumbs.db
 # Generated proto files
 *.pb.go
 *_grpc.pb.go
+proto/protoconnect/
+
+# Cursor/AI workspace files
+AGENTS.md
+.cursorrules
 

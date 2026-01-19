@@ -6,9 +6,9 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/NavarchProject/navarch/proto";
 
-// NodeService is a control plane component that receives requests from GPU nodes.
+// ControlPlaneService is the main control plane API that receives requests from GPU nodes.
 // Nodes call this service to register themselves, report health status, send heartbeats, and poll for commands.
-service NodeService {
+service ControlPlaneService {
   // RegisterNode registers a new node with the control plane.
   // Called once during node bootstrap to establish identity and capabilities.
   rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
