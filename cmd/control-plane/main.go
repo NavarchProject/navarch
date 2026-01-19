@@ -18,6 +18,27 @@ import (
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+func readyzHandler(database db.DB, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if _, err := database.ListNodes(ctx); err != nil {
+			if logger != nil {
+				logger.Warn("readiness check failed", slog.String("error", err.Error()))
+			}
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("database not ready"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ready"))
+	}
+}
+
 func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":50051", "HTTP server address")
@@ -56,23 +77,8 @@ func main() {
 	mux.Handle(path, handler)
 
 	// Health endpoints
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
-
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		// Check if database is accessible
-		ctx := r.Context()
-		if _, err := database.ListNodes(ctx); err != nil {
-			logger.Warn("readiness check failed", slog.String("error", err.Error()))
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("database not ready"))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ready"))
-	})
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler(database, logger))
 
 	logger.Info("control plane ready", slog.String("addr", *addr))
 

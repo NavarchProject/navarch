@@ -22,22 +22,9 @@ func TestHealthEndpoints(t *testing.T) {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
 
-	// Add health endpoints
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
-
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		if _, err := database.ListNodes(ctx); err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("database not ready"))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ready"))
-	})
+	// Add health endpoints (using actual production handlers)
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler(database, nil))
 
 	t.Run("healthz_returns_ok", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/healthz", nil)
@@ -89,4 +76,3 @@ func TestHealthEndpoints(t *testing.T) {
 		}
 	})
 }
-
