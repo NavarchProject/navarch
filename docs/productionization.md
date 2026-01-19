@@ -18,10 +18,10 @@ This document tracks the tasks required to make Navarch production-ready for ope
 - [x] Remove `log.Printf` calls from all packages
 
 ### Error Handling
-- [ ] Use Connect error codes instead of `success` boolean in responses
-- [ ] Fix swallowed errors (e.g., `_ = s.db.UpdateCommandStatus(...)`)
-- [ ] Consistent error wrapping with `%w`
-- [ ] Add context to all error messages
+- [x] Use Connect error codes instead of `success` boolean in responses
+- [x] Fix swallowed errors (e.g., `_ = s.db.UpdateCommandStatus(...)`)
+- [x] Consistent error wrapping with `%w`
+- [x] Add context to all error messages
 
 ### Code Cleanup
 - [ ] Remove or fix broken packages (`pkg/health`, `pkg/notify`, `pkg/remediate`)
@@ -143,8 +143,8 @@ This document tracks the tasks required to make Navarch production-ready for ope
 
 ### Active Tasks
 1. ✅ Switch to slog for structured logging
-2. 🟡 Fix error handling with Connect errors
-3. ⬜ Clean up broken packages
+2. ✅ Fix error handling with Connect errors
+3. 🟡 Clean up broken packages
 4. ⬜ Add LICENSE file
 
 ### Next Up
