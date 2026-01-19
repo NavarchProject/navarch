@@ -1,4 +1,5 @@
 # Binaries
+bin/
 navarch
 control-plane
 node
@@ -13,6 +14,7 @@ node
 
 # Output of the go coverage tool
 *.out
+coverage.html
 
 # Dependency directories
 vendor/
