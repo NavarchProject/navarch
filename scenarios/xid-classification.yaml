@@ -1,0 +1,93 @@
+name: xid-classification
+description: Test different XID error codes and verify correct classification as fatal or recoverable.
+
+fleet:
+  - id: node-fatal
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+    labels:
+      test_type: fatal_xid
+
+  - id: node-recoverable
+    provider: gcp
+    region: us-central1
+    zone: us-central1-b
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+    labels:
+      test_type: recoverable_xid
+
+events:
+  - at: 0s
+    action: start_fleet
+
+  - at: 3s
+    action: log
+    params:
+      log_message: "Testing fatal XID 48 (Double Bit ECC Error)"
+
+  - at: 3s
+    action: inject_failure
+    target: node-fatal
+    params:
+      failure_type: xid_error
+      xid_code: 48
+      gpu_index: 0
+
+  - at: 6s
+    action: log
+    params:
+      log_message: "Testing recoverable XID 31 (GPU memory page fault)"
+
+  - at: 6s
+    action: inject_failure
+    target: node-recoverable
+    params:
+      failure_type: xid_error
+      xid_code: 31
+      gpu_index: 2
+
+  - at: 12s
+    action: wait_for_status
+    target: node-fatal
+    params:
+      expected_status: unhealthy
+      timeout: 10s
+
+  - at: 15s
+    action: log
+    params:
+      log_message: "Recovering node-recoverable from XID 31"
+
+  - at: 15s
+    action: recover_failure
+    target: node-recoverable
+    params:
+      failure_type: xid_error
+
+  - at: 20s
+    action: wait_for_status
+    target: node-recoverable
+    params:
+      expected_status: active
+      timeout: 10s
+
+  - at: 22s
+    action: log
+    params:
+      log_message: "Scenario complete - fatal XID marked unhealthy, recoverable XID recovered"
+
+assertions:
+  - type: health_status
+    target: node-fatal
+    expected: unhealthy
+
+  - type: health_status
+    target: node-recoverable
+    expected: healthy
+

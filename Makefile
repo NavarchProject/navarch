@@ -21,6 +21,7 @@ build:
 	@go build -o bin/control-plane ./cmd/control-plane
 	@go build -o bin/node ./cmd/node
 	@go build $(LDFLAGS) -o bin/navarch ./cmd/navarch
+	@go build -o bin/simulator ./cmd/simulator
 	@echo "✓ Binaries built in bin/"
 
 # Run tests
@@ -85,6 +86,18 @@ proto-fmt:
 # Full check (format, lint, test)
 check: fmt proto-fmt lint test
 	@echo "✓ All checks passed"
+
+# Run the simulator in interactive mode
+sim:
+	@./bin/simulator interactive -v
+
+# Run a specific scenario
+sim-run:
+	@./bin/simulator run $(SCENARIO) -v
+
+# Validate a scenario file
+sim-validate:
+	@./bin/simulator validate $(SCENARIO)
 
 # Help target
 help:

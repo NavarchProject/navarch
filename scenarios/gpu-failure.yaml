@@ -1,0 +1,80 @@
+name: gpu-failure
+description: Simulate a fatal GPU failure (XID 79) and verify the node becomes unhealthy.
+
+fleet:
+  - id: node-1
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+  - id: node-2
+    provider: gcp
+    region: us-central1
+    zone: us-central1-b
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+events:
+  - at: 0s
+    action: start_fleet
+
+  - at: 3s
+    action: log
+    params:
+      log_message: "Fleet started, all nodes healthy"
+
+  - at: 5s
+    action: log
+    params:
+      log_message: "Injecting XID 79 (GPU fallen off bus) on node-1 GPU 3"
+
+  - at: 5s
+    action: inject_failure
+    target: node-1
+    params:
+      failure_type: xid_error
+      xid_code: 79
+      gpu_index: 3
+      message: "GPU has fallen off the bus"
+
+  - at: 12s
+    action: wait_for_status
+    target: node-1
+    params:
+      expected_status: unhealthy
+      timeout: 15s
+
+  - at: 15s
+    action: log
+    params:
+      log_message: "Node-1 detected as unhealthy, node-2 still healthy"
+
+  - at: 18s
+    action: log
+    params:
+      log_message: "Issuing cordon command to node-1"
+
+  - at: 18s
+    action: issue_command
+    target: node-1
+    params:
+      command_type: cordon
+
+  - at: 22s
+    action: log
+    params:
+      log_message: "Scenario complete - GPU failure detected and handled"
+
+assertions:
+  - type: node_status
+    target: node-2
+    expected: active
+
+  - type: health_status
+    target: node-1
+    expected: unhealthy
+

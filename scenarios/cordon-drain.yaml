@@ -1,0 +1,56 @@
+name: cordon-drain
+description: Test the cordon and drain command flow.
+
+fleet:
+  - id: node-1
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+  - id: node-2
+    provider: aws
+    region: us-east-1
+    zone: us-east-1a
+    instance_type: p5.48xlarge
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+events:
+  - at: 0s
+    action: start_fleet
+
+  - at: 3s
+    action: log
+    params:
+      log_message: "Fleet healthy, issuing cordon to node-1"
+
+  - at: 4s
+    action: issue_command
+    target: node-1
+    params:
+      command_type: cordon
+
+  - at: 8s
+    action: log
+    params:
+      log_message: "Issuing drain to node-1"
+
+  - at: 8s
+    action: issue_command
+    target: node-1
+    params:
+      command_type: drain
+
+  - at: 12s
+    action: log
+    params:
+      log_message: "Cordon and drain commands issued successfully"
+
+assertions:
+  - type: node_status
+    target: node-2
+    expected: active
+

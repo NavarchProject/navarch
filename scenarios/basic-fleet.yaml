@@ -1,0 +1,76 @@
+name: basic-fleet
+description: Start a basic fleet and verify all nodes register successfully.
+
+fleet:
+  - id: node-1
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+  - id: node-2
+    provider: gcp
+    region: us-central1
+    zone: us-central1-b
+    instance_type: a3-highgpu-8g
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+  - id: node-3
+    provider: aws
+    region: us-east-1
+    zone: us-east-1a
+    instance_type: p5.48xlarge
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+
+events:
+  - at: 0s
+    action: start_fleet
+
+  - at: 2s
+    action: log
+    params:
+      log_message: "Waiting for nodes to register and report health..."
+
+  - at: 8s
+    action: wait_for_status
+    target: node-1
+    params:
+      expected_status: active
+      timeout: 10s
+
+  - at: 8s
+    action: wait_for_status
+    target: node-2
+    params:
+      expected_status: active
+      timeout: 10s
+
+  - at: 8s
+    action: wait_for_status
+    target: node-3
+    params:
+      expected_status: active
+      timeout: 10s
+
+  - at: 10s
+    action: log
+    params:
+      log_message: "All nodes registered and healthy!"
+
+assertions:
+  - type: node_status
+    target: node-1
+    expected: active
+
+  - type: node_status
+    target: node-2
+    expected: active
+
+  - type: node_status
+    target: node-3
+    expected: active
+

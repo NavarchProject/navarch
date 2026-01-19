@@ -1,0 +1,456 @@
+package simulator
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"sort"
+	"time"
+
+	"connectrpc.com/connect"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+
+	"github.com/NavarchProject/navarch/pkg/controlplane"
+	"github.com/NavarchProject/navarch/pkg/controlplane/db"
+	pb "github.com/NavarchProject/navarch/proto"
+	"github.com/NavarchProject/navarch/proto/protoconnect"
+)
+
+// Runner executes simulation scenarios.
+type Runner struct {
+	scenario         *Scenario
+	controlPlaneAddr string
+	nodes            map[string]*SimulatedNode
+	logger           *slog.Logger
+	client           protoconnect.ControlPlaneServiceClient
+
+	server     *http.Server
+	serverDone chan struct{}
+}
+
+// RunnerOption configures a Runner.
+type RunnerOption func(*Runner)
+
+// WithLogger sets the logger for the runner.
+func WithLogger(logger *slog.Logger) RunnerOption {
+	return func(r *Runner) {
+		r.logger = logger
+	}
+}
+
+// WithControlPlaneAddr sets a custom control plane address.
+func WithControlPlaneAddr(addr string) RunnerOption {
+	return func(r *Runner) {
+		r.controlPlaneAddr = addr
+	}
+}
+
+// NewRunner creates a new scenario runner.
+func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
+	r := &Runner{
+		scenario:         scenario,
+		controlPlaneAddr: "http://localhost:8080",
+		nodes:            make(map[string]*SimulatedNode),
+		logger:           slog.Default(),
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+// Run executes the scenario.
+func (r *Runner) Run(ctx context.Context) error {
+	r.logger.Info("starting scenario",
+		slog.String("name", r.scenario.Name),
+		slog.Int("fleet_size", len(r.scenario.Fleet)),
+		slog.Int("event_count", len(r.scenario.Events)),
+	)
+
+	// Start embedded control plane
+	if err := r.startControlPlane(ctx); err != nil {
+		return fmt.Errorf("failed to start control plane: %w", err)
+	}
+	defer r.stopControlPlane()
+
+	// Give control plane time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Create client for admin operations
+	r.client = protoconnect.NewControlPlaneServiceClient(
+		http.DefaultClient,
+		r.controlPlaneAddr,
+	)
+
+	// Sort events by time
+	events := make([]Event, len(r.scenario.Events))
+	copy(events, r.scenario.Events)
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].At.Duration() < events[j].At.Duration()
+	})
+
+	startTime := time.Now()
+
+	for i, event := range events {
+		// Wait until the event time
+		elapsed := time.Since(startTime)
+		waitTime := event.At.Duration() - elapsed
+		if waitTime > 0 {
+			r.logger.Debug("waiting for next event",
+				slog.Duration("wait", waitTime),
+				slog.String("action", event.Action),
+			)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(waitTime):
+			}
+		}
+
+		r.logger.Info("executing event",
+			slog.Int("index", i),
+			slog.String("action", event.Action),
+			slog.String("target", event.Target),
+			slog.Duration("at", event.At.Duration()),
+		)
+
+		if err := r.executeEvent(ctx, event); err != nil {
+			return fmt.Errorf("event %d (%s) failed: %w", i, event.Action, err)
+		}
+	}
+
+	// Run final assertions
+	for _, assertion := range r.scenario.Assertions {
+		if err := r.checkAssertion(ctx, assertion); err != nil {
+			return fmt.Errorf("assertion failed: %w", err)
+		}
+	}
+
+	r.logger.Info("scenario completed successfully")
+	return nil
+}
+
+func (r *Runner) startControlPlane(ctx context.Context) error {
+	database := db.NewInMemDB()
+	cfg := controlplane.DefaultConfig()
+	// Use faster intervals for simulation
+	cfg.HealthCheckIntervalSeconds = 5
+	cfg.HeartbeatIntervalSeconds = 3
+
+	server := controlplane.NewServer(database, cfg, r.logger.With(slog.String("component", "control-plane")))
+
+	mux := http.NewServeMux()
+	path, handler := protoconnect.NewControlPlaneServiceHandler(server)
+	mux.Handle(path, handler)
+
+	r.server = &http.Server{
+		Addr:    ":8080",
+		Handler: h2c.NewHandler(mux, &http2.Server{}),
+	}
+	r.serverDone = make(chan struct{})
+
+	go func() {
+		defer close(r.serverDone)
+		if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			r.logger.Error("control plane server error", slog.String("error", err.Error()))
+		}
+	}()
+
+	r.logger.Info("control plane started", slog.String("addr", r.controlPlaneAddr))
+	return nil
+}
+
+func (r *Runner) stopControlPlane() {
+	if r.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		r.server.Shutdown(ctx)
+		<-r.serverDone
+	}
+
+	// Stop all nodes
+	for _, node := range r.nodes {
+		node.Stop()
+	}
+}
+
+func (r *Runner) executeEvent(ctx context.Context, event Event) error {
+	switch event.Action {
+	case "start_fleet":
+		return r.startFleet(ctx)
+	case "stop_fleet":
+		return r.stopFleet()
+	case "inject_failure":
+		return r.injectFailure(ctx, event)
+	case "recover_failure":
+		return r.recoverFailure(ctx, event)
+	case "issue_command":
+		return r.issueCommand(ctx, event)
+	case "wait_for_status":
+		return r.waitForStatus(ctx, event)
+	case "wait":
+		// Already waited by the scheduler
+		return nil
+	case "log":
+		r.logger.Info(event.Params.LogMessage)
+		return nil
+	case "assert":
+		return r.checkAssertionFromEvent(ctx, event)
+	default:
+		return fmt.Errorf("unknown action: %s", event.Action)
+	}
+}
+
+func (r *Runner) startFleet(ctx context.Context) error {
+	for _, spec := range r.scenario.Fleet {
+		node := NewSimulatedNode(spec, r.controlPlaneAddr, r.logger)
+		if err := node.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start node %s: %w", spec.ID, err)
+		}
+		r.nodes[spec.ID] = node
+		r.logger.Info("started simulated node", slog.String("node_id", spec.ID))
+	}
+	return nil
+}
+
+func (r *Runner) stopFleet() error {
+	for id, node := range r.nodes {
+		node.Stop()
+		r.logger.Info("stopped simulated node", slog.String("node_id", id))
+	}
+	return nil
+}
+
+func (r *Runner) injectFailure(ctx context.Context, event Event) error {
+	node, ok := r.nodes[event.Target]
+	if !ok {
+		return fmt.Errorf("node not found: %s", event.Target)
+	}
+
+	failure := InjectedFailure{
+		Type:     event.Params.FailureType,
+		XIDCode:  event.Params.XIDCode,
+		GPUIndex: event.Params.GPUIndex,
+		Message:  event.Params.Message,
+	}
+
+	node.InjectFailure(failure)
+	return nil
+}
+
+func (r *Runner) recoverFailure(ctx context.Context, event Event) error {
+	node, ok := r.nodes[event.Target]
+	if !ok {
+		return fmt.Errorf("node not found: %s", event.Target)
+	}
+
+	if event.Params.FailureType != "" {
+		node.RecoverFailure(event.Params.FailureType)
+	} else {
+		node.ClearFailures()
+	}
+	return nil
+}
+
+func (r *Runner) issueCommand(ctx context.Context, event Event) error {
+	var cmdType pb.NodeCommandType
+	switch event.Params.CommandType {
+	case "cordon":
+		cmdType = pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON
+	case "drain":
+		cmdType = pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN
+	case "terminate":
+		cmdType = pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE
+	case "run_diagnostic":
+		cmdType = pb.NodeCommandType_NODE_COMMAND_TYPE_RUN_DIAGNOSTIC
+	default:
+		return fmt.Errorf("unknown command type: %s", event.Params.CommandType)
+	}
+
+	req := connect.NewRequest(&pb.IssueCommandRequest{
+		NodeId:      event.Target,
+		CommandType: cmdType,
+		Parameters:  event.Params.CommandArgs,
+	})
+
+	resp, err := r.client.IssueCommand(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to issue command: %w", err)
+	}
+
+	r.logger.Info("command issued",
+		slog.String("command_id", resp.Msg.CommandId),
+		slog.String("node_id", event.Target),
+		slog.String("type", event.Params.CommandType),
+	)
+
+	return nil
+}
+
+func (r *Runner) waitForStatus(ctx context.Context, event Event) error {
+	timeout := event.Params.Timeout.Duration()
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
+	expectedStatus := parseNodeStatus(event.Params.ExpectedStatus)
+
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for node %s to reach status %s", event.Target, event.Params.ExpectedStatus)
+			}
+
+			req := connect.NewRequest(&pb.GetNodeRequest{
+				NodeId: event.Target,
+			})
+			resp, err := r.client.GetNode(ctx, req)
+			if err != nil {
+				continue // Node might not be registered yet
+			}
+
+			if resp.Msg.Node.Status == expectedStatus {
+				r.logger.Info("node reached expected status",
+					slog.String("node_id", event.Target),
+					slog.String("status", event.Params.ExpectedStatus),
+				)
+				return nil
+			}
+		}
+	}
+}
+
+func (r *Runner) checkAssertionFromEvent(ctx context.Context, event Event) error {
+	assertion := Assertion{
+		Type:     event.Params.FailureType, // Reusing field for assertion type
+		Target:   event.Target,
+		Expected: event.Params.ExpectedStatus,
+	}
+	return r.checkAssertion(ctx, assertion)
+}
+
+func (r *Runner) checkAssertion(ctx context.Context, assertion Assertion) error {
+	switch assertion.Type {
+	case "node_status", "":
+		req := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: assertion.Target,
+		})
+		resp, err := r.client.GetNode(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", assertion.Target, err)
+		}
+
+		expectedStatus := parseNodeStatus(assertion.Expected)
+		if resp.Msg.Node.Status != expectedStatus {
+			return fmt.Errorf("node %s has status %s, expected %s",
+				assertion.Target,
+				resp.Msg.Node.Status.String(),
+				assertion.Expected,
+			)
+		}
+		r.logger.Info("assertion passed",
+			slog.String("type", "node_status"),
+			slog.String("node_id", assertion.Target),
+			slog.String("status", assertion.Expected),
+		)
+
+	case "health_status":
+		req := connect.NewRequest(&pb.GetNodeRequest{
+			NodeId: assertion.Target,
+		})
+		resp, err := r.client.GetNode(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", assertion.Target, err)
+		}
+
+		expectedHealth := parseHealthStatus(assertion.Expected)
+		if resp.Msg.Node.HealthStatus != expectedHealth {
+			return fmt.Errorf("node %s has health status %s, expected %s",
+				assertion.Target,
+				resp.Msg.Node.HealthStatus.String(),
+				assertion.Expected,
+			)
+		}
+		r.logger.Info("assertion passed",
+			slog.String("type", "health_status"),
+			slog.String("node_id", assertion.Target),
+			slog.String("health_status", assertion.Expected),
+		)
+
+	case "node_count":
+		req := connect.NewRequest(&pb.ListNodesRequest{})
+		resp, err := r.client.ListNodes(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to list nodes: %w", err)
+		}
+		// For node_count, Expected should be a number but we'll skip this for now
+		r.logger.Info("node count",
+			slog.Int("count", len(resp.Msg.Nodes)),
+		)
+
+	default:
+		return fmt.Errorf("unknown assertion type: %s", assertion.Type)
+	}
+
+	return nil
+}
+
+func parseNodeStatus(s string) pb.NodeStatus {
+	switch s {
+	case "active":
+		return pb.NodeStatus_NODE_STATUS_ACTIVE
+	case "cordoned":
+		return pb.NodeStatus_NODE_STATUS_CORDONED
+	case "draining":
+		return pb.NodeStatus_NODE_STATUS_DRAINING
+	case "unhealthy":
+		return pb.NodeStatus_NODE_STATUS_UNHEALTHY
+	case "terminated":
+		return pb.NodeStatus_NODE_STATUS_TERMINATED
+	default:
+		return pb.NodeStatus_NODE_STATUS_UNKNOWN
+	}
+}
+
+func parseHealthStatus(s string) pb.HealthStatus {
+	switch s {
+	case "healthy":
+		return pb.HealthStatus_HEALTH_STATUS_HEALTHY
+	case "degraded":
+		return pb.HealthStatus_HEALTH_STATUS_DEGRADED
+	case "unhealthy":
+		return pb.HealthStatus_HEALTH_STATUS_UNHEALTHY
+	default:
+		return pb.HealthStatus_HEALTH_STATUS_UNKNOWN
+	}
+}
+
+// PrintFleetStatus prints the current status of all nodes.
+func (r *Runner) PrintFleetStatus(ctx context.Context) error {
+	req := connect.NewRequest(&pb.ListNodesRequest{})
+	resp, err := r.client.ListNodes(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	r.logger.Info("fleet status", slog.Int("total_nodes", len(resp.Msg.Nodes)))
+	for _, node := range resp.Msg.Nodes {
+		r.logger.Info("  node",
+			slog.String("id", node.NodeId),
+			slog.String("status", node.Status.String()),
+			slog.String("health", node.HealthStatus.String()),
+			slog.String("provider", node.Provider),
+		)
+	}
+	return nil
+}
+

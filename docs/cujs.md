@@ -176,6 +176,84 @@ UNKNOWN → ACTIVE → UNHEALTHY → CORDONED → DRAINING → TERMINATED
 
 ---
 
+## CUJ-7: Operator Lists Fleet Status via CLI
+
+**Actors:** Operator, CLI, Control Plane  
+**Goal:** Operator views fleet status using the CLI
+
+### Happy Path
+1. Operator runs `navarch list`
+2. CLI connects to control plane
+3. Control plane returns all registered nodes
+4. CLI displays nodes in table format with:
+   - Node ID, Provider, Region, Zone
+   - Instance Type, Status, Health
+   - Last Heartbeat, GPU count
+
+### Filtering
+- `navarch list --provider gcp` → Only GCP nodes
+- `navarch list --region us-central1` → Only us-central1 nodes
+- `navarch list --status active` → Only active nodes
+- Filters can be combined
+
+### Output Formats
+- `navarch list` → Table format (default)
+- `navarch list -o json` → JSON for scripting
+
+### Error Cases
+- Control plane unreachable → Clear error message
+- Request timeout → Error with timeout info
+- No nodes found → "No nodes found" message
+
+---
+
+## CUJ-8: Operator Inspects Node Details via CLI
+
+**Actors:** Operator, CLI, Control Plane  
+**Goal:** Operator views detailed information about a specific node
+
+### Happy Path
+1. Operator runs `navarch get <node-id>`
+2. CLI requests node details from control plane
+3. Control plane returns node information
+4. CLI displays:
+   - Basic info (ID, provider, region, zone, instance type)
+   - Status and health
+   - Last heartbeat timestamp
+   - GPU details (UUID, name, PCI bus ID)
+   - Metadata (hostname, IPs)
+
+### Error Cases
+- Node not found → "node not found" error
+- Missing node ID argument → Usage help displayed
+- Control plane unreachable → Clear error message
+
+---
+
+## CUJ-9: Operator Cordons/Drains Node via CLI
+
+**Actors:** Operator, CLI, Control Plane  
+**Goal:** Operator manages node lifecycle using CLI commands
+
+### Cordon Node
+1. Operator runs `navarch cordon <node-id>`
+2. CLI sends IssueCommand request with CORDON type
+3. Control plane creates command, returns command ID
+4. CLI displays success message with command ID
+
+### Drain Node
+1. Operator runs `navarch drain <node-id>`
+2. CLI sends IssueCommand request with DRAIN type
+3. Control plane creates command, returns command ID
+4. CLI displays draining message with command ID
+
+### Error Cases
+- Node not found → Error message
+- Node already cordoned/drained → Command still issued (idempotent)
+- Control plane unreachable → Error with connection info
+
+---
+
 ## Test Coverage Requirements
 
 Each CUJ should have:
@@ -190,5 +268,6 @@ Each CUJ should have:
 - Heartbeat processing: < 10ms
 - Health check processing: < 50ms
 - Command retrieval: < 20ms
+- CLI command response: < 100ms (excluding network)
 - Support 1000+ nodes per control plane instance
 
