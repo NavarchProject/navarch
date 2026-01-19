@@ -170,7 +170,7 @@ func runInteractive(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	runner := simulator.NewRunner(scenario, simulator.WithLogger(logger))
+	runner := simulator.NewRunner(scenario, simulator.WithLogger(logger), simulator.WithWaitForCancel())
 
 	// Start the simulation
 	go func() {
@@ -187,9 +187,9 @@ func runInteractive(cmd *cobra.Command, args []string) error {
 	fmt.Println("Fleet nodes: node-1, node-2")
 	fmt.Println()
 	fmt.Println("Use the navarch CLI to interact with the fleet:")
-	fmt.Println("  navarch list --addr http://localhost:8080")
-	fmt.Println("  navarch get node-1 --addr http://localhost:8080")
-	fmt.Println("  navarch cordon node-1 --addr http://localhost:8080")
+	fmt.Println("  navarch list -s http://localhost:8080")
+	fmt.Println("  navarch get node-1 -s http://localhost:8080")
+	fmt.Println("  navarch cordon node-1 -s http://localhost:8080")
 	fmt.Println()
 	fmt.Println("Press Ctrl+C to stop the simulation")
 	fmt.Println()

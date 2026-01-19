@@ -25,6 +25,7 @@ type Runner struct {
 	nodes            map[string]*SimulatedNode
 	logger           *slog.Logger
 	client           protoconnect.ControlPlaneServiceClient
+	waitForCancel    bool
 
 	server     *http.Server
 	serverDone chan struct{}
@@ -44,6 +45,14 @@ func WithLogger(logger *slog.Logger) RunnerOption {
 func WithControlPlaneAddr(addr string) RunnerOption {
 	return func(r *Runner) {
 		r.controlPlaneAddr = addr
+	}
+}
+
+// WithWaitForCancel keeps the runner alive after scenario completion until
+// the context is canceled. This is useful for interactive mode.
+func WithWaitForCancel() RunnerOption {
+	return func(r *Runner) {
+		r.waitForCancel = true
 	}
 }
 
@@ -129,6 +138,10 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	r.logger.Info("scenario completed successfully")
+
+	if r.waitForCancel {
+		<-ctx.Done()
+	}
 	return nil
 }
 
