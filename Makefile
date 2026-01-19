@@ -1,5 +1,11 @@
 .PHONY: all build generate clean test proto-clean help
 
+# Version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE)"
+
 # Build all binaries
 all: generate build
 
@@ -14,7 +20,7 @@ build:
 	@echo "Building binaries..."
 	@go build -o bin/control-plane ./cmd/control-plane
 	@go build -o bin/node ./cmd/node
-	@go build -o bin/navarch ./cmd/navarch
+	@go build $(LDFLAGS) -o bin/navarch ./cmd/navarch
 	@echo "✓ Binaries built in bin/"
 
 # Run tests
