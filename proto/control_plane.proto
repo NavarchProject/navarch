@@ -10,8 +10,10 @@ option go_package = "github.com/NavarchProject/navarch/proto";
 // Serves both node daemons (for registration, heartbeats, health) and operators (for management, commands).
 // Access control and authentication are enforced at the API layer.
 service ControlPlaneService {
+  // ===============================
   // Node operations (called by node daemons)
-  
+  // ===============================
+
   // RegisterNode registers a new node with the control plane.
   // Called once during node bootstrap to establish identity and capabilities.
   rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
@@ -28,8 +30,10 @@ service ControlPlaneService {
   // Returns actions like cordon, drain, or diagnostic requests.
   rpc GetNodeCommands(GetNodeCommandsRequest) returns (GetNodeCommandsResponse);
 
+  // ===============================
   // Admin operations (called by CLI, API, operators)
-  
+  // ===============================
+
   // ListNodes returns all registered nodes with their current status.
   rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
 
