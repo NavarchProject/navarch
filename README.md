@@ -52,7 +52,8 @@ navarch/
 ├── cmd/
 │   ├── navarch/          # CLI entrypoint
 │   ├── control-plane/    # Control plane server
-│   └── node/             # Node daemon
+│   ├── node/             # Node daemon
+│   └── simulator/        # Fleet simulator for testing
 ├── pkg/
 │   ├── api/              # gRPC service definitions
 │   ├── provider/         # Cloud provider implementations
@@ -70,13 +71,16 @@ navarch/
 │   ├── remediate/        # Remediation logic
 │   │   ├── remediate.go  # Remediator interface
 │   │   └── cordon.go
-│   └── notify/           # Notification implementations
-│       ├── notify.go     # Notifier interface
-│       └── log.go
+│   ├── notify/           # Notification implementations
+│   │   ├── notify.go     # Notifier interface
+│   │   └── log.go
+│   └── simulator/        # Fleet simulation framework
 ├── proto/                # Protobuf definitions
 │   └── navarch.proto
+├── scenarios/            # Simulation scenario files
 ├── docs/
-│   └── extending.md
+│   ├── extending.md
+│   └── simulator.md
 └── examples/
     ├── custom-provider/
     └── cost-scheduler/
@@ -110,6 +114,23 @@ navarch down my-cluster
 ```
 
 The control plane manages provisioning and fleet state. When Navarch provisions a GPU instance, it automatically installs the node daemon via cloud-init—you don't need to install anything on the nodes manually.
+
+## Development
+
+Use the fleet simulator to test Navarch locally without provisioning cloud resources:
+
+```bash
+# Build the simulator
+make build
+
+# Run a GPU failure scenario
+./bin/simulator run scenarios/gpu-failure.yaml -v
+
+# Or start an interactive session
+./bin/simulator interactive -v
+```
+
+The simulator creates an embedded control plane and simulated nodes. You can inject failures, issue commands, and observe system behavior. See [docs/simulator.md](docs/simulator.md) for details.
 
 ## What Navarch Does
 
