@@ -27,10 +27,12 @@ The CLI communicates with the Navarch control plane via HTTP. You can configure 
 
 All commands support these flags:
 
-```bash
+```
 --control-plane string   Control plane address (default "http://localhost:50051")
+--insecure               Skip TLS certificate verification
 -o, --output string      Output format: table, json (default "table")
--h, --help              Show help for any command
+--timeout duration       Request timeout (default 30s)
+-h, --help               Show help for any command
 ```
 
 ### Examples
@@ -74,10 +76,11 @@ navarch list [flags]
 ```
 
 Flags:
+
 ```
 --provider string   Filter by cloud provider (gcp, aws, azure)
 --region string     Filter by region (us-central1, us-east-1, etc.)
---status string     Filter by status (NODE_STATUS_ACTIVE, NODE_STATUS_CORDONED, etc.)
+--status string     Filter by status (active, cordoned, draining, terminated)
 ```
 
 Examples:
