@@ -57,4 +57,3 @@ func uncordonCmd() *cobra.Command {
 
 	return cmd
 }
-

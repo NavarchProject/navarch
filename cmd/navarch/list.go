@@ -149,4 +149,3 @@ func formatTimestamp(t time.Time) string {
 	}
 	return fmt.Sprintf("%dd ago", int(duration.Hours()/24))
 }
-

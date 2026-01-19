@@ -92,4 +92,3 @@ func outputNodeDetails(node *pb.NodeInfo) error {
 
 	return nil
 }
-

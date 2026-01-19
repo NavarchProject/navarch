@@ -44,4 +44,3 @@ func cordonCmd() *cobra.Command {
 
 	return cmd
 }
-
