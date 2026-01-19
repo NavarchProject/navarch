@@ -11,7 +11,6 @@ import (
 )
 
 func TestHealthEndpoints(t *testing.T) {
-	// Create test server
 	database := db.NewInMemDB()
 	defer database.Close()
 
@@ -22,7 +21,6 @@ func TestHealthEndpoints(t *testing.T) {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
 
-	// Add health endpoints (using actual production handlers)
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler(database, nil))
 

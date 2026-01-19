@@ -42,8 +42,7 @@ func DefaultConfig() Config {
 	}
 }
 
-// NewServer creates a new control plane server.
-// If logger is nil, a default logger is used.
+// NewServer creates a new Server. If logger is nil, slog.Default() is used.
 func NewServer(database db.DB, cfg Config, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
@@ -55,7 +54,6 @@ func NewServer(database db.DB, cfg Config, logger *slog.Logger) *Server {
 	}
 }
 
-// RegisterNode registers a new node with the control plane.
 func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.RegisterNodeRequest]) (*connect.Response[pb.RegisterNodeResponse], error) {
 	s.logger.InfoContext(ctx, "registering node",
 		slog.String("node_id", req.Msg.NodeId),
@@ -65,12 +63,10 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 		slog.String("instance_type", req.Msg.InstanceType),
 	)
 
-	// Validate request
 	if req.Msg.NodeId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
 
-	// Create node record
 	record := &db.NodeRecord{
 		NodeID:       req.Msg.NodeId,
 		Provider:     req.Msg.Provider,
@@ -87,7 +83,6 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 		},
 	}
 
-	// Store in database
 	if err := s.db.RegisterNode(ctx, record); err != nil {
 		s.logger.ErrorContext(ctx, "failed to register node",
 			slog.String("node_id", req.Msg.NodeId),
