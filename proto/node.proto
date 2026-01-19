@@ -1,0 +1,275 @@
+syntax = "proto3";
+
+package navarch;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/NavarchProject/navarch/proto";
+
+// NodeService is a control plane component that receives requests from GPU nodes.
+// Nodes call this service to register themselves, report health status, send heartbeats, and poll for commands.
+service NodeService {
+  // RegisterNode registers a new node with the control plane.
+  // Called once during node bootstrap to establish identity and capabilities.
+  rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+
+  // ReportHealth sends health check results from a node to the control plane.
+  // Nodes call this after running health checks (boot, nvml, xid, etc).
+  rpc ReportHealth(ReportHealthRequest) returns (ReportHealthResponse);
+
+  // SendHeartbeat sends periodic keepalive signals from the node.
+  // Used to detect node failures and maintain connection state.
+  rpc SendHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // GetNodeCommands polls for commands from the control plane.
+  // Returns actions like cordon, drain, or diagnostic requests.
+  rpc GetNodeCommands(GetNodeCommandsRequest) returns (GetNodeCommandsResponse);
+}
+
+message RegisterNodeRequest {
+  // Unique identifier for this node (typically instance ID from cloud provider).
+  string node_id = 1;
+
+  // Cloud provider name (e.g., "gcp", "aws", "azure").
+  string provider = 2;
+
+  // Cloud region where the node is running.
+  string region = 3;
+
+  // Availability zone within the region.
+  string zone = 4;
+
+  // Instance type (e.g., "a3-highgpu-8g", "p5.48xlarge").
+  string instance_type = 5;
+
+  // List of GPUs detected on this node.
+  repeated GPUInfo gpus = 6;
+
+  // Additional node metadata.
+  NodeMetadata metadata = 7;
+}
+
+message RegisterNodeResponse {
+  // Whether registration was successful.
+  bool success = 1;
+
+  // Human-readable message (error details if success=false).
+  string message = 2;
+
+  // Configuration parameters the node should use.
+  NodeConfig config = 3;
+}
+
+// GPUInfo describes a single GPU device on a node.
+message GPUInfo {
+  // GPU index on the node (0-based).
+  int32 index = 1;
+
+  // GPU UUID from nvidia-smi.
+  string uuid = 2;
+
+  // GPU model name (e.g., "NVIDIA H100 80GB HBM3").
+  string name = 3;
+
+  // PCI bus ID (e.g., "0000:00:04.0").
+  string pci_bus_id = 4;
+
+  // Total GPU memory in bytes.
+  int64 memory_total = 5;
+
+  // NVIDIA driver version.
+  string driver_version = 6;
+
+  // CUDA version.
+  string cuda_version = 7;
+}
+
+// NodeMetadata contains system information about a node.
+message NodeMetadata {
+  // System hostname.
+  string hostname = 1;
+
+  // Internal/private IP address.
+  string internal_ip = 2;
+
+  // External/public IP address (if any).
+  string external_ip = 3;
+
+  // Linux kernel version.
+  string kernel_version = 4;
+
+  // User-defined labels for organization and filtering.
+  map<string, string> labels = 5;
+}
+
+// NodeConfig contains configuration parameters sent from control plane to node.
+message NodeConfig {
+  // How often to run periodic health checks (in seconds).
+  int32 health_check_interval_seconds = 1;
+
+  // How often to send heartbeat messages (in seconds).
+  int32 heartbeat_interval_seconds = 2;
+
+  // Which health checks to enable (e.g., ["nvml", "xid", "boot"]).
+  repeated string enabled_health_checks = 3;
+}
+
+message ReportHealthRequest {
+  // ID of the node reporting health.
+  string node_id = 1;
+
+  // List of health check results.
+  repeated HealthCheckResult results = 2;
+}
+
+message ReportHealthResponse {
+  // Whether the report was received and processed.
+  bool acknowledged = 1;
+
+  // Overall node status as determined by the control plane.
+  NodeStatus node_status = 2;
+}
+
+// HealthCheckResult represents the outcome of a single health check.
+message HealthCheckResult {
+  // Name of the health check that ran (e.g., "nvml", "xid", "boot").
+  string check_name = 1;
+
+  // Overall status of this check.
+  HealthStatus status = 2;
+
+  // Human-readable message describing the result.
+  string message = 3;
+
+  // When this check completed.
+  google.protobuf.Timestamp timestamp = 4;
+
+  // Additional diagnostic information (check-specific details).
+  map<string, string> details = 5;
+}
+
+// HealthStatus indicates the result of a health check.
+enum HealthStatus {
+  // Unknown or uninitialized status.
+  HEALTH_STATUS_UNKNOWN = 0;
+
+  // Health check passed, no issues detected.
+  HEALTH_STATUS_HEALTHY = 1;
+
+  // Health check found minor issues (warnings, but still functional).
+  HEALTH_STATUS_DEGRADED = 2;
+
+  // Health check failed, node should not accept workloads.
+  HEALTH_STATUS_UNHEALTHY = 3;
+}
+
+// NodeStatus represents the overall state of a node in the fleet.
+enum NodeStatus {
+  // Unknown or uninitialized status.
+  NODE_STATUS_UNKNOWN = 0;
+
+  // Node is healthy and accepting workloads.
+  NODE_STATUS_ACTIVE = 1;
+
+  // Node is not accepting new workloads (administrative action).
+  NODE_STATUS_CORDONED = 2;
+
+  // Node is waiting for existing workloads to complete before termination.
+  NODE_STATUS_DRAINING = 3;
+
+  // Node has failed health checks and should be replaced.
+  NODE_STATUS_UNHEALTHY = 4;
+
+  // Node is scheduled for termination.
+  NODE_STATUS_TERMINATED = 5;
+}
+
+// HeartbeatRequest is a periodic keepalive message from a node.
+message HeartbeatRequest {
+  // ID of the node sending the heartbeat.
+  string node_id = 1;
+
+  // Timestamp when heartbeat was sent.
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Optional basic metrics (lightweight, doesn't require health checks).
+  NodeMetrics metrics = 3;
+}
+
+// HeartbeatResponse acknowledges receipt of heartbeat.
+message HeartbeatResponse {
+  // Whether heartbeat was received successfully.
+  bool acknowledged = 1;
+}
+
+message NodeMetrics {
+  // CPU usage percentage (0-100).
+  double cpu_usage_percent = 1;
+
+  // Memory usage percentage (0-100).
+  double memory_usage_percent = 2;
+
+  // Per-GPU metrics.
+  repeated GPUMetrics gpu_metrics = 3;
+}
+
+message GPUMetrics {
+  // GPU index (0-based).
+  int32 gpu_index = 1;
+
+  // GPU temperature in Celsius.
+  int32 temperature = 2;
+
+  // Current power usage in watts.
+  int32 power_usage = 3;
+
+  // GPU utilization percentage (0-100).
+  double utilization_percent = 4;
+
+  // GPU memory used in bytes.
+  int64 memory_used = 5;
+}
+
+// GetNodeCommandsRequest polls for pending commands.
+message GetNodeCommandsRequest {
+  // ID of the node requesting commands.
+  string node_id = 1;
+}
+
+// GetNodeCommandsResponse contains commands for the node to execute.
+message GetNodeCommandsResponse {
+  // List of commands to execute (empty if no pending commands).
+  repeated NodeCommand commands = 1;
+}
+
+message NodeCommand {
+  // Unique identifier for this command (used for acknowledgment).
+  string command_id = 1;
+
+  // Type of command to execute.
+  NodeCommandType type = 2;
+
+  // Command-specific parameters.
+  map<string, string> parameters = 3;
+
+  // When the command was issued.
+  google.protobuf.Timestamp issued_at = 4;
+}
+
+// NodeCommandType specifies the action a node should take.
+enum NodeCommandType {
+  // Unknown or uninitialized command type.
+  NODE_COMMAND_TYPE_UNKNOWN = 0;
+
+  // Stop accepting new workloads but keep running existing ones.
+  NODE_COMMAND_TYPE_CORDON = 1;
+
+  // Drain existing workloads gracefully.
+  NODE_COMMAND_TYPE_DRAIN = 2;
+
+  // Run a specific diagnostic test.
+  NODE_COMMAND_TYPE_RUN_DIAGNOSTIC = 3;
+
+  // Prepare for node shutdown/termination.
+  NODE_COMMAND_TYPE_TERMINATE = 4;
+}
