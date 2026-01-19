@@ -1,8 +1,8 @@
 # Binaries
 bin/
-navarch
-control-plane
-node
+/navarch
+/control-plane
+/node
 *.exe
 *.exe~
 *.dll

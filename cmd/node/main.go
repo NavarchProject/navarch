@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// Parse command-line flags
-	controlPlaneAddr := flag.String("control-plane", "localhost:50051", "Control plane gRPC address")
+	controlPlaneAddr := flag.String("control-plane", "http://localhost:50051", "Control plane HTTP address")
 	nodeID := flag.String("node-id", "", "Node ID (defaults to hostname)")
 	provider := flag.String("provider", "gcp", "Cloud provider")
 	region := flag.String("region", "", "Cloud region")
@@ -21,18 +21,26 @@ func main() {
 	instanceType := flag.String("instance-type", "", "Instance type")
 	flag.Parse()
 
+	// Set up structured logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
 	// Default node ID to hostname if not specified
 	if *nodeID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			log.Fatalf("Failed to get hostname: %v", err)
+			logger.Error("failed to get hostname", slog.String("error", err.Error()))
+			os.Exit(1)
 		}
 		*nodeID = hostname
 	}
 
-	log.Println("Navarch Node Daemon")
-	log.Printf("Node ID: %s", *nodeID)
-	log.Printf("Control Plane: %s", *controlPlaneAddr)
+	logger.Info("starting Navarch Node Daemon",
+		slog.String("node_id", *nodeID),
+		slog.String("control_plane", *controlPlaneAddr),
+	)
 
 	// Create node configuration
 	cfg := node.Config{
@@ -45,31 +53,33 @@ func main() {
 	}
 
 	// Create and start node
-	n, err := node.New(cfg)
+	n, err := node.New(cfg, logger)
 	if err != nil {
-		log.Fatalf("Failed to create node: %v", err)
+		logger.Error("failed to create node", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err := n.Start(ctx); err != nil {
-		log.Fatalf("Failed to start node: %v", err)
+		logger.Error("failed to start node", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	log.Println("Node daemon started successfully")
+	logger.Info("node daemon started successfully")
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	<-sigChan
-	log.Println("Shutting down node daemon...")
+	logger.Info("shutting down node daemon")
 	cancel()
 
 	if err := n.Stop(); err != nil {
-		log.Printf("Error during shutdown: %v", err)
+		logger.Error("error during shutdown", slog.String("error", err.Error()))
 	}
 
-	log.Println("Node daemon stopped")
+	logger.Info("node daemon stopped")
 }

@@ -20,7 +20,7 @@ func TestRegisterNode(t *testing.T) {
 		defer database.Close()
 
 		cfg := DefaultConfig()
-		srv := NewServer(database, cfg)
+		srv := NewServer(database, cfg, nil)
 		ctx := context.Background()
 
 		// Node sends registration request
@@ -78,7 +78,7 @@ func TestRegisterNode(t *testing.T) {
 	t.Run("missing_node_id", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		req := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -100,7 +100,7 @@ func TestRegisterNode(t *testing.T) {
 	t.Run("duplicate_registration", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		req := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -133,7 +133,7 @@ func TestSendHeartbeat(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register node first
@@ -172,7 +172,7 @@ func TestSendHeartbeat(t *testing.T) {
 	t.Run("unregistered_node", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		hbReq := connect.NewRequest(&pb.HeartbeatRequest{
@@ -194,7 +194,7 @@ func TestReportHealth(t *testing.T) {
 	t.Run("healthy_node", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register node
@@ -244,7 +244,7 @@ func TestReportHealth(t *testing.T) {
 	t.Run("unhealthy_node", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register node
@@ -288,7 +288,7 @@ func TestReportHealth(t *testing.T) {
 	t.Run("degraded_node", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register node
@@ -332,7 +332,7 @@ func TestGetNodeCommands(t *testing.T) {
 	t.Run("cordon_command", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register node
@@ -384,7 +384,7 @@ func TestGetNodeCommands(t *testing.T) {
 	t.Run("multiple_commands", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -413,7 +413,7 @@ func TestGetNodeCommands(t *testing.T) {
 func TestNodeLifecycle(t *testing.T) {
 	database := db.NewInMemDB()
 	defer database.Close()
-	srv := NewServer(database, DefaultConfig())
+	srv := NewServer(database, DefaultConfig(), nil)
 	ctx := context.Background()
 
 	// 1. Registration
@@ -483,7 +483,7 @@ func TestMultiNodeManagement(t *testing.T) {
 	t.Run("concurrent_registration", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register multiple nodes concurrently
@@ -515,7 +515,7 @@ func TestMultiNodeManagement(t *testing.T) {
 	t.Run("independent_node_states", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register two nodes
@@ -555,7 +555,7 @@ func TestMultiNodeManagement(t *testing.T) {
 	t.Run("targeted_commands", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
-		srv := NewServer(database, DefaultConfig())
+		srv := NewServer(database, DefaultConfig(), nil)
 		ctx := context.Background()
 
 		// Register two nodes
