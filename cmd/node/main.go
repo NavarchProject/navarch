@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-	// Parse command-line flags
 	controlPlaneAddr := flag.String("control-plane", "http://localhost:50051", "Control plane HTTP address")
 	nodeID := flag.String("node-id", "", "Node ID (defaults to hostname)")
 	provider := flag.String("provider", "gcp", "Cloud provider")
@@ -21,13 +20,11 @@ func main() {
 	instanceType := flag.String("instance-type", "", "Instance type")
 	flag.Parse()
 
-	// Set up structured logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
 
-	// Default node ID to hostname if not specified
 	if *nodeID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -42,7 +39,6 @@ func main() {
 		slog.String("control_plane", *controlPlaneAddr),
 	)
 
-	// Create node configuration
 	cfg := node.Config{
 		ControlPlaneAddr: *controlPlaneAddr,
 		NodeID:           *nodeID,
@@ -52,7 +48,6 @@ func main() {
 		InstanceType:     *instanceType,
 	}
 
-	// Create and start node
 	n, err := node.New(cfg, logger)
 	if err != nil {
 		logger.Error("failed to create node", slog.String("error", err.Error()))
@@ -69,7 +64,6 @@ func main() {
 
 	logger.Info("node daemon started successfully")
 
-	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 

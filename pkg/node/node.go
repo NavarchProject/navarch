@@ -45,8 +45,7 @@ type Node struct {
 	heartbeatInterval   time.Duration
 }
 
-// New creates a new node daemon.
-// If logger is nil, a default logger is used.
+// New creates a new Node. If logger is nil, slog.Default() is used.
 func New(cfg Config, logger *slog.Logger) (*Node, error) {
 	if cfg.ControlPlaneAddr == "" {
 		return nil, fmt.Errorf("control plane address is required")
@@ -66,9 +65,7 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 	}, nil
 }
 
-// Start initializes the connection to the control plane and starts the node daemon.
 func (n *Node) Start(ctx context.Context) error {
-	// Create Connect client
 	n.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
 		n.config.ControlPlaneAddr,
@@ -78,14 +75,12 @@ func (n *Node) Start(ctx context.Context) error {
 		slog.String("addr", n.config.ControlPlaneAddr),
 	)
 
-	// Register with control plane
 	if err := n.register(ctx); err != nil {
 		return fmt.Errorf("failed to register with control plane: %w", err)
 	}
 
 	n.logger.InfoContext(ctx, "successfully registered with control plane")
 
-	// Start background goroutines
 	go n.heartbeatLoop(ctx)
 	go n.healthCheckLoop(ctx)
 	go n.commandPollLoop(ctx)
@@ -93,7 +88,6 @@ func (n *Node) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop gracefully shuts down the node daemon.
 func (n *Node) Stop() error {
 	n.logger.Info("stopping node daemon")
 	// No connection to close with Connect (uses http.Client)

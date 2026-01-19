@@ -44,15 +44,15 @@ This document tracks the tasks required to make Navarch production-ready for ope
 - [ ] Document all configuration options
 
 ### Health & Readiness
-- [ ] Add `/healthz` endpoint for liveness probes
-- [ ] Add `/readyz` endpoint for readiness probes
-- [ ] Implement proper health check logic
+- [x] Add `/healthz` endpoint for liveness probes
+- [x] Add `/readyz` endpoint for readiness probes
+- [x] Implement proper health check logic
 
 ### Graceful Shutdown
-- [ ] Add configurable shutdown timeout
-- [ ] Drain in-flight requests on shutdown
-- [ ] Close database connections cleanly
-- [ ] Signal handling (SIGTERM, SIGINT)
+- [x] Add configurable shutdown timeout
+- [x] Drain in-flight requests on shutdown
+- [x] Close database connections cleanly
+- [x] Signal handling (SIGTERM, SIGINT)
 
 ### API Improvements
 - [ ] Consider removing `success` field from proto responses (use errors instead)
