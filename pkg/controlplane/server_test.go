@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -610,6 +611,187 @@ func TestMultiNodeManagement(t *testing.T) {
 		resp2, _ := srv.GetNodeCommands(ctx, req2)
 		if len(resp2.Msg.Commands) != 0 {
 			t.Error("Expected node-2 to receive no commands")
+		}
+	})
+}
+
+// TestListNodes tests the ListNodes admin API
+func TestListNodes(t *testing.T) {
+	t.Run("empty_list", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 0 {
+			t.Errorf("Expected 0 nodes, got %d", len(resp.Msg.Nodes))
+		}
+	})
+
+	t.Run("list_all_nodes", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register 3 nodes
+		for i := 1; i <= 3; i++ {
+			nodeID := fmt.Sprintf("node-%d", i)
+			req := connect.NewRequest(&pb.RegisterNodeRequest{
+				NodeId:   nodeID,
+				Provider: "gcp",
+				Region:   "us-central1",
+			})
+			srv.RegisterNode(ctx, req)
+		}
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 3 {
+			t.Errorf("Expected 3 nodes, got %d", len(resp.Msg.Nodes))
+		}
+	})
+
+	t.Run("filter_by_provider", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register nodes from different providers
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-gcp-1",
+			Provider: "gcp",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-aws-1",
+			Provider: "aws",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-gcp-2",
+			Provider: "gcp",
+		}))
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{
+			Provider: "gcp",
+		}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 2 {
+			t.Errorf("Expected 2 GCP nodes, got %d", len(resp.Msg.Nodes))
+		}
+		for _, node := range resp.Msg.Nodes {
+			if node.Provider != "gcp" {
+				t.Errorf("Expected only GCP nodes, got %s", node.Provider)
+			}
+		}
+	})
+
+	t.Run("filter_by_region", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register nodes in different regions
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-us-1",
+			Provider: "gcp",
+			Region:   "us-central1",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-eu-1",
+			Provider: "gcp",
+			Region:   "europe-west1",
+		}))
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{
+			Region: "us-central1",
+		}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 1 {
+			t.Errorf("Expected 1 node in us-central1, got %d", len(resp.Msg.Nodes))
+		}
+		if resp.Msg.Nodes[0].Region != "us-central1" {
+			t.Errorf("Expected us-central1, got %s", resp.Msg.Nodes[0].Region)
+		}
+	})
+
+	t.Run("filter_by_status", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register nodes
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-2",
+		}))
+
+		// Mark one as unhealthy
+		database.UpdateNodeStatus(ctx, "node-2", pb.NodeStatus_NODE_STATUS_UNHEALTHY)
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{
+			Status: pb.NodeStatus_NODE_STATUS_ACTIVE,
+		}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 1 {
+			t.Errorf("Expected 1 active node, got %d", len(resp.Msg.Nodes))
+		}
+		if resp.Msg.Nodes[0].Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected ACTIVE status, got %v", resp.Msg.Nodes[0].Status)
+		}
+	})
+
+	t.Run("combined_filters", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil)
+		ctx := context.Background()
+
+		// Register nodes with various attributes
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-gcp-us-1",
+			Provider: "gcp",
+			Region:   "us-central1",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-gcp-eu-1",
+			Provider: "gcp",
+			Region:   "europe-west1",
+		}))
+		srv.RegisterNode(ctx, connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-aws-us-1",
+			Provider: "aws",
+			Region:   "us-central1",
+		}))
+
+		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{
+			Provider: "gcp",
+			Region:   "us-central1",
+		}))
+		if err != nil {
+			t.Fatalf("ListNodes failed: %v", err)
+		}
+		if len(resp.Msg.Nodes) != 1 {
+			t.Errorf("Expected 1 node matching filters, got %d", len(resp.Msg.Nodes))
+		}
+		if resp.Msg.Nodes[0].NodeId != "node-gcp-us-1" {
+			t.Errorf("Expected node-gcp-us-1, got %s", resp.Msg.Nodes[0].NodeId)
 		}
 	})
 }
