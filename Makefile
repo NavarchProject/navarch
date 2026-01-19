@@ -116,5 +116,8 @@ help:
 	@echo "  make fmt           - Format Go code"
 	@echo "  make proto-fmt     - Format proto files"
 	@echo "  make check         - Run format, lint, and tests"
+	@echo "  make sim           - Run simulator in interactive mode"
+	@echo "  make sim-run SCENARIO=<file> - Run a scenario file"
+	@echo "  make sim-validate SCENARIO=<file> - Validate a scenario file"
 	@echo "  make help          - Show this help message"
 
