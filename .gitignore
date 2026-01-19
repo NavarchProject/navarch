@@ -3,6 +3,7 @@ bin/
 /navarch
 /control-plane
 /node
+/simulator
 *.exe
 *.exe~
 *.dll

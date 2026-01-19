@@ -86,10 +86,7 @@ func setupLogger() *slog.Logger {
 		level = slog.LevelWarn
 	}
 
-	opts := &slog.HandlerOptions{
-		Level: level,
-	}
-	handler := slog.NewTextHandler(os.Stdout, opts)
+	handler := NewSimulatorHandler(os.Stdout, level)
 	return slog.New(handler)
 }
 
