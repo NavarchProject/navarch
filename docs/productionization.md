@@ -12,10 +12,10 @@ This document tracks the tasks required to make Navarch production-ready for ope
 ## Priority 1: Critical (Required for Alpha)
 
 ### Logging
-- [ ] Replace `log` package with `slog` for structured logging
-- [ ] Add log levels (debug, info, warn, error)
+- [x] Replace `log` package with `slog` for structured logging
+- [x] Add log levels (debug, info, warn, error)
 - [ ] Add request ID / correlation ID to logs
-- [ ] Remove `log.Printf` calls from all packages
+- [x] Remove `log.Printf` calls from all packages
 
 ### Error Handling
 - [ ] Use Connect error codes instead of `success` boolean in responses
@@ -142,8 +142,8 @@ This document tracks the tasks required to make Navarch production-ready for ope
 ## Current Sprint
 
 ### Active Tasks
-1. ⬜ Switch to slog for structured logging
-2. ⬜ Fix error handling with Connect errors
+1. ✅ Switch to slog for structured logging
+2. 🟡 Fix error handling with Connect errors
 3. ⬜ Clean up broken packages
 4. ⬜ Add LICENSE file
 

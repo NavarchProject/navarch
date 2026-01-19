@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -85,15 +86,16 @@ func TestRegisterNode(t *testing.T) {
 			Provider: "gcp",
 		})
 
-		resp, err := srv.RegisterNode(ctx, req)
-		if err != nil {
-			t.Fatalf("Expected error in response, not request error: %v", err)
+		_, err := srv.RegisterNode(ctx, req)
+		if err == nil {
+			t.Fatal("Expected error for missing node_id")
 		}
-		if resp.Msg.Success {
-			t.Error("Expected registration to fail with missing node_id")
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
 		}
-		if resp.Msg.Message != "node_id is required" {
-			t.Errorf("Expected specific error message, got: %s", resp.Msg.Message)
+		if connectErr.Code() != connect.CodeInvalidArgument {
+			t.Errorf("Expected InvalidArgument code, got: %v", connectErr.Code())
 		}
 	})
 
@@ -179,12 +181,16 @@ func TestSendHeartbeat(t *testing.T) {
 			NodeId: "unknown-node",
 		})
 
-		resp, err := srv.SendHeartbeat(ctx, hbReq)
-		if err != nil {
-			t.Fatalf("Expected error in response, not request error: %v", err)
+		_, err := srv.SendHeartbeat(ctx, hbReq)
+		if err == nil {
+			t.Fatal("Expected error for unregistered node")
 		}
-		if resp.Msg.Acknowledged {
-			t.Error("Should not acknowledge heartbeat from unregistered node")
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeNotFound {
+			t.Errorf("Expected NotFound code, got: %v", connectErr.Code())
 		}
 	})
 }

@@ -67,10 +67,7 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 
 	// Validate request
 	if req.Msg.NodeId == "" {
-		return connect.NewResponse(&pb.RegisterNodeResponse{
-			Success: false,
-			Message: "node_id is required",
-		}), nil
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
 
 	// Create node record
@@ -96,10 +93,7 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 			slog.String("node_id", req.Msg.NodeId),
 			slog.String("error", err.Error()),
 		)
-		return connect.NewResponse(&pb.RegisterNodeResponse{
-			Success: false,
-			Message: fmt.Sprintf("registration failed: %v", err),
-		}), nil
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("registration failed: %w", err))
 	}
 
 	s.logger.InfoContext(ctx, "node registered successfully", slog.String("node_id", req.Msg.NodeId))
@@ -118,6 +112,11 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		slog.Int("check_count", len(req.Msg.Results)),
 	)
 
+	// Validate request
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+
 	// Get node to determine current status
 	node, err := s.db.GetNode(ctx, req.Msg.NodeId)
 	if err != nil {
@@ -125,10 +124,7 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 			slog.String("node_id", req.Msg.NodeId),
 			slog.String("error", err.Error()),
 		)
-		return connect.NewResponse(&pb.ReportHealthResponse{
-			Acknowledged: false,
-			NodeStatus:   pb.NodeStatus_NODE_STATUS_UNKNOWN,
-		}), nil
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
 	// Record health check
@@ -143,14 +139,19 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 			slog.String("node_id", req.Msg.NodeId),
 			slog.String("error", err.Error()),
 		)
-		return connect.NewResponse(&pb.ReportHealthResponse{
-			Acknowledged: false,
-			NodeStatus:   node.Status,
-		}), nil
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to record health check: %w", err))
 	}
 
 	// Fetch updated node status (RecordHealthCheck may have updated it)
-	node, _ = s.db.GetNode(ctx, req.Msg.NodeId)
+	node, err = s.db.GetNode(ctx, req.Msg.NodeId)
+	if err != nil {
+		// This shouldn't happen since we just verified the node exists
+		s.logger.ErrorContext(ctx, "unexpected error fetching node after health check",
+			slog.String("node_id", req.Msg.NodeId),
+			slog.String("error", err.Error()),
+		)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to fetch node status: %w", err))
+	}
 
 	return connect.NewResponse(&pb.ReportHealthResponse{
 		Acknowledged: true,
@@ -161,6 +162,11 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 // SendHeartbeat handles heartbeat messages from nodes.
 func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.HeartbeatRequest]) (*connect.Response[pb.HeartbeatResponse], error) {
 	s.logger.DebugContext(ctx, "heartbeat received", slog.String("node_id", req.Msg.NodeId))
+
+	// Validate request
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
 
 	// Update heartbeat timestamp
 	timestamp := time.Now()
@@ -173,9 +179,7 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 			slog.String("node_id", req.Msg.NodeId),
 			slog.String("error", err.Error()),
 		)
-		return connect.NewResponse(&pb.HeartbeatResponse{
-			Acknowledged: false,
-		}), nil
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
 	// TODO: Store metrics if provided
@@ -187,15 +191,18 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 
 // GetNodeCommands returns pending commands for a node.
 func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.GetNodeCommandsRequest]) (*connect.Response[pb.GetNodeCommandsResponse], error) {
+	// Validate request
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+
 	commands, err := s.db.GetPendingCommands(ctx, req.Msg.NodeId)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get commands",
 			slog.String("node_id", req.Msg.NodeId),
 			slog.String("error", err.Error()),
 		)
-		return connect.NewResponse(&pb.GetNodeCommandsResponse{
-			Commands: []*pb.NodeCommand{},
-		}), nil
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get commands: %w", err))
 	}
 
 	if len(commands) > 0 {
@@ -216,7 +223,13 @@ func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.Ge
 		}
 
 		// Mark as acknowledged
-		_ = s.db.UpdateCommandStatus(ctx, cmd.CommandID, "acknowledged")
+		if err := s.db.UpdateCommandStatus(ctx, cmd.CommandID, "acknowledged"); err != nil {
+			s.logger.WarnContext(ctx, "failed to mark command as acknowledged",
+				slog.String("command_id", cmd.CommandID),
+				slog.String("error", err.Error()),
+			)
+			// Continue processing other commands - this is a non-fatal error
+		}
 	}
 
 	return connect.NewResponse(&pb.GetNodeCommandsResponse{
