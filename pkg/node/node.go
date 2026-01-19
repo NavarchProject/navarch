@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/NavarchProject/navarch/pkg/gpu"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
@@ -32,6 +34,9 @@ type Config struct {
 
 	// InstanceType is the instance type (e.g., "a3-highgpu-8g").
 	InstanceType string
+
+	// GPU is the GPU interface to use. If nil, a fake GPU will be created.
+	GPU gpu.Interface
 }
 
 // Node represents the node daemon that communicates with the control plane.
@@ -39,6 +44,7 @@ type Node struct {
 	config Config
 	client protoconnect.ControlPlaneServiceClient
 	logger *slog.Logger
+	gpu    gpu.Interface
 
 	// Configuration received from control plane
 	healthCheckInterval time.Duration
@@ -57,15 +63,36 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		logger = slog.Default()
 	}
 
+	gpuInterface := cfg.GPU
+	if gpuInterface == nil {
+		gpuInterface = createGPUInterface(logger)
+	}
+
 	return &Node{
 		config:              cfg,
 		logger:              logger,
-		healthCheckInterval: 60 * time.Second, // Default values
+		gpu:                 gpuInterface,
+		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
 	}, nil
 }
 
+// createGPUInterface creates a GPU interface based on environment.
+func createGPUInterface(logger *slog.Logger) gpu.Interface {
+	gpuCount := 8
+	if envCount := os.Getenv("NAVARCH_GPU_COUNT"); envCount != "" {
+		fmt.Sscanf(envCount, "%d", &gpuCount)
+	}
+
+	logger.Info("using fake GPU interface", slog.Int("device_count", gpuCount))
+	return gpu.NewFake(gpuCount)
+}
+
 func (n *Node) Start(ctx context.Context) error {
+	if err := n.gpu.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize GPU interface: %w", err)
+	}
+
 	n.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
 		n.config.ControlPlaneAddr,
@@ -90,22 +117,38 @@ func (n *Node) Start(ctx context.Context) error {
 
 func (n *Node) Stop() error {
 	n.logger.Info("stopping node daemon")
-	// No connection to close with Connect (uses http.Client)
+	
+	ctx := context.Background()
+	if err := n.gpu.Shutdown(ctx); err != nil {
+		n.logger.Warn("failed to shutdown GPU interface", slog.String("error", err.Error()))
+	}
+	
 	return nil
 }
 
 // register registers the node with the control plane.
 func (n *Node) register(ctx context.Context) error {
+	gpuInfo, err := n.detectGPUs(ctx)
+	if err != nil {
+		n.logger.Warn("failed to detect GPUs", slog.String("error", err.Error()))
+		gpuInfo = []*pb.GPUInfo{}
+	}
+
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = n.config.NodeID
+	}
+
 	req := connect.NewRequest(&pb.RegisterNodeRequest{
 		NodeId:       n.config.NodeID,
 		Provider:     n.config.Provider,
 		Region:       n.config.Region,
 		Zone:         n.config.Zone,
 		InstanceType: n.config.InstanceType,
-		Gpus:         []*pb.GPUInfo{}, // TODO: Detect GPUs
+		Gpus:         gpuInfo,
 		Metadata:     &pb.NodeMetadata{
-			Hostname:   n.config.NodeID, // TODO: Get actual hostname
-			InternalIp: "",               // TODO: Get actual IP
+			Hostname:   hostname,
+			InternalIp: "",
 			ExternalIp: "",
 			Labels:     make(map[string]string),
 		},
@@ -131,6 +174,38 @@ func (n *Node) register(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// detectGPUs queries the GPU interface and returns GPU information.
+func (n *Node) detectGPUs(ctx context.Context) ([]*pb.GPUInfo, error) {
+	count, err := n.gpu.GetDeviceCount(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get device count: %w", err)
+	}
+
+	n.logger.InfoContext(ctx, "detected GPUs", slog.Int("count", count))
+
+	gpus := make([]*pb.GPUInfo, count)
+	for i := 0; i < count; i++ {
+		info, err := n.gpu.GetDeviceInfo(ctx, i)
+		if err != nil {
+			n.logger.WarnContext(ctx, "failed to get GPU info",
+				slog.Int("index", i),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
+
+		gpus[i] = &pb.GPUInfo{
+			Index:       int32(info.Index),
+			Uuid:        info.UUID,
+			Name:        info.Name,
+			PciBusId:    info.PCIBusID,
+			MemoryTotal: int64(info.Memory),
+		}
+	}
+
+	return gpus, nil
 }
 
 // heartbeatLoop sends periodic heartbeats to the control plane.
@@ -196,18 +271,22 @@ func (n *Node) healthCheckLoop(ctx context.Context) {
 
 // runHealthChecks runs all health checks and reports results to the control plane.
 func (n *Node) runHealthChecks(ctx context.Context) error {
-	// TODO: Actually run health checks
+	var results []*pb.HealthCheckResult
+
+	bootCheck := n.runBootCheck(ctx)
+	results = append(results, bootCheck)
+
+	nvmlCheck := n.runNVMLCheck(ctx)
+	results = append(results, nvmlCheck)
+
+	xidCheck := n.runXIDCheck(ctx)
+	results = append(results, xidCheck)
+
 	req := connect.NewRequest(&pb.ReportHealthRequest{
-		NodeId: n.config.NodeID,
-		Results: []*pb.HealthCheckResult{
-			{
-				CheckName: "boot",
-				Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
-				Message:   "System boot check passed",
-			},
-		},
+		NodeId:  n.config.NodeID,
+		Results: results,
 	})
-	
+
 	resp, err := n.client.ReportHealth(ctx, req)
 	if err != nil {
 		return err
@@ -220,6 +299,95 @@ func (n *Node) runHealthChecks(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// runBootCheck verifies GPU devices are detected and accessible.
+func (n *Node) runBootCheck(ctx context.Context) *pb.HealthCheckResult {
+	count, err := n.gpu.GetDeviceCount(ctx)
+	if err != nil {
+		return &pb.HealthCheckResult{
+			CheckName: "boot",
+			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+			Message:   fmt.Sprintf("failed to get device count: %v", err),
+		}
+	}
+
+	if count == 0 {
+		return &pb.HealthCheckResult{
+			CheckName: "boot",
+			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+			Message:   "no GPUs detected",
+		}
+	}
+
+	return &pb.HealthCheckResult{
+		CheckName: "boot",
+		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+		Message:   fmt.Sprintf("%d GPUs detected and accessible", count),
+	}
+}
+
+// runNVMLCheck verifies GPU health via NVML metrics.
+func (n *Node) runNVMLCheck(ctx context.Context) *pb.HealthCheckResult {
+	count, err := n.gpu.GetDeviceCount(ctx)
+	if err != nil {
+		return &pb.HealthCheckResult{
+			CheckName: "nvml",
+			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+			Message:   fmt.Sprintf("failed to get device count: %v", err),
+		}
+	}
+
+	for i := 0; i < count; i++ {
+		health, err := n.gpu.GetDeviceHealth(ctx, i)
+		if err != nil {
+			return &pb.HealthCheckResult{
+				CheckName: "nvml",
+				Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+				Message:   fmt.Sprintf("failed to get health for GPU %d: %v", i, err),
+			}
+		}
+
+		if health.Temperature > 85 {
+			return &pb.HealthCheckResult{
+				CheckName: "nvml",
+				Status:    pb.HealthStatus_HEALTH_STATUS_DEGRADED,
+				Message:   fmt.Sprintf("GPU %d temperature high: %d°C", i, health.Temperature),
+			}
+		}
+	}
+
+	return &pb.HealthCheckResult{
+		CheckName: "nvml",
+		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+		Message:   fmt.Sprintf("all %d GPUs healthy", count),
+	}
+}
+
+// runXIDCheck checks for GPU XID errors.
+func (n *Node) runXIDCheck(ctx context.Context) *pb.HealthCheckResult {
+	errors, err := n.gpu.GetXIDErrors(ctx)
+	if err != nil {
+		return &pb.HealthCheckResult{
+			CheckName: "xid",
+			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+			Message:   fmt.Sprintf("failed to get XID errors: %v", err),
+		}
+	}
+
+	if len(errors) > 0 {
+		return &pb.HealthCheckResult{
+			CheckName: "xid",
+			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+			Message:   fmt.Sprintf("detected %d XID error(s)", len(errors)),
+		}
+	}
+
+	return &pb.HealthCheckResult{
+		CheckName: "xid",
+		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+		Message:   "no XID errors detected",
+	}
 }
 
 // commandPollLoop polls for commands from the control plane.
