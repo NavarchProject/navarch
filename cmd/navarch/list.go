@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -30,11 +31,11 @@ func listCmd() *cobra.Command {
 			}
 
 			if status != "" {
-				statusValue, ok := pb.NodeStatus_value[status]
-				if !ok {
-					return fmt.Errorf("invalid status: %s", status)
+				statusEnum, err := parseNodeStatus(status)
+				if err != nil {
+					return err
 				}
-				req.Status = pb.NodeStatus(statusValue)
+				req.Status = statusEnum
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
@@ -63,7 +64,7 @@ func listCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&provider, "provider", "", "Filter by provider")
 	cmd.Flags().StringVar(&region, "region", "", "Filter by region")
-	cmd.Flags().StringVar(&status, "status", "", "Filter by status (NODE_STATUS_ACTIVE, NODE_STATUS_CORDONED, NODE_STATUS_DRAINING, NODE_STATUS_TERMINATED)")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status (active, cordoned, draining, terminated)")
 
 	return cmd
 }
@@ -146,4 +147,18 @@ func formatTimestamp(t time.Time) string {
 		return fmt.Sprintf("%dh ago", int(duration.Hours()))
 	}
 	return fmt.Sprintf("%dd ago", int(duration.Hours()/24))
+}
+
+func parseNodeStatus(s string) (pb.NodeStatus, error) {
+	// Accept both short form (active) and full form (NODE_STATUS_ACTIVE)
+	normalized := strings.ToUpper(s)
+	if !strings.HasPrefix(normalized, "NODE_STATUS_") {
+		normalized = "NODE_STATUS_" + normalized
+	}
+
+	statusValue, ok := pb.NodeStatus_value[normalized]
+	if !ok {
+		return 0, fmt.Errorf("invalid status: %s (valid: active, cordoned, draining, terminated)", s)
+	}
+	return pb.NodeStatus(statusValue), nil
 }
