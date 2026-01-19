@@ -168,4 +168,3 @@ func TestFake_Shutdown(t *testing.T) {
 		t.Error("Expected initialized to be false after shutdown")
 	}
 }
-

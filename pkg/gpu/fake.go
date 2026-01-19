@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Fake is a fake GPU implementation for testing and development.
+// Fake is a fake GPU manager for testing and development.
 type Fake struct {
 	mu          sync.RWMutex
 	deviceCount int
@@ -22,7 +22,7 @@ type fakeDevice struct {
 	health HealthInfo
 }
 
-// NewFake creates a new fake GPU interface with the specified number of devices.
+// NewFake creates a new fake GPU manager with the specified number of devices.
 func NewFake(deviceCount int) *Fake {
 	return &Fake{
 		deviceCount: deviceCount,
@@ -30,7 +30,7 @@ func NewFake(deviceCount int) *Fake {
 	}
 }
 
-// Initialize prepares the fake GPU interface.
+// Initialize prepares the fake GPU manager.
 func (f *Fake) Initialize(ctx context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -62,7 +62,7 @@ func (f *Fake) Initialize(ctx context.Context) error {
 	return nil
 }
 
-// Shutdown cleans up the fake GPU interface.
+// Shutdown cleans up the fake GPU manager.
 func (f *Fake) Shutdown(ctx context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -161,4 +161,3 @@ func (f *Fake) ClearXIDErrors() {
 
 	f.xidErrors = nil
 }
-

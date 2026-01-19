@@ -28,9 +28,9 @@ type XIDError struct {
 	Message   string
 }
 
-// Interface provides access to GPU information and health metrics.
-type Interface interface {
-	// Initialize prepares the GPU interface for use.
+// Manager provides access to GPU information and health metrics.
+type Manager interface {
+	// Initialize prepares the GPU manager for use.
 	Initialize(ctx context.Context) error
 
 	// Shutdown cleans up resources.
@@ -49,4 +49,3 @@ type Interface interface {
 	// This may read from dmesg or other system logs.
 	GetXIDErrors(ctx context.Context) ([]*XIDError, error)
 }
-

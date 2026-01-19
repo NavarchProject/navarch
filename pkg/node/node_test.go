@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 		}
 
 		if n.gpu == nil {
-			t.Error("Expected GPU interface to be initialized")
+			t.Error("Expected GPU manager to be initialized")
 		}
 	})
 
@@ -51,7 +51,7 @@ func TestNew(t *testing.T) {
 		}
 	})
 
-	t.Run("custom_gpu_interface", func(t *testing.T) {
+	t.Run("custom_gpu_manager", func(t *testing.T) {
 		fakeGPU := gpu.NewFake(4)
 		cfg := Config{
 			ControlPlaneAddr: "http://localhost:50051",
@@ -65,7 +65,7 @@ func TestNew(t *testing.T) {
 		}
 
 		if n.gpu != fakeGPU {
-			t.Error("Expected custom GPU interface to be used")
+			t.Error("Expected custom GPU manager to be used")
 		}
 	})
 }

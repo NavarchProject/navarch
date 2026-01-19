@@ -35,8 +35,8 @@ type Config struct {
 	// InstanceType is the instance type (e.g., "a3-highgpu-8g").
 	InstanceType string
 
-	// GPU is the GPU interface to use. If nil, a fake GPU will be created.
-	GPU gpu.Interface
+	// GPU is the GPU manager to use. If nil, a fake GPU will be created.
+	GPU gpu.Manager
 }
 
 // Node represents the node daemon that communicates with the control plane.
@@ -44,7 +44,7 @@ type Node struct {
 	config Config
 	client protoconnect.ControlPlaneServiceClient
 	logger *slog.Logger
-	gpu    gpu.Interface
+	gpu    gpu.Manager
 
 	// Configuration received from control plane
 	healthCheckInterval time.Duration
@@ -77,20 +77,20 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 	}, nil
 }
 
-// createGPUInterface creates a GPU interface based on environment.
-func createGPUInterface(logger *slog.Logger) gpu.Interface {
+// createGPUInterface creates a GPU manager based on environment.
+func createGPUInterface(logger *slog.Logger) gpu.Manager {
 	gpuCount := 8
 	if envCount := os.Getenv("NAVARCH_GPU_COUNT"); envCount != "" {
 		fmt.Sscanf(envCount, "%d", &gpuCount)
 	}
 
-	logger.Info("using fake GPU interface", slog.Int("device_count", gpuCount))
+	logger.Info("using fake GPU manager", slog.Int("device_count", gpuCount))
 	return gpu.NewFake(gpuCount)
 }
 
 func (n *Node) Start(ctx context.Context) error {
 	if err := n.gpu.Initialize(ctx); err != nil {
-		return fmt.Errorf("failed to initialize GPU interface: %w", err)
+		return fmt.Errorf("failed to initialize GPU manager: %w", err)
 	}
 
 	n.client = protoconnect.NewControlPlaneServiceClient(
@@ -120,7 +120,7 @@ func (n *Node) Stop() error {
 	
 	ctx := context.Background()
 	if err := n.gpu.Shutdown(ctx); err != nil {
-		n.logger.Warn("failed to shutdown GPU interface", slog.String("error", err.Error()))
+		n.logger.Warn("failed to shutdown GPU manager", slog.String("error", err.Error()))
 	}
 	
 	return nil
@@ -176,7 +176,7 @@ func (n *Node) register(ctx context.Context) error {
 	return nil
 }
 
-// detectGPUs queries the GPU interface and returns GPU information.
+// detectGPUs queries the GPU manager and returns GPU information.
 func (n *Node) detectGPUs(ctx context.Context) ([]*pb.GPUInfo, error) {
 	count, err := n.gpu.GetDeviceCount(ctx)
 	if err != nil {
