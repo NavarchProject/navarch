@@ -235,34 +235,141 @@ func (s *Server) GetNodeCommands(ctx context.Context, req *connect.Request[pb.Ge
 	}), nil
 }
 
+// ListNodes returns all registered nodes with optional filters.
+func (s *Server) ListNodes(ctx context.Context, req *connect.Request[pb.ListNodesRequest]) (*connect.Response[pb.ListNodesResponse], error) {
+	nodes, err := s.db.ListNodes(ctx)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to list nodes",
+			slog.String("error", err.Error()),
+		)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list nodes: %w", err))
+	}
+
+	// Apply filters
+	var filtered []*db.NodeRecord
+	for _, node := range nodes {
+		// Filter by provider
+		if req.Msg.Provider != "" && node.Provider != req.Msg.Provider {
+			continue
+		}
+		// Filter by region
+		if req.Msg.Region != "" && node.Region != req.Msg.Region {
+			continue
+		}
+		// Filter by status
+		if req.Msg.Status != pb.NodeStatus_NODE_STATUS_UNKNOWN && node.Status != req.Msg.Status {
+			continue
+		}
+		filtered = append(filtered, node)
+	}
+
+	// Convert to proto
+	pbNodes := make([]*pb.NodeInfo, len(filtered))
+	for i, node := range filtered {
+		pbNodes[i] = &pb.NodeInfo{
+			NodeId:        node.NodeID,
+			Provider:      node.Provider,
+			Region:        node.Region,
+			Zone:          node.Zone,
+			InstanceType:  node.InstanceType,
+			Status:        node.Status,
+			HealthStatus:  node.HealthStatus,
+			LastHeartbeat: timestamppb.New(node.LastHeartbeat),
+			Gpus:          node.GPUs,
+			Metadata:      node.Metadata,
+		}
+	}
+
+	s.logger.DebugContext(ctx, "listed nodes",
+		slog.Int("total", len(nodes)),
+		slog.Int("filtered", len(filtered)),
+	)
+
+	return connect.NewResponse(&pb.ListNodesResponse{
+		Nodes: pbNodes,
+	}), nil
+}
+
+// GetNode returns details about a specific node.
+func (s *Server) GetNode(ctx context.Context, req *connect.Request[pb.GetNodeRequest]) (*connect.Response[pb.GetNodeResponse], error) {
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+
+	node, err := s.db.GetNode(ctx, req.Msg.NodeId)
+	if err != nil {
+		s.logger.WarnContext(ctx, "node not found",
+			slog.String("node_id", req.Msg.NodeId),
+		)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
+	}
+
+	pbNode := &pb.NodeInfo{
+		NodeId:        node.NodeID,
+		Provider:      node.Provider,
+		Region:        node.Region,
+		Zone:          node.Zone,
+		InstanceType:  node.InstanceType,
+		Status:        node.Status,
+		HealthStatus:  node.HealthStatus,
+		LastHeartbeat: timestamppb.New(node.LastHeartbeat),
+		Gpus:          node.GPUs,
+		Metadata:      node.Metadata,
+	}
+
+	return connect.NewResponse(&pb.GetNodeResponse{
+		Node: pbNode,
+	}), nil
+}
+
 // IssueCommand issues a command to a specific node.
-// This is not part of the ControlPlaneService, but a helper for control plane operations.
-func (s *Server) IssueCommand(ctx context.Context, nodeID string, cmdType pb.NodeCommandType, params map[string]string) (string, error) {
+func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.IssueCommandRequest]) (*connect.Response[pb.IssueCommandResponse], error) {
+	// Validate request
+	if req.Msg.NodeId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
+	}
+	if req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_UNKNOWN {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("command_type is required"))
+	}
+
+	// Verify node exists
+	_, err := s.db.GetNode(ctx, req.Msg.NodeId)
+	if err != nil {
+		s.logger.WarnContext(ctx, "cannot issue command to unknown node",
+			slog.String("node_id", req.Msg.NodeId),
+		)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
+	}
+
 	commandID := uuid.New().String()
+	issuedAt := time.Now()
 
 	record := &db.CommandRecord{
 		CommandID:  commandID,
-		NodeID:     nodeID,
-		Type:       cmdType,
-		Parameters: params,
-		IssuedAt:   time.Now(),
+		NodeID:     req.Msg.NodeId,
+		Type:       req.Msg.CommandType,
+		Parameters: req.Msg.Parameters,
+		IssuedAt:   issuedAt,
 		Status:     "pending",
 	}
 
 	if err := s.db.CreateCommand(ctx, record); err != nil {
-		return "", fmt.Errorf("failed to create command: %w", err)
+		s.logger.ErrorContext(ctx, "failed to create command",
+			slog.String("command_id", commandID),
+			slog.String("node_id", req.Msg.NodeId),
+			slog.String("error", err.Error()),
+		)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create command: %w", err))
 	}
 
 	s.logger.InfoContext(ctx, "issued command",
 		slog.String("command_id", commandID),
-		slog.String("node_id", nodeID),
-		slog.String("command_type", cmdType.String()),
+		slog.String("node_id", req.Msg.NodeId),
+		slog.String("command_type", req.Msg.CommandType.String()),
 	)
-	return commandID, nil
-}
 
-// ListNodes returns all registered nodes.
-// This is not part of the ControlPlaneService, but a helper for control plane operations.
-func (s *Server) ListNodes(ctx context.Context) ([]*db.NodeRecord, error) {
-	return s.db.ListNodes(ctx)
+	return connect.NewResponse(&pb.IssueCommandResponse{
+		CommandId: commandID,
+		IssuedAt:  timestamppb.New(issuedAt),
+	}), nil
 }

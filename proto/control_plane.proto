@@ -6,9 +6,12 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/NavarchProject/navarch/proto";
 
-// ControlPlaneService is the main control plane API that receives requests from GPU nodes.
-// Nodes call this service to register themselves, report health status, send heartbeats, and poll for commands.
+// ControlPlaneService is the main control plane API.
+// Serves both node daemons (for registration, heartbeats, health) and operators (for management, commands).
+// Access control and authentication are enforced at the API layer.
 service ControlPlaneService {
+  // Node operations (called by node daemons)
+  
   // RegisterNode registers a new node with the control plane.
   // Called once during node bootstrap to establish identity and capabilities.
   rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
@@ -24,6 +27,18 @@ service ControlPlaneService {
   // GetNodeCommands polls for commands from the control plane.
   // Returns actions like cordon, drain, or diagnostic requests.
   rpc GetNodeCommands(GetNodeCommandsRequest) returns (GetNodeCommandsResponse);
+
+  // Admin operations (called by CLI, API, operators)
+  
+  // ListNodes returns all registered nodes with their current status.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+
+  // GetNode returns details about a specific node.
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse);
+
+  // IssueCommand issues a command to a specific node.
+  // The node will receive this command on its next GetNodeCommands poll.
+  rpc IssueCommand(IssueCommandRequest) returns (IssueCommandResponse);
 }
 
 message RegisterNodeRequest {
@@ -272,4 +287,53 @@ enum NodeCommandType {
 
   // Prepare for node shutdown/termination.
   NODE_COMMAND_TYPE_TERMINATE = 4;
+}
+
+// Admin API messages
+
+message ListNodesRequest {
+  // Optional filter by provider.
+  string provider = 1;
+
+  // Optional filter by region.
+  string region = 2;
+
+  // Optional filter by status.
+  NodeStatus status = 3;
+}
+
+message ListNodesResponse {
+  repeated NodeInfo nodes = 1;
+}
+
+message NodeInfo {
+  string node_id = 1;
+  string provider = 2;
+  string region = 3;
+  string zone = 4;
+  string instance_type = 5;
+  NodeStatus status = 6;
+  HealthStatus health_status = 7;
+  google.protobuf.Timestamp last_heartbeat = 8;
+  repeated GPUInfo gpus = 9;
+  NodeMetadata metadata = 10;
+}
+
+message GetNodeRequest {
+  string node_id = 1;
+}
+
+message GetNodeResponse {
+  NodeInfo node = 1;
+}
+
+message IssueCommandRequest {
+  string node_id = 1;
+  NodeCommandType command_type = 2;
+  map<string, string> parameters = 3;
+}
+
+message IssueCommandResponse {
+  string command_id = 1;
+  google.protobuf.Timestamp issued_at = 2;
 }

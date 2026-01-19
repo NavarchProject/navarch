@@ -349,13 +349,16 @@ func TestGetNodeCommands(t *testing.T) {
 		srv.RegisterNode(ctx, regReq)
 
 		// Issue cordon command
-		cmdID, err := srv.IssueCommand(ctx, "node-1",
-			pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
-			map[string]string{"reason": "maintenance"})
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			Parameters:  map[string]string{"reason": "maintenance"},
+		})
+		issueResp, err := srv.IssueCommand(ctx, issueReq)
 		if err != nil {
 			t.Fatalf("IssueCommand failed: %v", err)
 		}
-		if cmdID == "" {
+		if issueResp.Msg.CommandId == "" {
 			t.Error("Expected command ID to be returned")
 		}
 
@@ -400,8 +403,14 @@ func TestGetNodeCommands(t *testing.T) {
 		srv.RegisterNode(ctx, regReq)
 
 		// Issue multiple commands
-		srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON, nil)
-		srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN, nil)
+		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		}))
+		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+		}))
 
 		// Poll should return all pending commands
 		pollReq := connect.NewRequest(&pb.GetNodeCommandsRequest{
@@ -462,7 +471,10 @@ func TestNodeLifecycle(t *testing.T) {
 	}
 
 	// 4. Cordoning
-	srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON, nil)
+	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+		NodeId:      "node-1",
+		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+	}))
 	database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_CORDONED)
 
 	node, _ = database.GetNode(ctx, "node-1")
@@ -471,11 +483,17 @@ func TestNodeLifecycle(t *testing.T) {
 	}
 
 	// 5. Draining
-	srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN, nil)
+	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+		NodeId:      "node-1",
+		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+	}))
 	database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_DRAINING)
 
 	// 6. Termination
-	srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE, nil)
+	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+		NodeId:      "node-1",
+		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+	}))
 	database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_TERMINATED)
 
 	node, _ = database.GetNode(ctx, "node-1")
@@ -512,9 +530,9 @@ func TestMultiNodeManagement(t *testing.T) {
 		}
 
 		// Verify all nodes registered
-		nodes, _ := srv.ListNodes(ctx)
-		if len(nodes) != 3 {
-			t.Errorf("Expected 3 nodes, got %d", len(nodes))
+		listResp, _ := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{}))
+		if len(listResp.Msg.Nodes) != 3 {
+			t.Errorf("Expected 3 nodes, got %d", len(listResp.Msg.Nodes))
 		}
 	})
 
@@ -575,7 +593,10 @@ func TestMultiNodeManagement(t *testing.T) {
 		}
 
 		// Issue command only to node-1
-		srv.IssueCommand(ctx, "node-1", pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON, nil)
+		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		}))
 
 		// Node-1 should see command
 		req1 := connect.NewRequest(&pb.GetNodeCommandsRequest{NodeId: "node-1"})
