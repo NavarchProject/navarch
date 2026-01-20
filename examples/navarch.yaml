@@ -1,0 +1,196 @@
+# Navarch configuration
+#
+# This file demonstrates the Kubernetes-style configuration format.
+# Resources are separated by --- and each has apiVersion, kind, metadata, and spec.
+
+# Control plane configuration
+apiVersion: navarch.io/v1alpha1
+kind: ControlPlane
+metadata:
+  name: production
+  labels:
+    environment: production
+spec:
+  address: ":50051"
+  healthCheckInterval: 60s
+  heartbeatInterval: 30s
+  enabledHealthChecks:
+    - boot
+    - nvml
+    - xid
+  autoscaleInterval: 30s
+
+---
+# Lambda Labs provider
+apiVersion: navarch.io/v1alpha1
+kind: Provider
+metadata:
+  name: lambda
+  labels:
+    cloud: lambda
+spec:
+  type: lambda
+  lambda:
+    apiKeyEnvVar: LAMBDA_API_KEY
+
+---
+# Fake provider for development
+apiVersion: navarch.io/v1alpha1
+kind: Provider
+metadata:
+  name: fake
+  labels:
+    cloud: fake
+spec:
+  type: fake
+  fake:
+    gpuCount: 8
+
+---
+# Training pool with reactive autoscaling
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: training
+  labels:
+    workload: training
+    tier: standard
+spec:
+  providerRef: lambda
+  instanceType: gpu_8x_h100_sxm5
+  region: us-west-2
+  sshKeyNames:
+    - ops-team
+    - ml-team
+  labels:
+    workload: training
+  scaling:
+    minReplicas: 2
+    maxReplicas: 20
+    cooldownPeriod: 5m
+    autoscaler:
+      type: reactive
+      scaleUpThreshold: 80
+      scaleDownThreshold: 20
+  health:
+    unhealthyThreshold: 2
+    autoReplace: true
+
+---
+# Inference pool with queue-based autoscaling
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: inference
+  labels:
+    workload: inference
+    tier: standard
+spec:
+  providerRef: lambda
+  instanceType: gpu_1x_a100_sxm4
+  region: us-east-1
+  scaling:
+    minReplicas: 4
+    maxReplicas: 50
+    cooldownPeriod: 2m
+    autoscaler:
+      type: queue
+      jobsPerNode: 100
+  health:
+    unhealthyThreshold: 3
+    autoReplace: true
+
+---
+# Batch pool with scheduled autoscaling
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: batch
+  labels:
+    workload: batch
+spec:
+  providerRef: lambda
+  instanceType: gpu_1x_a100_80gb_sxm4
+  region: us-west-2
+  scaling:
+    minReplicas: 0
+    maxReplicas: 100
+    cooldownPeriod: 3m
+    autoscaler:
+      type: scheduled
+      schedule:
+        # Business hours: larger capacity
+        - daysOfWeek: [monday, tuesday, wednesday, thursday, friday]
+          startHour: 9
+          endHour: 18
+          minReplicas: 10
+          maxReplicas: 100
+        # Weekends: minimal capacity
+        - daysOfWeek: [saturday, sunday]
+          startHour: 0
+          endHour: 24
+          minReplicas: 0
+          maxReplicas: 10
+      fallback:
+        type: reactive
+        scaleUpThreshold: 80
+        scaleDownThreshold: 20
+  health:
+    unhealthyThreshold: 2
+    autoReplace: true
+
+---
+# Critical pool with composite autoscaling
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: critical
+  labels:
+    workload: critical
+    sla: high
+spec:
+  providerRef: lambda
+  instanceType: gpu_8x_h100_sxm5
+  region: us-west-2
+  scaling:
+    minReplicas: 5
+    maxReplicas: 30
+    cooldownPeriod: 2m
+    autoscaler:
+      type: composite
+      mode: max
+      autoscalers:
+        - type: reactive
+          scaleUpThreshold: 70
+          scaleDownThreshold: 30
+        - type: queue
+          jobsPerNode: 50
+  health:
+    unhealthyThreshold: 1
+    autoReplace: true
+
+---
+# Development pool using fake provider
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: dev
+  labels:
+    workload: dev
+    environment: development
+spec:
+  providerRef: fake
+  instanceType: gpu_8x_h100
+  region: local
+  scaling:
+    minReplicas: 1
+    maxReplicas: 5
+    cooldownPeriod: 10s
+    autoscaler:
+      type: reactive
+      scaleUpThreshold: 80
+      scaleDownThreshold: 20
+  health:
+    unhealthyThreshold: 2
+    autoReplace: true
+
