@@ -12,11 +12,14 @@ import (
 type NVML struct {
 	mu          sync.RWMutex
 	initialized bool
+	xidParser   *XIDParser
 }
 
 // NewNVML creates a new NVML GPU manager.
 func NewNVML() *NVML {
-	return &NVML{}
+	return &NVML{
+		xidParser: NewXIDParser(),
+	}
 }
 
 // Initialize initializes the NVML library.
@@ -168,10 +171,7 @@ func (n *NVML) GetDeviceHealth(ctx context.Context, index int) (*HealthInfo, err
 	}, nil
 }
 
-// GetXIDErrors returns any XID errors detected.
-// Note: NVML does not directly expose XID errors. This implementation
-// returns an empty slice. For actual XID detection, parse dmesg or
-// use nvml.DeviceGetFieldValues with XID-related field IDs.
+// GetXIDErrors returns any XID errors detected by parsing system logs.
 func (n *NVML) GetXIDErrors(ctx context.Context) ([]*XIDError, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
@@ -180,14 +180,7 @@ func (n *NVML) GetXIDErrors(ctx context.Context) ([]*XIDError, error) {
 		return nil, fmt.Errorf("not initialized")
 	}
 
-	// NVML doesn't directly expose XID errors through a simple API.
-	// In production, you would either:
-	// 1. Parse dmesg/journalctl for XID messages
-	// 2. Use NVML event sets to monitor for XID errors
-	// 3. Check specific field values that indicate errors
-	//
-	// For now, return empty slice - XID parsing should be done separately.
-	return []*XIDError{}, nil
+	return n.xidParser.Parse()
 }
 
 // IsNVMLAvailable checks if NVML is available on the system.
@@ -200,4 +193,3 @@ func IsNVMLAvailable() bool {
 	nvml.Shutdown()
 	return true
 }
-
