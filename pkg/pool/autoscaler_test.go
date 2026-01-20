@@ -11,9 +11,9 @@ func TestReactiveAutoscaler(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name        string
-		state       PoolState
-		wantTarget  int
+		name       string
+		state      PoolState
+		wantTarget int
 	}{
 		{
 			name: "scale up when utilization high",
@@ -77,6 +77,26 @@ func TestReactiveAutoscaler(t *testing.T) {
 			},
 			wantTarget: 5,
 		},
+		{
+			name: "at threshold boundary - no scale up",
+			state: PoolState{
+				CurrentNodes: 5,
+				MinNodes:     1,
+				MaxNodes:     10,
+				Utilization:  80, // Exactly at threshold, not above
+			},
+			wantTarget: 5,
+		},
+		{
+			name: "at threshold boundary - no scale down",
+			state: PoolState{
+				CurrentNodes: 5,
+				MinNodes:     1,
+				MaxNodes:     10,
+				Utilization:  20, // Exactly at threshold, not below
+			},
+			wantTarget: 5,
+		},
 	}
 
 	for _, tt := range tests {
@@ -93,16 +113,17 @@ func TestReactiveAutoscaler(t *testing.T) {
 }
 
 func TestQueueBasedAutoscaler(t *testing.T) {
-	as := NewQueueBasedAutoscaler(10) // 10 jobs per node
 	ctx := context.Background()
 
 	tests := []struct {
-		name       string
-		state      PoolState
-		wantTarget int
+		name        string
+		jobsPerNode int
+		state       PoolState
+		wantTarget  int
 	}{
 		{
-			name: "scale up for queue",
+			name:        "scale up for queue",
+			jobsPerNode: 10,
 			state: PoolState{
 				CurrentNodes: 2,
 				MinNodes:     1,
@@ -112,7 +133,8 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 			wantTarget: 5,
 		},
 		{
-			name: "scale down for empty queue",
+			name:        "scale down for empty queue",
+			jobsPerNode: 10,
 			state: PoolState{
 				CurrentNodes: 5,
 				MinNodes:     1,
@@ -122,7 +144,8 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 			wantTarget: 1,
 		},
 		{
-			name: "respect min nodes",
+			name:        "respect min nodes",
+			jobsPerNode: 10,
 			state: PoolState{
 				CurrentNodes: 5,
 				MinNodes:     3,
@@ -132,7 +155,8 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 			wantTarget: 3,
 		},
 		{
-			name: "respect max nodes",
+			name:        "respect max nodes",
+			jobsPerNode: 10,
 			state: PoolState{
 				CurrentNodes: 5,
 				MinNodes:     1,
@@ -141,10 +165,46 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 			},
 			wantTarget: 10,
 		},
+		{
+			name:        "zero jobs per node returns current",
+			jobsPerNode: 0,
+			state: PoolState{
+				CurrentNodes: 5,
+				MinNodes:     1,
+				MaxNodes:     10,
+				QueueDepth:   100,
+			},
+			wantTarget: 5,
+		},
+		{
+			name:        "respect cooldown",
+			jobsPerNode: 10,
+			state: PoolState{
+				CurrentNodes:   5,
+				MinNodes:       1,
+				MaxNodes:       10,
+				QueueDepth:     100,
+				LastScaleTime:  time.Now(),
+				CooldownPeriod: time.Hour,
+			},
+			wantTarget: 5,
+		},
+		{
+			name:        "partial queue rounds up",
+			jobsPerNode: 10,
+			state: PoolState{
+				CurrentNodes: 1,
+				MinNodes:     1,
+				MaxNodes:     10,
+				QueueDepth:   11, // Needs 2 nodes (ceil(11/10))
+			},
+			wantTarget: 2,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			as := NewQueueBasedAutoscaler(tt.jobsPerNode)
 			got, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
@@ -157,6 +217,7 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 }
 
 func TestScheduledAutoscaler(t *testing.T) {
+	ctx := context.Background()
 	reactive := NewReactiveAutoscaler(80, 20)
 	schedule := []ScheduleEntry{
 		{
@@ -174,42 +235,70 @@ func TestScheduledAutoscaler(t *testing.T) {
 			MaxNodes:   5,
 		},
 	}
-	as := NewScheduledAutoscaler(schedule, reactive)
-	ctx := context.Background()
 
 	tests := []struct {
 		name       string
+		fallback   Autoscaler
 		state      PoolState
 		wantTarget int
 	}{
 		{
-			name: "business hours scale up",
+			name:     "business hours scale up",
+			fallback: reactive,
 			state: PoolState{
 				CurrentNodes: 5,
 				MinNodes:     1,
 				MaxNodes:     10,
 				Utilization:  90,
-				TimeOfDay:    time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC), // Monday 10am
+				TimeOfDay:    time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
 				DayOfWeek:    time.Monday,
 			},
 			wantTarget: 6,
 		},
 		{
-			name: "weekend limited max",
+			name:     "weekend limited max",
+			fallback: reactive,
 			state: PoolState{
 				CurrentNodes: 3,
 				MinNodes:     1,
 				MaxNodes:     100,
 				Utilization:  90,
-				TimeOfDay:    time.Date(2024, 1, 13, 10, 0, 0, 0, time.UTC), // Saturday
+				TimeOfDay:    time.Date(2024, 1, 13, 10, 0, 0, 0, time.UTC),
 				DayOfWeek:    time.Saturday,
 			},
-			wantTarget: 4, // Would be more but schedule limits to 5
+			wantTarget: 4,
+		},
+		{
+			name:     "outside schedule uses original limits",
+			fallback: reactive,
+			state: PoolState{
+				CurrentNodes: 5,
+				MinNodes:     1,
+				MaxNodes:     50,
+				Utilization:  90,
+				TimeOfDay:    time.Date(2024, 1, 15, 20, 0, 0, 0, time.UTC), // Monday 8pm
+				DayOfWeek:    time.Monday,
+			},
+			wantTarget: 6, // Uses original MaxNodes=50, scales up
+		},
+		{
+			name:     "no fallback returns current",
+			fallback: nil,
+			state: PoolState{
+				CurrentNodes: 5,
+				MinNodes:     1,
+				MaxNodes:     10,
+				Utilization:  90,
+				TimeOfDay:    time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
+				DayOfWeek:    time.Monday,
+			},
+			wantTarget: 5,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			as := NewScheduledAutoscaler(schedule, tt.fallback)
 			got, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
@@ -221,18 +310,52 @@ func TestScheduledAutoscaler(t *testing.T) {
 	}
 }
 
-func TestPredictiveAutoscaler(t *testing.T) {
-	reactive := NewReactiveAutoscaler(80, 20)
-	as := NewPredictiveAutoscaler(5, 1.5, reactive)
+func TestScheduledAutoscaler_EmptyDaysMatchesAll(t *testing.T) {
 	ctx := context.Background()
+	reactive := NewReactiveAutoscaler(80, 20)
+	schedule := []ScheduleEntry{
+		{
+			DaysOfWeek: []time.Weekday{}, // Empty means all days
+			StartHour:  9,
+			EndHour:    17,
+			MinNodes:   10,
+			MaxNodes:   50,
+		},
+	}
+	as := NewScheduledAutoscaler(schedule, reactive)
+
+	state := PoolState{
+		CurrentNodes: 5,
+		MinNodes:     1,
+		MaxNodes:     100,
+		Utilization:  90,
+		TimeOfDay:    time.Date(2024, 1, 13, 10, 0, 0, 0, time.UTC), // Saturday
+		DayOfWeek:    time.Saturday,
+	}
+
+	got, _ := as.Recommend(ctx, state)
+	if got != 6 { // MinNodes=10 enforced, but scaling from 5 goes to 6
+		t.Errorf("Recommend() = %d, want 6", got)
+	}
+}
+
+func TestPredictiveAutoscaler(t *testing.T) {
+	ctx := context.Background()
+	reactive := NewReactiveAutoscaler(80, 20)
 
 	tests := []struct {
 		name       string
+		lookback   int
+		growth     float64
+		fallback   Autoscaler
 		state      PoolState
 		wantTarget int
 	}{
 		{
-			name: "insufficient history falls back",
+			name:     "insufficient history with fallback",
+			lookback: 5,
+			growth:   1.5,
+			fallback: reactive,
 			state: PoolState{
 				CurrentNodes:       5,
 				MinNodes:           1,
@@ -240,10 +363,27 @@ func TestPredictiveAutoscaler(t *testing.T) {
 				Utilization:        50,
 				UtilizationHistory: []float64{40, 45},
 			},
-			wantTarget: 5, // Falls back to reactive, no change
+			wantTarget: 5,
 		},
 		{
-			name: "proactive scale up on rising trend",
+			name:     "insufficient history without fallback",
+			lookback: 5,
+			growth:   1.5,
+			fallback: nil,
+			state: PoolState{
+				CurrentNodes:       5,
+				MinNodes:           1,
+				MaxNodes:           10,
+				Utilization:        50,
+				UtilizationHistory: []float64{40, 45},
+			},
+			wantTarget: 5,
+		},
+		{
+			name:     "rising trend proactive scale up",
+			lookback: 5,
+			growth:   1.5,
+			fallback: reactive,
 			state: PoolState{
 				CurrentNodes:       5,
 				MinNodes:           1,
@@ -251,12 +391,41 @@ func TestPredictiveAutoscaler(t *testing.T) {
 				Utilization:        70,
 				UtilizationHistory: []float64{50, 55, 60, 65, 70},
 			},
-			wantTarget: 7, // Predicts growth and scales proactively
+			wantTarget: 7,
+		},
+		{
+			name:     "respect max limit on prediction",
+			lookback: 5,
+			growth:   2.0,
+			fallback: reactive,
+			state: PoolState{
+				CurrentNodes:       8,
+				MinNodes:           1,
+				MaxNodes:           10,
+				Utilization:        75,
+				UtilizationHistory: []float64{50, 55, 60, 65, 75},
+			},
+			wantTarget: 10,
+		},
+		{
+			name:     "stable trend uses fallback",
+			lookback: 5,
+			growth:   1.5,
+			fallback: reactive,
+			state: PoolState{
+				CurrentNodes:       5,
+				MinNodes:           1,
+				MaxNodes:           10,
+				Utilization:        50,
+				UtilizationHistory: []float64{50, 50, 50, 50, 50},
+			},
+			wantTarget: 5, // No trend, fallback reactive sees 50% utilization
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			as := NewPredictiveAutoscaler(tt.lookback, tt.growth, tt.fallback)
 			got, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
@@ -270,10 +439,8 @@ func TestPredictiveAutoscaler(t *testing.T) {
 
 func TestCompositeAutoscaler(t *testing.T) {
 	ctx := context.Background()
-
-	// Two autoscalers with different thresholds
-	aggressive := NewReactiveAutoscaler(70, 30) // Scales up earlier
-	conservative := NewReactiveAutoscaler(90, 10) // Scales up later
+	aggressive := NewReactiveAutoscaler(70, 30)
+	conservative := NewReactiveAutoscaler(90, 10)
 
 	state := PoolState{
 		CurrentNodes: 5,
@@ -282,21 +449,56 @@ func TestCompositeAutoscaler(t *testing.T) {
 		Utilization:  75,
 	}
 
-	t.Run("max mode takes highest", func(t *testing.T) {
-		as := NewCompositeAutoscaler(ModeMax, aggressive, conservative)
-		got, _ := as.Recommend(ctx, state)
-		if got != 6 { // Aggressive wants 6, conservative wants 5
-			t.Errorf("Recommend() = %d, want 6", got)
-		}
-	})
+	tests := []struct {
+		name       string
+		mode       CompositeMode
+		scalers    []Autoscaler
+		wantTarget int
+	}{
+		{
+			name:       "max mode takes highest",
+			mode:       ModeMax,
+			scalers:    []Autoscaler{aggressive, conservative},
+			wantTarget: 6,
+		},
+		{
+			name:       "min mode takes lowest",
+			mode:       ModeMin,
+			scalers:    []Autoscaler{aggressive, conservative},
+			wantTarget: 5,
+		},
+		{
+			name:       "avg mode averages",
+			mode:       ModeAvg,
+			scalers:    []Autoscaler{aggressive, conservative},
+			wantTarget: 5, // (6+5)/2 = 5
+		},
+		{
+			name:       "empty autoscalers returns current",
+			mode:       ModeMax,
+			scalers:    []Autoscaler{},
+			wantTarget: 5,
+		},
+		{
+			name:       "single autoscaler",
+			mode:       ModeMax,
+			scalers:    []Autoscaler{aggressive},
+			wantTarget: 6,
+		},
+	}
 
-	t.Run("min mode takes lowest", func(t *testing.T) {
-		as := NewCompositeAutoscaler(ModeMin, aggressive, conservative)
-		got, _ := as.Recommend(ctx, state)
-		if got != 5 { // Conservative wants 5
-			t.Errorf("Recommend() = %d, want 5", got)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			as := NewCompositeAutoscaler(tt.mode, tt.scalers...)
+			got, err := as.Recommend(ctx, state)
+			if err != nil {
+				t.Fatalf("Recommend() error = %v", err)
+			}
+			if got != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			}
+		})
+	}
 }
 
 func TestAutoscalerInterface(t *testing.T) {
@@ -306,4 +508,3 @@ func TestAutoscalerInterface(t *testing.T) {
 	var _ Autoscaler = (*PredictiveAutoscaler)(nil)
 	var _ Autoscaler = (*CompositeAutoscaler)(nil)
 }
-
