@@ -1,50 +1,49 @@
 # Example pool configuration for Navarch
 #
 # This file shows how to configure GPU node pools with scaling limits,
-# health policies, and provider-specific settings.
+# autoscaler strategies, and health policies.
 
 pools:
-  # Training pool: High-end GPUs for large model training
+  # Training pool: Reactive scaling based on utilization
   - name: training
     provider: lambda
     instance_type: gpu_8x_h100_sxm5
     region: us-west-2
     
-    # Scaling limits - set these with confidence
     scaling:
-      min_nodes: 2        # Always keep 2 nodes warm
-      max_nodes: 20       # Hard cap for cost control
+      min_nodes: 2
+      max_nodes: 20
+      cooldown_period: 5m
       
-      # Scaling behavior
-      scale_up_threshold: 80    # Scale up when 80% utilized
-      scale_down_threshold: 20  # Scale down when 20% utilized
-      scale_down_delay: 10m     # Wait 10 min before scaling down
-      cooldown_period: 5m       # Min 5 min between scale actions
+      # Reactive autoscaler: scale based on current utilization
+      autoscaler:
+        type: reactive
+        scale_up_threshold: 80
+        scale_down_threshold: 20
     
-    # Health policy
     health:
-      unhealthy_threshold: 2    # 2 consecutive failures = unhealthy
-      auto_replace: true        # Automatically replace unhealthy nodes
+      unhealthy_threshold: 2
+      auto_replace: true
     
-    # Labels for workload routing
     labels:
       workload: training
       gpu-memory: "80GB"
-      priority: high
 
-  # Inference pool: Cost-effective GPUs for serving
+  # Inference pool: Queue-based scaling for request handling
   - name: inference
     provider: lambda
     instance_type: gpu_1x_a100_sxm4
     region: us-east-1
     
     scaling:
-      min_nodes: 4        # Higher minimum for availability
-      max_nodes: 50       # Can scale up significantly
-      scale_up_threshold: 70
-      scale_down_threshold: 30
-      scale_down_delay: 5m
+      min_nodes: 4
+      max_nodes: 50
       cooldown_period: 2m
+      
+      # Queue-based autoscaler: scale based on pending jobs
+      autoscaler:
+        type: queue
+        jobs_per_node: 100
     
     health:
       unhealthy_threshold: 3
@@ -52,51 +51,104 @@ pools:
     
     labels:
       workload: inference
-      priority: medium
 
-  # Burst pool: On-demand capacity for peak loads
-  - name: burst
+  # Batch pool: Scheduled scaling for known patterns
+  - name: batch
     provider: lambda
     instance_type: gpu_1x_a100_80gb_sxm4
     region: us-west-2
     
     scaling:
-      min_nodes: 0        # Can scale to zero
-      max_nodes: 100      # Large burst capacity
-      scale_up_threshold: 90
-      scale_down_threshold: 10
-      scale_down_delay: 15m   # Longer delay to avoid thrashing
+      min_nodes: 0
+      max_nodes: 100
       cooldown_period: 3m
+      
+      # Scheduled autoscaler: different limits by time
+      autoscaler:
+        type: scheduled
+        schedule:
+          # Business hours: larger capacity
+          - days: [monday, tuesday, wednesday, thursday, friday]
+            start_hour: 9
+            end_hour: 18
+            min_nodes: 10
+            max_nodes: 100
+          # Off hours: minimal capacity
+          - days: [saturday, sunday]
+            start_hour: 0
+            end_hour: 24
+            min_nodes: 0
+            max_nodes: 10
+        # Fall back to reactive when not in scheduled window
+        fallback:
+          type: reactive
+          scale_up_threshold: 80
+          scale_down_threshold: 20
     
     health:
       unhealthy_threshold: 2
       auto_replace: true
     
     labels:
-      workload: burst
-      priority: low
+      workload: batch
 
-  # Dev/test pool: Smaller instances for development
-  - name: dev
+  # ML training pool: Predictive scaling anticipates demand
+  - name: ml-training
     provider: gcp
-    instance_type: a2-highgpu-1g
+    instance_type: a3-highgpu-8g
     region: us-central1
-    zones:
-      - us-central1-a
-      - us-central1-b
     
     scaling:
-      min_nodes: 1
-      max_nodes: 5
-      scale_down_delay: 30m   # Keep instances longer for iterative dev
+      min_nodes: 2
+      max_nodes: 50
+      cooldown_period: 10m
+      
+      # Predictive autoscaler: uses historical data to forecast
+      autoscaler:
+        type: predictive
+        lookback_window: 30        # Use last 30 samples
+        growth_factor: 1.5         # Scale 1.5x predicted need
+        fallback:
+          type: reactive
+          scale_up_threshold: 70
+          scale_down_threshold: 30
     
     health:
-      unhealthy_threshold: 5  # More tolerant for dev
-      auto_replace: false     # Manual intervention for dev
+      unhealthy_threshold: 2
+      auto_replace: true
     
     labels:
-      environment: development
-      workload: any
+      workload: ml-training
+
+  # Critical pool: Composite scaling for high availability
+  - name: critical
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    region: us-west-2
+    
+    scaling:
+      min_nodes: 5
+      max_nodes: 30
+      cooldown_period: 2m
+      
+      # Composite autoscaler: combines multiple strategies
+      autoscaler:
+        type: composite
+        mode: max              # Take the highest recommendation
+        autoscalers:
+          - type: reactive
+            scale_up_threshold: 70
+            scale_down_threshold: 30
+          - type: queue
+            jobs_per_node: 50
+    
+    health:
+      unhealthy_threshold: 1   # Replace immediately on failure
+      auto_replace: true
+    
+    labels:
+      workload: critical
+      sla: high
 
 # Global settings
 global:
