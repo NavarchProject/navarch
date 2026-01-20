@@ -91,7 +91,7 @@ chmod +x /usr/local/bin/navarch-node
 navarch-node --server https://control-plane.example.com --node-id $(hostname)
 `
 
-// Note: Lambda doesn't support user-data directly.
+// Note: Lambda does not support user-data directly.
 // SSH into the instance after creation to run the script,
 // or use a custom image with the agent pre-installed.
 ```

@@ -46,13 +46,14 @@ The control plane is the single source of truth. It provisions instances through
 
 Create custom images with the Navarch agent pre-installed.
 
-**Benefits:**
+Benefits:
+
 - Agent starts automatically on boot.
 - Consistent configuration across all nodes.
 - Faster instance startup (no runtime installation).
 - Version control for agent updates.
 
-**GCP custom image:**
+GCP custom image:
 
 ```bash
 # 1. Create a base instance
@@ -78,7 +79,7 @@ gcloud compute images create navarch-gpu-v1 \
   --family=navarch-gpu
 ```
 
-**AWS AMI:**
+AWS AMI:
 
 ```bash
 # Use Packer or AWS Image Builder
@@ -89,14 +90,14 @@ gcloud compute images create navarch-gpu-v1 \
 
 Install agent at instance startup using cloud-init.
 
-**GCP startup script:**
+GCP startup script:
 
 ```bash
 gcloud compute instances create gpu-node-1 \
   --metadata-from-file startup-script=scripts/install-agent.sh
 ```
 
-**install-agent.sh:**
+install-agent.sh:
 
 ```bash
 #!/bin/bash
@@ -142,7 +143,7 @@ systemctl start navarch-node
 
 Run the agent as a container (useful for Kubernetes).
 
-**Docker:**
+Docker:
 
 ```bash
 docker run -d \
@@ -155,7 +156,7 @@ docker run -d \
   --node-id $(hostname)
 ```
 
-**Kubernetes DaemonSet:**
+Kubernetes DaemonSet:
 
 ```yaml
 apiVersion: apps/v1
@@ -219,7 +220,7 @@ ReadWritePaths=/var/log
 WantedBy=multi-user.target
 ```
 
-**Managing the service:**
+Managing the service:
 
 ```bash
 # Enable on boot
@@ -291,12 +292,12 @@ The pool manager (part of control plane) handles:
 
 ### Scaling triggers
 
-**Scale up when:**
+Scale up when:
 - Pool size below minimum.
 - All healthy nodes at capacity.
 - Pending provision requests.
 
-**Scale down when:**
+Scale down when:
 - Pool size above maximum.
 - Low utilization for extended period.
 - Node reported unhealthy (terminate and replace).

@@ -239,8 +239,6 @@ func (p *Provider) parseError(resp *http.Response) error {
 	return fmt.Errorf("lambda API error: status %d, body: %s", resp.StatusCode, string(body))
 }
 
-// API request/response types
-
 type launchRequest struct {
 	InstanceTypeName string   `json:"instance_type_name"`
 	RegionName       string   `json:"region_name"`
@@ -302,4 +300,3 @@ type errorResponse struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }
-

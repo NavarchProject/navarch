@@ -119,7 +119,7 @@ global:
     # Alert thresholds
     alert_at_percent: [50, 75, 90]
 
-# Provider credentials (reference secrets, don't inline)
+# Provider credentials (reference secrets, do not inline)
 providers:
   lambda:
     api_key_secret: navarch/lambda-api-key  # From secret manager

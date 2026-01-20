@@ -14,13 +14,13 @@ Before testing on real GPUs, ensure:
 
 ### 1. Provision a GPU instance
 
-**Lambda Labs:**
+Lambda Labs:
 ```bash
 # Use Lambda Labs console to create an instance
 # Recommended: gpu_1x_a100_sxm4 or gpu_8x_a100_80gb_sxm4
 ```
 
-**GCP:**
+GCP:
 ```bash
 gcloud compute instances create navarch-test \
   --zone=us-central1-a \
@@ -31,7 +31,7 @@ gcloud compute instances create navarch-test \
   --maintenance-policy=TERMINATE
 ```
 
-**AWS:**
+AWS:
 ```bash
 aws ec2 run-instances \
   --image-id ami-0abcdef1234567890 \

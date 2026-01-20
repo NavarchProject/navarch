@@ -14,7 +14,6 @@ type Config struct {
 	Name     string
 	Provider string // "lambda", "gcp", "aws"
 
-	// Instance configuration
 	InstanceType string
 	Region       string
 	Zones        []string // For multi-zone pools
@@ -30,7 +29,6 @@ type Config struct {
 	ScaleDownDelay     time.Duration // Wait before scaling down
 	CooldownPeriod     time.Duration // Min time between scaling actions
 
-	// Health
 	UnhealthyThreshold int  // Consecutive failures before replacement
 	AutoReplace        bool // Automatically replace unhealthy nodes
 
@@ -40,21 +38,21 @@ type Config struct {
 
 // Pool represents a managed group of GPU nodes.
 type Pool struct {
-	config   Config
-	provider provider.Provider
-	mu       sync.RWMutex
-	nodes    map[string]*ManagedNode
+	config    Config
+	provider  provider.Provider
+	mu        sync.RWMutex
+	nodes     map[string]*ManagedNode
 	lastScale time.Time
 }
 
 // ManagedNode tracks a node within a pool.
 type ManagedNode struct {
-	Node              *provider.Node
-	Pool              string
-	HealthFailures    int
-	LastHealthCheck   time.Time
-	Cordoned          bool
-	ProvisionedAt     time.Time
+	Node            *provider.Node
+	Pool            string
+	HealthFailures  int
+	LastHealthCheck time.Time
+	Cordoned        bool
+	ProvisionedAt   time.Time
 }
 
 // Status represents the current state of a pool.
@@ -127,7 +125,6 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Enforce max limit
 	currentCount := len(p.nodes)
 	available := p.config.MaxNodes - currentCount
 	if count > available {
@@ -136,8 +133,6 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 	if count <= 0 {
 		return nil, fmt.Errorf("pool at maximum capacity (%d nodes)", p.config.MaxNodes)
 	}
-
-	// Check cooldown
 	if time.Since(p.lastScale) < p.config.CooldownPeriod {
 		return nil, fmt.Errorf("cooldown period not elapsed (%.0fs remaining)",
 			(p.config.CooldownPeriod - time.Since(p.lastScale)).Seconds())
@@ -174,7 +169,6 @@ func (p *Pool) ScaleDown(ctx context.Context, count int) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Enforce min limit
 	currentCount := len(p.nodes)
 	removable := currentCount - p.config.MinNodes
 	if count > removable {
@@ -183,13 +177,10 @@ func (p *Pool) ScaleDown(ctx context.Context, count int) error {
 	if count <= 0 {
 		return fmt.Errorf("pool at minimum capacity (%d nodes)", p.config.MinNodes)
 	}
-
-	// Check cooldown
 	if time.Since(p.lastScale) < p.config.CooldownPeriod {
 		return fmt.Errorf("cooldown period not elapsed")
 	}
 
-	// Select nodes to remove (prefer cordoned, then oldest)
 	toRemove := p.selectForRemoval(count)
 
 	for _, nodeID := range toRemove {
@@ -216,14 +207,12 @@ func (p *Pool) selectForRemoval(count int) []string {
 	}
 
 	var result []string
-	// First take cordoned nodes
 	for _, id := range cordoned {
 		if len(result) >= count {
 			break
 		}
 		result = append(result, id)
 	}
-	// Then healthy nodes if needed
 	for _, id := range healthy {
 		if len(result) >= count {
 			break
@@ -270,13 +259,11 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		return nil, fmt.Errorf("node %s not found in pool", nodeID)
 	}
 
-	// Terminate old node
 	if err := p.provider.Terminate(ctx, nodeID); err != nil {
 		return nil, fmt.Errorf("failed to terminate node: %w", err)
 	}
 	delete(p.nodes, nodeID)
 
-	// Provision replacement
 	node, err := p.provider.Provision(ctx, provider.ProvisionRequest{
 		Name:         mn.Node.ID + "-replacement",
 		InstanceType: p.config.InstanceType,
@@ -335,4 +322,3 @@ func (p *Pool) Nodes() []*ManagedNode {
 	}
 	return nodes
 }
-
