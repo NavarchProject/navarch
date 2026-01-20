@@ -245,7 +245,49 @@ autoscaling:
 
 ## Scaling behavior
 
-### Scale up
+### Autoscaling loop
+
+Navarch continuously monitors and scales pools based on configured triggers.
+
+```mermaid
+sequenceDiagram
+    participant CP as Control Plane
+    participant PM as Pool Manager
+    participant AS as Autoscaler
+    participant DB as Database
+    participant Node as GPU Nodes
+    participant Cloud as Cloud Provider
+
+    Note over CP: Startup
+    CP->>PM: Start(ctx)
+    PM->>PM: Start autoscaler loop<br/>(every 30s)
+    
+    loop Every 30 seconds
+        PM->>DB: ListNodes(pool)
+        DB-->>PM: 3 nodes
+        PM->>DB: GetRecentMetrics(pool)
+        DB-->>PM: Avg 85% GPU util
+        
+        PM->>AS: Recommend(state)
+        Note over AS: Current: 3 nodes<br/>Utilization: 85%<br/>Threshold: 75%
+        AS-->>PM: Target: 4 nodes<br/>(85% > 75%)
+        
+        alt Scale Up Needed
+            PM->>Cloud: Provision(instance_type, labels)
+            Cloud-->>PM: node-4 created
+            Cloud->>Node: Boot & start agent
+            Node->>CP: RegisterNode(node-4)
+            CP->>DB: Store node-4
+            PM->>PM: Update last_scale_time<br/>Enter cooldown (5m)
+        else In Cooldown
+            Note over PM: Skip scaling<br/>(cooldown active)
+        else No Change Needed
+            Note over PM: Target = Current<br/>Do nothing
+        end
+    end
+```
+
+### Scale up flow
 
 1. Autoscaler recommends target node count
 2. Pool manager calculates delta (target - current)
@@ -253,7 +295,15 @@ autoscaling:
 4. Nodes register with control plane
 5. Update last scale time
 
-### Scale down
+**Example:**
+```
+Current: 3 nodes, 85% GPU utilization
+Threshold: scale_up_at 75%
+Decision: 85% > 75% → Scale to 4 nodes
+Action: Provision 1 node
+```
+
+### Scale down flow
 
 1. Autoscaler recommends target node count
 2. Pool manager calculates delta (current - target)
@@ -261,9 +311,51 @@ autoscaling:
 4. Terminate nodes via provider API
 5. Update last scale time
 
+**Example:**
+```
+Current: 4 nodes, 15% GPU utilization
+Threshold: scale_down_at 25%
+Cooldown: Expired
+Decision: 15% < 25% → Scale to 3 nodes
+Action: Terminate 1 node (prefer cordoned)
+```
+
 ### Cooldown period
 
 After any scaling action, the pool enters a cooldown period (default 5 minutes). No scaling occurs during cooldown to prevent oscillation.
+
+### Decision triggers
+
+The autoscaler evaluates multiple signals every evaluation interval:
+
+**Minimum nodes (always enforced):**
+```
+if current_nodes < min_nodes:
+    scale_up_to(min_nodes)
+```
+
+**GPU utilization (reactive autoscaler):**
+```
+if avg_gpu_util > scale_up_threshold:
+    scale_up_by(1)
+elif avg_gpu_util < scale_down_threshold:
+    scale_down_by(1)
+```
+
+**Queue depth (queue-based autoscaler):**
+```
+needed = ceil(queue_depth / jobs_per_node)
+if needed > current_nodes:
+    scale_up_to(needed)
+elif needed < current_nodes:
+    scale_down_to(needed)
+```
+
+**Time schedule (scheduled autoscaler):**
+```
+if current_time in schedule_window:
+    enforce_window_limits(min_nodes, max_nodes)
+```
 
 ### Node replacement
 
@@ -380,6 +472,37 @@ Kubernetes may report a node as "Ready" while GPUs are failing. Navarch detects 
 
 ### Collection flow
 
+```mermaid
+sequenceDiagram
+    participant Node as GPU Node
+    participant CP as Control Plane
+    participant DB as InMemDB
+    participant MS as MetricsSource
+    participant AS as Autoscaler
+
+    loop Every 5-30 seconds
+        Node->>Node: Query GPUs via NVML
+        Node->>CP: SendHeartbeat(metrics)
+        Note over Node: GPU 0: 85% util<br/>GPU 1: 90% util<br/>Temp: 65°C
+        CP->>DB: RecordMetrics(node_id, metrics)
+        DB->>DB: Store (max 100 samples)
+    end
+
+    loop Every 30 seconds (autoscaler)
+        AS->>MS: GetPoolMetrics(pool_name)
+        MS->>DB: ListNodes(pool=training)
+        DB-->>MS: node-1, node-2, node-3
+        MS->>DB: GetRecentMetrics(node-1)
+        MS->>DB: GetRecentMetrics(node-2)
+        MS->>DB: GetRecentMetrics(node-3)
+        DB-->>MS: Recent samples (5 min window)
+        MS->>MS: Aggregate utilization<br/>Average across all GPUs
+        MS-->>AS: Utilization: 85%<br/>History: [80, 82, 85, 87, 85]
+        AS->>AS: Make decision
+    end
+```
+
+**Text representation:**
 ```
 Node Agent → Heartbeat (every 5s) → Control Plane → InMemDB
                                                         ↓
@@ -421,6 +544,73 @@ Then pass to pool manager:
 ```go
 metricsSource := NewMySchedulerMetrics(scheduler)
 poolManager := controlplane.NewPoolManager(cfg, metricsSource, logger)
+```
+
+## Complete lifecycle example
+
+Here is a complete example of autoscaling in action over time:
+
+```mermaid
+gantt
+    title GPU Cluster Autoscaling Timeline
+    dateFormat HH:mm
+    axisFormat %H:%M
+    
+    section Pool State
+    2 nodes (min)           :00:00, 30m
+    3 nodes (scaled up)     :00:30, 5h30m
+    4 nodes (scaled up)     :06:00, 3h30m
+    3 nodes (scaled down)   :09:30, 14h30m
+    
+    section GPU Utilization
+    45% (idle)              :00:00, 30m
+    82% (training starts)   :00:30, 5h30m
+    95% (heavy load)        :06:00, 3h30m
+    18% (jobs done)         :09:30, 5h
+    15% (idle)              :14:30, 9h30m
+    
+    section Scaling Events
+    Initial provision       :milestone, 00:00, 0m
+    Scale up (82% > 75%)    :crit, 00:30, 1m
+    Scale up (95% > 75%)    :crit, 06:00, 1m
+    Scale down (18% < 25%)  :active, 09:30, 1m
+```
+
+**Event timeline:**
+
+```
+00:00 - Control plane starts
+        Pool configured: min_nodes=2, scale_up_at=75%, scale_down_at=25%
+        Autoscaler: "0 < 2 min, scale up to 2"
+        
+00:01 - Provision 2 nodes via Lambda Labs
+        
+00:02 - Nodes register, send heartbeats (45% GPU utilization)
+        
+00:30 - User submits 20 training jobs
+        Autoscaler evaluation: "3 nodes, 82% util > 75%, scale up to 3"
+        
+00:31 - Provision 1 node, enter cooldown (5 minutes)
+        
+05:31 - Cooldown expires
+        
+06:00 - More jobs submitted, GPU util spikes to 95%
+        Autoscaler: "3 nodes, 95% util > 75%, scale up to 4"
+        
+06:01 - Provision 1 node, enter cooldown
+        
+09:30 - Training jobs complete, GPU util drops to 18%
+        Autoscaler: "4 nodes, 18% util < 25%, scale down to 3"
+        
+09:31 - Terminate 1 node, enter cooldown
+        
+14:30 - Still idle at 15% utilization
+        Cooldown expired, but 15% < 25%
+        Autoscaler: "3 nodes, 15% util < 25%, scale down to 2"
+        
+14:31 - Terminate 1 node (back to minimum)
+        
+14:36 - Cooldown expires, stable at 2 nodes
 ```
 
 ## Deployment models
