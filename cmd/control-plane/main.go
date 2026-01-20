@@ -77,7 +77,7 @@ func main() {
 	var poolManager *controlplane.PoolManager
 	if *poolsConfig != "" {
 		controlPlaneURL := fmt.Sprintf("http://localhost%s", *addr)
-		if (*addr)[0] != ':' {
+		if len(*addr) > 0 && (*addr)[0] != ':' {
 			controlPlaneURL = "http://" + *addr
 		}
 		var err error
