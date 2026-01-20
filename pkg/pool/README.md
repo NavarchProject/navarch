@@ -39,11 +39,16 @@ The `Autoscaler` interface allows pluggable scaling strategies:
 
 ```go
 type Autoscaler interface {
-    Recommend(ctx context.Context, state PoolState) (int, error)
+    Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error)
+}
+
+type ScaleRecommendation struct {
+    TargetNodes int    // Desired node count
+    Reason      string // Human-readable explanation for logging/debugging
 }
 ```
 
-The autoscaler receives current pool state and returns the recommended node count.
+The autoscaler receives current pool state and returns a recommendation with the target node count and a reason. The reason is useful for observability and debugging scaling decisions.
 
 ### PoolState
 
@@ -187,7 +192,7 @@ type MyMLAutoscaler struct {
     model *MyForecastModel
 }
 
-func (a *MyMLAutoscaler) Recommend(ctx context.Context, state pool.PoolState) (int, error) {
+func (a *MyMLAutoscaler) Recommend(ctx context.Context, state pool.PoolState) (pool.ScaleRecommendation, error) {
     // Use your ML model to predict demand
     prediction := a.model.Predict(state.UtilizationHistory)
     
@@ -198,7 +203,10 @@ func (a *MyMLAutoscaler) Recommend(ctx context.Context, state pool.PoolState) (i
     target := max(needed, state.MinNodes)
     target = min(target, state.MaxNodes)
     
-    return target, nil
+    return pool.ScaleRecommendation{
+        TargetNodes: target,
+        Reason:      fmt.Sprintf("ML prediction: %.2f", prediction),
+    }, nil
 }
 ```
 
@@ -244,12 +252,13 @@ for {
         CooldownPeriod: p.Config().CooldownPeriod,
     }
     
-    target, _ := as.Recommend(ctx, state)
+    rec, _ := as.Recommend(ctx, state)
+    log.Printf("autoscaler recommendation: %d nodes (%s)", rec.TargetNodes, rec.Reason)
     
-    if target > state.CurrentNodes {
-        p.ScaleUp(ctx, target - state.CurrentNodes)
-    } else if target < state.CurrentNodes {
-        p.ScaleDown(ctx, state.CurrentNodes - target)
+    if rec.TargetNodes > state.CurrentNodes {
+        p.ScaleUp(ctx, rec.TargetNodes - state.CurrentNodes)
+    } else if rec.TargetNodes < state.CurrentNodes {
+        p.ScaleDown(ctx, state.CurrentNodes - rec.TargetNodes)
     }
     
     time.Sleep(30 * time.Second)

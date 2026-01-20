@@ -2,23 +2,30 @@ package pool
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
 // Autoscaler decides how many nodes a pool should have.
 type Autoscaler interface {
-	// Recommend returns the recommended node count for the pool.
+	// Recommend returns the recommended node count and reason.
 	// Returns current count if no change is needed.
-	Recommend(ctx context.Context, state PoolState) (int, error)
+	Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error)
+}
+
+// ScaleRecommendation is the autoscaler's output.
+type ScaleRecommendation struct {
+	TargetNodes int    // Desired node count
+	Reason      string // Human-readable explanation for logging/debugging
 }
 
 // PoolState provides current pool metrics to the autoscaler.
 type PoolState struct {
 	Name         string
-	CurrentNodes int // Total nodes in pool (healthy + unhealthy)
-	HealthyNodes int // Nodes passing health checks
-	MinNodes     int // Pool minimum node count
-	MaxNodes     int // Pool maximum node count
+	CurrentNodes int     // Total nodes in pool (healthy + unhealthy)
+	HealthyNodes int     // Nodes passing health checks
+	MinNodes     int     // Pool minimum node count
+	MaxNodes     int     // Pool maximum node count
 	Utilization  float64 // Average GPU utilization (0-100)
 	PendingJobs  int     // Jobs waiting to be scheduled
 	QueueDepth   int     // Total jobs in queue (pending + running)
@@ -31,12 +38,6 @@ type PoolState struct {
 	DayOfWeek          time.Weekday // Current day for scheduled scaling
 }
 
-// ScaleDecision represents the autoscaler's recommendation.
-type ScaleDecision struct {
-	TargetNodes int     // Recommended node count
-	Reason      string  // Human-readable explanation
-	Confidence  float64 // Prediction confidence (0-1), used by predictive models
-}
 
 // ReactiveAutoscaler scales based on current utilization thresholds.
 type ReactiveAutoscaler struct {
@@ -55,20 +56,28 @@ func NewReactiveAutoscaler(scaleUpThreshold, scaleDownThreshold float64) *Reacti
 	}
 }
 
-func (a *ReactiveAutoscaler) Recommend(ctx context.Context, state PoolState) (int, error) {
+func (a *ReactiveAutoscaler) Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error) {
 	if time.Since(state.LastScaleTime) < state.CooldownPeriod {
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "cooldown active"}, nil
 	}
-
-	target := state.CurrentNodes
 
 	if state.Utilization > a.ScaleUpThreshold && state.CurrentNodes < state.MaxNodes {
-		target = min(state.CurrentNodes+a.ScaleUpStep, state.MaxNodes)
-	} else if state.Utilization < a.ScaleDownThreshold && state.CurrentNodes > state.MinNodes {
-		target = max(state.CurrentNodes-a.ScaleDownStep, state.MinNodes)
+		target := min(state.CurrentNodes+a.ScaleUpStep, state.MaxNodes)
+		return ScaleRecommendation{
+			TargetNodes: target,
+			Reason:      fmt.Sprintf("utilization %.1f%% > %.1f%% threshold", state.Utilization, a.ScaleUpThreshold),
+		}, nil
 	}
 
-	return target, nil
+	if state.Utilization < a.ScaleDownThreshold && state.CurrentNodes > state.MinNodes {
+		target := max(state.CurrentNodes-a.ScaleDownStep, state.MinNodes)
+		return ScaleRecommendation{
+			TargetNodes: target,
+			Reason:      fmt.Sprintf("utilization %.1f%% < %.1f%% threshold", state.Utilization, a.ScaleDownThreshold),
+		}, nil
+	}
+
+	return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "no scaling needed"}, nil
 }
 
 // QueueBasedAutoscaler scales based on pending job queue depth.
@@ -80,21 +89,23 @@ func NewQueueBasedAutoscaler(jobsPerNode int) *QueueBasedAutoscaler {
 	return &QueueBasedAutoscaler{JobsPerNode: jobsPerNode}
 }
 
-func (a *QueueBasedAutoscaler) Recommend(ctx context.Context, state PoolState) (int, error) {
+func (a *QueueBasedAutoscaler) Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error) {
 	if time.Since(state.LastScaleTime) < state.CooldownPeriod {
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "cooldown active"}, nil
 	}
 
 	if a.JobsPerNode <= 0 {
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "jobs_per_node not configured"}, nil
 	}
 
-	// Calculate nodes needed for current queue
 	needed := (state.QueueDepth + a.JobsPerNode - 1) / a.JobsPerNode
 	target := max(needed, state.MinNodes)
 	target = min(target, state.MaxNodes)
 
-	return target, nil
+	return ScaleRecommendation{
+		TargetNodes: target,
+		Reason:      fmt.Sprintf("queue depth %d requires %d nodes (%d jobs/node)", state.QueueDepth, needed, a.JobsPerNode),
+	}, nil
 }
 
 // ScheduledAutoscaler scales based on time-of-day patterns.
@@ -119,7 +130,7 @@ func NewScheduledAutoscaler(schedule []ScheduleEntry, fallback Autoscaler) *Sche
 	}
 }
 
-func (a *ScheduledAutoscaler) Recommend(ctx context.Context, state PoolState) (int, error) {
+func (a *ScheduledAutoscaler) Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error) {
 	hour := state.TimeOfDay.Hour()
 	day := state.DayOfWeek
 
@@ -128,7 +139,6 @@ func (a *ScheduledAutoscaler) Recommend(ctx context.Context, state PoolState) (i
 			continue
 		}
 		if hour >= entry.StartHour && hour < entry.EndHour {
-			// Override pool limits with schedule limits
 			state.MinNodes = entry.MinNodes
 			state.MaxNodes = entry.MaxNodes
 			break
@@ -138,7 +148,7 @@ func (a *ScheduledAutoscaler) Recommend(ctx context.Context, state PoolState) (i
 	if a.Fallback != nil {
 		return a.Fallback.Recommend(ctx, state)
 	}
-	return state.CurrentNodes, nil
+	return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "no fallback autoscaler"}, nil
 }
 
 func (a *ScheduledAutoscaler) matchesDay(days []time.Weekday, day time.Weekday) bool {
@@ -168,29 +178,30 @@ func NewPredictiveAutoscaler(lookback int, growthFactor float64, fallback Autosc
 	}
 }
 
-func (a *PredictiveAutoscaler) Recommend(ctx context.Context, state PoolState) (int, error) {
+func (a *PredictiveAutoscaler) Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error) {
 	if len(state.UtilizationHistory) < a.LookbackWindow {
 		if a.Fallback != nil {
 			return a.Fallback.Recommend(ctx, state)
 		}
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "insufficient history"}, nil
 	}
 
-	// Simple linear trend prediction
 	trend := a.calculateTrend(state.UtilizationHistory)
 	predictedUtil := state.Utilization + (trend * a.GrowthFactor)
 
-	// Estimate nodes needed for predicted utilization
 	if predictedUtil > 80 && state.CurrentNodes < state.MaxNodes {
-		// Scale up proactively
 		needed := int(float64(state.CurrentNodes) * (predictedUtil / 70))
-		return min(needed, state.MaxNodes), nil
+		target := min(needed, state.MaxNodes)
+		return ScaleRecommendation{
+			TargetNodes: target,
+			Reason:      fmt.Sprintf("predicted utilization %.1f%% (trend: %.1f)", predictedUtil, trend),
+		}, nil
 	}
 
 	if a.Fallback != nil {
 		return a.Fallback.Recommend(ctx, state)
 	}
-	return state.CurrentNodes, nil
+	return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "prediction below threshold"}, nil
 }
 
 func (a *PredictiveAutoscaler) calculateTrend(history []float64) float64 {
@@ -225,48 +236,58 @@ func NewCompositeAutoscaler(mode CompositeMode, autoscalers ...Autoscaler) *Comp
 	}
 }
 
-func (a *CompositeAutoscaler) Recommend(ctx context.Context, state PoolState) (int, error) {
+func (a *CompositeAutoscaler) Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error) {
 	if len(a.Autoscalers) == 0 {
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "no autoscalers configured"}, nil
 	}
 
 	var recommendations []int
+	var reasons []string
 	for _, as := range a.Autoscalers {
 		rec, err := as.Recommend(ctx, state)
 		if err != nil {
 			continue
 		}
-		recommendations = append(recommendations, rec)
+		recommendations = append(recommendations, rec.TargetNodes)
+		reasons = append(reasons, rec.Reason)
 	}
 
 	if len(recommendations) == 0 {
-		return state.CurrentNodes, nil
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "all autoscalers failed"}, nil
 	}
 
+	var target int
+	var modeDesc string
 	switch a.Mode {
 	case ModeMax:
-		result := recommendations[0]
+		target = recommendations[0]
 		for _, r := range recommendations[1:] {
-			if r > result {
-				result = r
+			if r > target {
+				target = r
 			}
 		}
-		return result, nil
+		modeDesc = "max"
 	case ModeMin:
-		result := recommendations[0]
+		target = recommendations[0]
 		for _, r := range recommendations[1:] {
-			if r < result {
-				result = r
+			if r < target {
+				target = r
 			}
 		}
-		return result, nil
+		modeDesc = "min"
 	case ModeAvg:
 		sum := 0
 		for _, r := range recommendations {
 			sum += r
 		}
-		return sum / len(recommendations), nil
+		target = sum / len(recommendations)
+		modeDesc = "avg"
+	default:
+		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "unknown mode"}, nil
 	}
 
-	return state.CurrentNodes, nil
+	return ScaleRecommendation{
+		TargetNodes: target,
+		Reason:      fmt.Sprintf("%s of %d autoscalers: %v", modeDesc, len(recommendations), recommendations),
+	}, nil
 }

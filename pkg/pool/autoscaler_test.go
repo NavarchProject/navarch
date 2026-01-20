@@ -101,12 +101,12 @@ func TestReactiveAutoscaler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := as.Recommend(ctx, tt.state)
+			rec, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
 			}
-			if got != tt.wantTarget {
-				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			if rec.TargetNodes != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d (reason: %s)", rec.TargetNodes, tt.wantTarget, rec.Reason)
 			}
 		})
 	}
@@ -205,12 +205,12 @@ func TestQueueBasedAutoscaler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			as := NewQueueBasedAutoscaler(tt.jobsPerNode)
-			got, err := as.Recommend(ctx, tt.state)
+			rec, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
 			}
-			if got != tt.wantTarget {
-				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			if rec.TargetNodes != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d (reason: %s)", rec.TargetNodes, tt.wantTarget, rec.Reason)
 			}
 		})
 	}
@@ -299,12 +299,12 @@ func TestScheduledAutoscaler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			as := NewScheduledAutoscaler(schedule, tt.fallback)
-			got, err := as.Recommend(ctx, tt.state)
+			rec, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
 			}
-			if got != tt.wantTarget {
-				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			if rec.TargetNodes != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d (reason: %s)", rec.TargetNodes, tt.wantTarget, rec.Reason)
 			}
 		})
 	}
@@ -333,9 +333,9 @@ func TestScheduledAutoscaler_EmptyDaysMatchesAll(t *testing.T) {
 		DayOfWeek:    time.Saturday,
 	}
 
-	got, _ := as.Recommend(ctx, state)
-	if got != 6 { // MinNodes=10 enforced, but scaling from 5 goes to 6
-		t.Errorf("Recommend() = %d, want 6", got)
+	rec, _ := as.Recommend(ctx, state)
+	if rec.TargetNodes != 6 { // MinNodes=10 enforced, but scaling from 5 goes to 6
+		t.Errorf("Recommend() = %d, want 6", rec.TargetNodes)
 	}
 }
 
@@ -426,12 +426,12 @@ func TestPredictiveAutoscaler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			as := NewPredictiveAutoscaler(tt.lookback, tt.growth, tt.fallback)
-			got, err := as.Recommend(ctx, tt.state)
+			rec, err := as.Recommend(ctx, tt.state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
 			}
-			if got != tt.wantTarget {
-				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			if rec.TargetNodes != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d (reason: %s)", rec.TargetNodes, tt.wantTarget, rec.Reason)
 			}
 		})
 	}
@@ -490,12 +490,12 @@ func TestCompositeAutoscaler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			as := NewCompositeAutoscaler(tt.mode, tt.scalers...)
-			got, err := as.Recommend(ctx, state)
+			rec, err := as.Recommend(ctx, state)
 			if err != nil {
 				t.Fatalf("Recommend() error = %v", err)
 			}
-			if got != tt.wantTarget {
-				t.Errorf("Recommend() = %d, want %d", got, tt.wantTarget)
+			if rec.TargetNodes != tt.wantTarget {
+				t.Errorf("Recommend() = %d, want %d (reason: %s)", rec.TargetNodes, tt.wantTarget, rec.Reason)
 			}
 		})
 	}
