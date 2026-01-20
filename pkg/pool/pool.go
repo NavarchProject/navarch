@@ -397,7 +397,7 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 	}
 	delete(p.nodes, nodeID)
 
-	node, providerName, err := p.provisionWithFallback(ctx, 0)
+	node, providerName, err := p.provisionWithFallback(ctx, len(p.nodes)+1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to provision replacement: %w", err)
 	}
