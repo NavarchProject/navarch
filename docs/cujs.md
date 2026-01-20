@@ -1,11 +1,12 @@
-# Critical User Journeys (CUJs)
+# Critical user journeys
 
-This document defines the critical user journeys for Navarch. These journeys serve as the foundation for integration tests and validate the system's core functionality.
+This document defines the critical user journeys for Navarch. These journeys serve as the foundation for integration tests and validate the core functionality of the system.
 
-## CUJ-1: Node Registration and Configuration
+## CUJ-1: Node registration and configuration
 
-**Actors:** GPU Node, Control Plane  
-**Goal:** New node registers with control plane and receives configuration
+Actors: GPU Node, Control Plane
+
+Goal: New node registers with control plane and receives configuration.
 
 ### Happy Path
 1. Node starts up and connects to control plane
@@ -35,10 +36,11 @@ This document defines the critical user journeys for Navarch. These journeys ser
 
 ---
 
-## CUJ-2: Heartbeat and Liveness Monitoring
+## CUJ-2: Heartbeat and liveness monitoring
 
-**Actors:** GPU Node, Control Plane  
-**Goal:** Node maintains connection with control plane to prove liveness
+Actors: GPU Node, Control Plane
+
+Goal: Node maintains connection with control plane to prove liveness.
 
 ### Happy Path
 1. Node sends periodic heartbeat with:
@@ -59,10 +61,11 @@ This document defines the critical user journeys for Navarch. These journeys ser
 
 ---
 
-## CUJ-3: Health Check Reporting and Status Updates
+## CUJ-3: Health check reporting and status updates
 
-**Actors:** GPU Node, Control Plane  
-**Goal:** Node runs health checks and reports results; control plane updates node status
+Actors: GPU Node, Control Plane
+
+Goal: Node runs health checks and reports results. Control plane updates node status.
 
 ### Happy Path - Healthy Node
 1. Node runs configured health checks (boot, nvml, xid)
@@ -91,10 +94,11 @@ This document defines the critical user journeys for Navarch. These journeys ser
 
 ---
 
-## CUJ-4: Command Issuance and Execution
+## CUJ-4: Command issuance and execution
 
-**Actors:** Control Plane, GPU Node, Operator  
-**Goal:** Control plane issues commands to nodes (cordon, drain, terminate)
+Actors: Control Plane, GPU Node, Operator
+
+Goal: Control plane issues commands to nodes (cordon, drain, terminate).
 
 ### Happy Path - Cordon Node
 1. Operator or system decides node should be cordoned
@@ -105,10 +109,11 @@ This document defines the critical user journeys for Navarch. These journeys ser
 6. Node executes cordon (stops accepting new workloads)
 7. (Future: Node confirms completion)
 
-### Other Command Types
-- **DRAIN**: Node gracefully drains existing workloads
-- **RUN_DIAGNOSTIC**: Node runs specific diagnostic test
-- **TERMINATE**: Node prepares for shutdown
+### Other command types
+
+- DRAIN: Node gracefully drains existing workloads.
+- RUN_DIAGNOSTIC: Node runs specific diagnostic test.
+- TERMINATE: Node prepares for shutdown.
 
 ### Expected State
 - Command is created with "pending" status
@@ -118,10 +123,11 @@ This document defines the critical user journeys for Navarch. These journeys ser
 
 ---
 
-## CUJ-5: Full Node Lifecycle
+## CUJ-5: Full node lifecycle
 
-**Actors:** GPU Node, Control Plane, Workload Scheduler  
-**Goal:** Complete lifecycle from registration to termination
+Actors: GPU Node, Control Plane, Workload Scheduler
+
+Goal: Complete lifecycle from registration to termination.
 
 ### Full Journey
 1. **Registration**: Node registers (CUJ-1) → status: ACTIVE
@@ -155,10 +161,11 @@ UNKNOWN → ACTIVE → UNHEALTHY → CORDONED → DRAINING → TERMINATED
 
 ---
 
-## CUJ-6: Multi-Node Fleet Management
+## CUJ-6: Multi-node fleet management
 
-**Actors:** Multiple GPU Nodes, Control Plane  
-**Goal:** Control plane manages multiple nodes simultaneously
+Actors: Multiple GPU Nodes, Control Plane
+
+Goal: Control plane manages multiple nodes simultaneously.
 
 ### Happy Path
 1. Multiple nodes register concurrently
@@ -176,10 +183,11 @@ UNKNOWN → ACTIVE → UNHEALTHY → CORDONED → DRAINING → TERMINATED
 
 ---
 
-## CUJ-7: Operator Lists Fleet Status via CLI
+## CUJ-7: Operator lists fleet status via CLI
 
-**Actors:** Operator, CLI, Control Plane  
-**Goal:** Operator views fleet status using the CLI
+Actors: Operator, CLI, Control Plane
+
+Goal: Operator views fleet status using the CLI.
 
 ### Happy Path
 1. Operator runs `navarch list`
@@ -207,10 +215,11 @@ UNKNOWN → ACTIVE → UNHEALTHY → CORDONED → DRAINING → TERMINATED
 
 ---
 
-## CUJ-8: Operator Inspects Node Details via CLI
+## CUJ-8: Operator inspects node details via CLI
 
-**Actors:** Operator, CLI, Control Plane  
-**Goal:** Operator views detailed information about a specific node
+Actors: Operator, CLI, Control Plane
+
+Goal: Operator views detailed information about a specific node.
 
 ### Happy Path
 1. Operator runs `navarch get <node-id>`
@@ -230,10 +239,11 @@ UNKNOWN → ACTIVE → UNHEALTHY → CORDONED → DRAINING → TERMINATED
 
 ---
 
-## CUJ-9: Operator Cordons/Drains Node via CLI
+## CUJ-9: Operator cordons and drains nodes via CLI
 
-**Actors:** Operator, CLI, Control Plane  
-**Goal:** Operator manages node lifecycle using CLI commands
+Actors: Operator, CLI, Control Plane
+
+Goal: Operator manages node lifecycle using CLI commands.
 
 ### Cordon Node
 1. Operator runs `navarch cordon <node-id>`
