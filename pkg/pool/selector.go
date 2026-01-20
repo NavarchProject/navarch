@@ -78,11 +78,12 @@ func (s *PrioritySelector) RecordFailure(providerName string, err error) {
 }
 
 // RoundRobinSelector distributes provisioning evenly across providers.
-// Uses weights to bias distribution.
+// Uses weights to bias distribution. Tracks failures to prevent infinite loops.
 type RoundRobinSelector struct {
 	counter   uint64
 	weights   map[string]int
 	providers []string
+	attempted map[string]bool
 	mu        sync.Mutex
 }
 
@@ -104,32 +105,49 @@ func NewRoundRobinSelector(candidates []ProviderCandidate) *RoundRobinSelector {
 	return &RoundRobinSelector{
 		weights:   weights,
 		providers: providers,
+		attempted: make(map[string]bool),
 	}
 }
 
 func (s *RoundRobinSelector) Select(ctx context.Context, candidates []ProviderCandidate) (*ProviderCandidate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if len(s.providers) == 0 {
 		return nil, errors.New("no providers configured")
 	}
 
-	idx := atomic.AddUint64(&s.counter, 1) - 1
-	name := s.providers[idx%uint64(len(s.providers))]
+	// Find next unattempted provider using round-robin
+	startIdx := atomic.AddUint64(&s.counter, 1) - 1
+	for i := 0; i < len(s.providers); i++ {
+		idx := (startIdx + uint64(i)) % uint64(len(s.providers))
+		name := s.providers[idx]
 
-	for i := range candidates {
-		if candidates[i].Name == name {
-			return &candidates[i], nil
+		if s.attempted[name] {
+			continue
+		}
+
+		for j := range candidates {
+			if candidates[j].Name == name {
+				return &candidates[j], nil
+			}
 		}
 	}
 
-	if len(candidates) > 0 {
-		return &candidates[0], nil
-	}
-
-	return nil, errors.New("no matching provider found")
+	return nil, errors.New("all providers exhausted")
 }
 
-func (s *RoundRobinSelector) RecordSuccess(providerName string) {}
-func (s *RoundRobinSelector) RecordFailure(providerName string, err error) {}
+func (s *RoundRobinSelector) RecordSuccess(providerName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempted = make(map[string]bool)
+}
+
+func (s *RoundRobinSelector) RecordFailure(providerName string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempted[providerName] = true
+}
 
 // AvailabilitySelector queries providers for capacity and selects one with availability.
 type AvailabilitySelector struct {
