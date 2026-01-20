@@ -1,0 +1,134 @@
+# Example pool configuration for Navarch
+#
+# This file shows how to configure GPU node pools with scaling limits,
+# health policies, and provider-specific settings.
+
+pools:
+  # Training pool: High-end GPUs for large model training
+  - name: training
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    region: us-west-2
+    
+    # Scaling limits - set these with confidence
+    scaling:
+      min_nodes: 2        # Always keep 2 nodes warm
+      max_nodes: 20       # Hard cap for cost control
+      
+      # Scaling behavior
+      scale_up_threshold: 80    # Scale up when 80% utilized
+      scale_down_threshold: 20  # Scale down when 20% utilized
+      scale_down_delay: 10m     # Wait 10 min before scaling down
+      cooldown_period: 5m       # Min 5 min between scale actions
+    
+    # Health policy
+    health:
+      unhealthy_threshold: 2    # 2 consecutive failures = unhealthy
+      auto_replace: true        # Automatically replace unhealthy nodes
+    
+    # Labels for workload routing
+    labels:
+      workload: training
+      gpu-memory: "80GB"
+      priority: high
+
+  # Inference pool: Cost-effective GPUs for serving
+  - name: inference
+    provider: lambda
+    instance_type: gpu_1x_a100_sxm4
+    region: us-east-1
+    
+    scaling:
+      min_nodes: 4        # Higher minimum for availability
+      max_nodes: 50       # Can scale up significantly
+      scale_up_threshold: 70
+      scale_down_threshold: 30
+      scale_down_delay: 5m
+      cooldown_period: 2m
+    
+    health:
+      unhealthy_threshold: 3
+      auto_replace: true
+    
+    labels:
+      workload: inference
+      priority: medium
+
+  # Burst pool: On-demand capacity for peak loads
+  - name: burst
+    provider: lambda
+    instance_type: gpu_1x_a100_80gb_sxm4
+    region: us-west-2
+    
+    scaling:
+      min_nodes: 0        # Can scale to zero
+      max_nodes: 100      # Large burst capacity
+      scale_up_threshold: 90
+      scale_down_threshold: 10
+      scale_down_delay: 15m   # Longer delay to avoid thrashing
+      cooldown_period: 3m
+    
+    health:
+      unhealthy_threshold: 2
+      auto_replace: true
+    
+    labels:
+      workload: burst
+      priority: low
+
+  # Dev/test pool: Smaller instances for development
+  - name: dev
+    provider: gcp
+    instance_type: a2-highgpu-1g
+    region: us-central1
+    zones:
+      - us-central1-a
+      - us-central1-b
+    
+    scaling:
+      min_nodes: 1
+      max_nodes: 5
+      scale_down_delay: 30m   # Keep instances longer for iterative dev
+    
+    health:
+      unhealthy_threshold: 5  # More tolerant for dev
+      auto_replace: false     # Manual intervention for dev
+    
+    labels:
+      environment: development
+      workload: any
+
+# Global settings
+global:
+  # Default SSH keys for all pools
+  ssh_key_names:
+    - ops-team
+    - ml-team
+  
+  # Agent configuration
+  agent:
+    server: https://control-plane.example.com
+    heartbeat_interval: 30s
+    health_check_interval: 60s
+  
+  # Cost controls
+  cost:
+    # Maximum monthly spend across all pools
+    max_monthly_spend_usd: 50000
+    
+    # Alert thresholds
+    alert_at_percent: [50, 75, 90]
+
+# Provider credentials (reference secrets, don't inline)
+providers:
+  lambda:
+    api_key_secret: navarch/lambda-api-key  # From secret manager
+  
+  gcp:
+    project: my-gcp-project
+    credentials_secret: navarch/gcp-credentials
+  
+  aws:
+    region: us-east-1
+    credentials_secret: navarch/aws-credentials
+
