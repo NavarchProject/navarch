@@ -4,29 +4,41 @@ This document describes how to deploy Navarch in production, including agent ins
 
 ## Architecture overview
 
+The control plane is the single source of truth. It provisions instances through provider adapters and receives health reports from node agents.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Control Plane                                │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│  │   API       │  │  Database   │  │  Scheduler  │                 │
-│  │  Server     │  │  (Postgres) │  │             │                 │
-│  └─────────────┘  └─────────────┘  └─────────────┘                 │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              │ HTTPS/gRPC
-                              ▼
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │
+│  │ API Server  │  │ Pool        │  │ Health      │  │ Provider  │  │
+│  │             │  │ Manager     │  │ Monitor     │  │ Registry  │  │
+│  └─────────────┘  └──────┬──────┘  └─────────────┘  └─────┬─────┘  │
+└──────────────────────────┼────────────────────────────────┼────────┘
+                           │                                │
+              Provision/   │                                │ Routes to
+              Terminate    │                                │ provider
+                           ▼                                ▼
+                  ┌─────────────────────────────────────────────────┐
+                  │              Provider Adapters                   │
+                  │  [GCP]  [AWS]  [Lambda]  [CoreWeave]  [Custom]  │
+                  └────────────────────┬────────────────────────────┘
+                                       │
+                                       │ Cloud APIs
+                                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         GPU Node Pool                                │
 │                                                                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
 │  │  Node 1      │  │  Node 2      │  │  Node N      │              │
 │  │  ┌────────┐  │  │  ┌────────┐  │  │  ┌────────┐  │              │
-│  │  │ Agent  │  │  │  │ Agent  │  │  │  │ Agent  │  │              │
-│  │  └────────┘  │  │  └────────┘  │  │  └────────┘  │              │
-│  │  8x H100     │  │  8x H100     │  │  8x H100     │              │
+│  │  │ Agent  │──┼──┼──│ Agent  │──┼──┼──│ Agent  │──┼─── Health    │
+│  │  └────────┘  │  │  └────────┘  │  │  └────────┘  │    reports   │
+│  │  8x H100     │  │  8x H100     │  │  8x H100     │    to CP     │
 │  └──────────────┘  └──────────────┘  └──────────────┘              │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key principle**: Nodes do not manage their own lifecycle. The control plane decides when to provision and terminate instances. Node agents only report health.
 
 ## Node agent deployment
 
@@ -222,104 +234,225 @@ sudo systemctl restart navarch-node
 journalctl -u navarch-node -f
 ```
 
-## Pool autoscaling
+## Pool management
 
-Navarch can integrate with cloud provider autoscaling to manage GPU pools.
+The control plane manages GPU pools directly through provider adapters. There is no separate autoscaler component.
 
-### Autoscaling architecture
-
-```
-┌─────────────────┐
-│  Autoscaler     │
-│  Controller     │
-└────────┬────────┘
-         │
-         │ Monitors pool health
-         │ Triggers scale up/down
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Control Plane  │◄───►│  Cloud Provider │
-│                 │     │  API            │
-└─────────────────┘     └─────────────────┘
-         │
-         │ Node status
-         ▼
-┌─────────────────────────────────────────┐
-│           GPU Node Pool                  │
-│  [Node 1] [Node 2] [Node 3] ... [Node N]│
-└─────────────────────────────────────────┘
-```
-
-### Scale-up triggers
-
-The autoscaler should scale up when:
-
-1. **Capacity shortage**: All healthy nodes are at capacity.
-2. **Pending workloads**: Jobs waiting for GPU resources.
-3. **Scheduled scaling**: Time-based scaling for predictable loads.
-
-### Scale-down triggers
-
-The autoscaler should scale down when:
-
-1. **Low utilization**: GPU utilization below threshold for extended period.
-2. **Unhealthy nodes**: Nodes with fatal XID errors (replace, don't repair).
-3. **Cost optimization**: Spot/preemptible instance interruptions.
-
-### Replacement vs. repair
-
-For GPU failures, replacement is usually better than repair:
+### Architecture
 
 ```
-XID Error Detected
-        │
-        ▼
-┌───────────────────┐
-│ Is XID fatal?     │
-│ (79, 48, 94, 95)  │
-└────────┬──────────┘
-         │
-    Yes  │  No
-    ▼    │  ▼
-┌────────┴──┐  ┌─────────────┐
-│ Cordon    │  │ Log warning │
-│ Drain     │  │ Monitor     │
-│ Terminate │  └─────────────┘
-│ Replace   │
-└───────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Control Plane                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│  │ Pool        │  │ Provider    │  │ Health      │                 │
+│  │ Manager     │──│ Registry    │  │ Monitor     │                 │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                 │
+│         │                │                │                         │
+│         │ Decides        │ Routes to      │ Reports                 │
+│         │ scale actions  │ correct adapter│ unhealthy nodes        │
+└─────────┼────────────────┼────────────────┼─────────────────────────┘
+          │                │                │
+          ▼                ▼                ▼
+   ┌─────────────────────────────────────────────────────────────┐
+   │                    Provider Adapters                         │
+   │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
+   │  │  GCP    │  │  AWS    │  │ Lambda  │  │ Custom  │        │
+   │  │ Adapter │  │ Adapter │  │ Adapter │  │ Adapter │        │
+   │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
+   └───────┼────────────┼────────────┼────────────┼──────────────┘
+           │            │            │            │
+           ▼            ▼            ▼            ▼
+      [GCP API]    [AWS API]   [Lambda API]   [Your API]
 ```
 
-### Pool configuration (future)
+### Provider interface
+
+Each cloud provider implements a simple interface:
+
+```go
+type Provider interface {
+    Name() string
+    Provision(ctx context.Context, req ProvisionRequest) (*Node, error)
+    Terminate(ctx context.Context, nodeID string) error
+    List(ctx context.Context) ([]*Node, error)
+}
+```
+
+The control plane calls these methods to manage instances. The node agent just reports health; it does not manage its own lifecycle.
+
+### Pool manager responsibilities
+
+The pool manager (part of control plane) handles:
+
+1. **Scaling decisions**: When to add or remove nodes.
+2. **Health-based replacement**: Terminate unhealthy, provision replacement.
+3. **Pool constraints**: Min/max nodes, instance types, zones.
+4. **Provider selection**: Multi-cloud routing based on availability and cost.
+
+### Scaling triggers
+
+**Scale up when:**
+- Pool size below minimum.
+- All healthy nodes at capacity.
+- Pending provision requests.
+
+**Scale down when:**
+- Pool size above maximum.
+- Low utilization for extended period.
+- Node reported unhealthy (terminate and replace).
+
+### Health-based replacement
+
+When a node becomes unhealthy, the control plane handles it:
+
+```
+Health Monitor detects unhealthy node
+                │
+                ▼
+┌───────────────────────────────┐
+│ Is failure fatal?             │
+│ (XID 79, 48, 94, 95, etc.)   │
+└───────────────┬───────────────┘
+                │
+       Yes      │      No
+        ▼       │       ▼
+┌───────────────┐  ┌─────────────────┐
+│ 1. Cordon     │  │ Log warning     │
+│ 2. Drain      │  │ Continue        │
+│ 3. Terminate  │  │ monitoring      │
+│ 4. Provision  │  └─────────────────┘
+│    replacement│
+└───────────────┘
+```
+
+The control plane orchestrates the entire flow:
+
+```go
+// Pseudocode for health-based replacement
+func (pm *PoolManager) handleUnhealthyNode(ctx context.Context, node *Node) error {
+    // Cordon: prevent new workloads
+    if err := pm.cordon(ctx, node.ID); err != nil {
+        return err
+    }
+    
+    // Drain: wait for workloads to complete or migrate
+    if err := pm.drain(ctx, node.ID); err != nil {
+        return err
+    }
+    
+    // Terminate through provider adapter
+    provider := pm.registry.Get(node.Provider)
+    if err := provider.Terminate(ctx, node.ID); err != nil {
+        return err
+    }
+    
+    // Provision replacement
+    _, err := provider.Provision(ctx, ProvisionRequest{
+        Type:     node.InstanceType,
+        GPUCount: node.GPUCount,
+    })
+    return err
+}
+```
+
+### Pool configuration
 
 ```yaml
 # Example pool configuration
-apiVersion: navarch.io/v1
-kind: GPUPool
-metadata:
-  name: training-pool
-spec:
-  provider: gcp
-  region: us-central1
-  zones:
-    - us-central1-a
-    - us-central1-b
-  
-  instanceType: a3-highgpu-8g
-  gpuType: nvidia-h100-80gb
-  gpusPerNode: 8
-  
-  scaling:
-    minNodes: 2
-    maxNodes: 100
-    targetUtilization: 80
+pools:
+  - name: training-pool
+    provider: gcp
+    region: us-central1
+    zones:
+      - us-central1-a
+      - us-central1-b
     
-  health:
-    unhealthyThreshold: 2  # consecutive failures
-    replacementPolicy: auto
+    instanceType: a3-highgpu-8g
+    gpuType: nvidia-h100-80gb
+    gpusPerNode: 8
     
-  image:
-    family: navarch-gpu
-    project: my-project
+    scaling:
+      minNodes: 2
+      maxNodes: 100
+      scaleUpThreshold: 80   # % utilization to trigger scale up
+      scaleDownThreshold: 20 # % utilization to trigger scale down
+      scaleDownDelay: 10m    # wait before scaling down
+    
+    health:
+      unhealthyThreshold: 2  # consecutive failures before replacement
+      replacementPolicy: auto
+    
+    image:
+      family: navarch-gpu
+      project: my-gcp-project
+
+  - name: inference-pool
+    provider: aws
+    region: us-east-1
+    instanceType: p4d.24xlarge
+    # ... similar config
+```
+
+### Multi-cloud support
+
+The control plane can manage pools across multiple providers:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      Control Plane                            │
+│                                                               │
+│  Pool: training-pool (GCP)    Pool: inference-pool (AWS)    │
+│  ├── node-gcp-1              ├── node-aws-1                 │
+│  ├── node-gcp-2              ├── node-aws-2                 │
+│  └── node-gcp-3              └── node-aws-3                 │
+│                                                               │
+│  Pool: burst-pool (Lambda)                                   │
+│  └── (scales 0 to N on demand)                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Provider adapter implementation
+
+To add a new cloud provider, implement the interface:
+
+```go
+package lambda
+
+type LambdaProvider struct {
+    apiKey string
+    client *lambda.Client
+}
+
+func (p *LambdaProvider) Name() string {
+    return "lambda"
+}
+
+func (p *LambdaProvider) Provision(ctx context.Context, req provider.ProvisionRequest) (*provider.Node, error) {
+    // Call Lambda Labs API to create instance
+    instance, err := p.client.LaunchInstance(ctx, &lambda.LaunchRequest{
+        InstanceType: req.Type,
+        Name:         req.Name,
+    })
+    if err != nil {
+        return nil, err
+    }
+    
+    return &provider.Node{
+        ID:       instance.ID,
+        Provider: "lambda",
+        Type:     instance.Type,
+        Status:   "provisioning",
+    }, nil
+}
+
+func (p *LambdaProvider) Terminate(ctx context.Context, nodeID string) error {
+    return p.client.TerminateInstance(ctx, nodeID)
+}
+
+func (p *LambdaProvider) List(ctx context.Context) ([]*provider.Node, error) {
+    instances, err := p.client.ListInstances(ctx)
+    // ... convert to provider.Node
+}
 ```
 
 ## High availability
