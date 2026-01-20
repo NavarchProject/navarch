@@ -1,0 +1,127 @@
+# Navarch configuration
+#
+# A simple, flat configuration file for managing GPU node pools.
+
+server:
+  address: ":50051"
+  heartbeat_interval: 30s
+  health_check_interval: 60s
+
+providers:
+  lambda:
+    type: lambda
+    api_key_env: LAMBDA_API_KEY
+
+  gcp:
+    type: gcp
+    project: my-gcp-project
+
+  fake:
+    type: fake
+    gpu_count: 8
+
+pools:
+  # Simple single-provider pool
+  training:
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    region: us-west-2
+    min_nodes: 2
+    max_nodes: 20
+    cooldown: 5m
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+    health:
+      unhealthy_after: 2
+      auto_replace: true
+    labels:
+      workload: training
+
+  # Multi-provider pool for fungible compute
+  fungible:
+    providers:
+      - name: lambda
+        priority: 1
+        regions: [us-west-2, us-east-1]
+      - name: gcp
+        priority: 2
+        regions: [us-central1]
+        instance_type: a3-highgpu-8g
+    strategy: priority
+    instance_type: h100-8x  # Abstract type, mapped per provider
+    min_nodes: 4
+    max_nodes: 32
+    cooldown: 5m
+    autoscaling:
+      type: reactive
+      scale_up_at: 75
+      scale_down_at: 25
+    health:
+      unhealthy_after: 2
+      auto_replace: true
+
+  # Queue-based scaling for inference
+  inference:
+    provider: lambda
+    instance_type: gpu_1x_a100_sxm4
+    region: us-east-1
+    min_nodes: 4
+    max_nodes: 50
+    cooldown: 2m
+    autoscaling:
+      type: queue
+      jobs_per_node: 100
+    health:
+      unhealthy_after: 3
+      auto_replace: true
+
+  # Scheduled scaling for batch jobs
+  batch:
+    provider: lambda
+    instance_type: gpu_1x_a100_80gb_sxm4
+    region: us-west-2
+    min_nodes: 0
+    max_nodes: 100
+    cooldown: 3m
+    autoscaling:
+      type: scheduled
+      schedule:
+        - days: [monday, tuesday, wednesday, thursday, friday]
+          start: 9
+          end: 18
+          min_nodes: 10
+          max_nodes: 100
+        - days: [saturday, sunday]
+          start: 0
+          end: 24
+          min_nodes: 0
+          max_nodes: 10
+      fallback:
+        type: reactive
+        scale_up_at: 80
+        scale_down_at: 20
+
+  # Development pool with fake provider
+  dev:
+    provider: fake
+    instance_type: gpu_8x_h100
+    region: local
+    min_nodes: 1
+    max_nodes: 5
+    cooldown: 10s
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+
+defaults:
+  ssh_keys:
+    - ops-team
+    - ml-team
+  health:
+    unhealthy_after: 2
+    auto_replace: true
+
+

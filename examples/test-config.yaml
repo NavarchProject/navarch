@@ -1,0 +1,26 @@
+server:
+  address: ":50051"
+  autoscale_interval: 10s
+
+providers:
+  fake:
+    type: fake
+    gpu_count: 8
+
+pools:
+  dev:
+    provider: fake
+    instance_type: gpu_8x_h100
+    region: local
+    min_nodes: 2
+    max_nodes: 5
+    cooldown: 10s
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+    health:
+      unhealthy_after: 2
+      auto_replace: true
+
+
