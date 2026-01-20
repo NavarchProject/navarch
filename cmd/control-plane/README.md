@@ -12,6 +12,7 @@ The control plane provides the following functionality:
 - Command issuance (cordon, drain, uncordon).
 - Fleet-wide node listing and filtering.
 - RESTful API for CLI and external integrations.
+- Pool management with autoscaling and health-based replacement.
 
 ## Installation
 
@@ -29,12 +30,22 @@ The control plane accepts the following command-line flags:
 - `--health-check-interval`: Default health check interval in seconds (default: `60`).
 - `--heartbeat-interval`: Default heartbeat interval in seconds (default: `30`).
 - `--shutdown-timeout`: Graceful shutdown timeout in seconds (default: `30`).
+- `--pools-config`: Path to pools configuration YAML file (optional).
+- `--autoscale-interval`: Autoscaler evaluation interval in seconds (default: `30`).
 
 Example:
 
 ```bash
 ./control-plane --addr :8080 --health-check-interval 120 --heartbeat-interval 45
 ```
+
+With pool management:
+
+```bash
+./control-plane --pools-config pools.yaml --autoscale-interval 60
+```
+
+See [Pool management](../../docs/pool-management.md) for pool configuration details.
 
 ## Running the control plane
 
