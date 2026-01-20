@@ -62,6 +62,8 @@ Health checks detect GPU issues:
 
 To get started quickly, see the [getting started guide](getting-started.md).
 
+To understand how Navarch works and integrates with Kubernetes, see [architecture](architecture.md).
+
 To understand configuration options, see the [configuration reference](configuration.md).
 
 To learn about pool management and autoscaling, see [pool management](pool-management.md).

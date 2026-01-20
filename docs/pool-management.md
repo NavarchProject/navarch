@@ -2,6 +2,8 @@
 
 This guide covers how to configure and manage GPU node pools with Navarch, including autoscaling strategies and health-based replacement.
 
+For detailed information on autoscaling strategies and metrics, see [architecture](architecture.md) and [metrics](metrics.md).
+
 For the complete configuration reference, see the [configuration reference](configuration.md).
 
 ## Overview
