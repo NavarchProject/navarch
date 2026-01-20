@@ -55,7 +55,7 @@ func (db *InMemDB) GetNode(ctx context.Context, nodeID string) (*NodeRecord, err
 	if !ok {
 		return nil, fmt.Errorf("node not found: %s", nodeID)
 	}
-	return node, nil
+	return db.copyNodeRecord(node), nil
 }
 
 // UpdateNodeStatus updates the status of a node.
@@ -89,7 +89,7 @@ func (db *InMemDB) ListNodes(ctx context.Context) ([]*NodeRecord, error) {
 	
 	nodes := make([]*NodeRecord, 0, len(db.nodes))
 	for _, node := range db.nodes {
-		nodes = append(nodes, node)
+		nodes = append(nodes, db.copyNodeRecord(node))
 	}
 	
 	return nodes, nil
@@ -186,6 +186,35 @@ func (db *InMemDB) UpdateCommandStatus(ctx context.Context, commandID, status st
 	
 	cmd.Status = status
 	return nil
+}
+
+// copyNodeRecord creates a deep copy of a NodeRecord to prevent data races.
+func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
+	if src == nil {
+		return nil
+	}
+	
+	dst := &NodeRecord{
+		NodeID:          src.NodeID,
+		Provider:        src.Provider,
+		Region:          src.Region,
+		Zone:            src.Zone,
+		InstanceType:    src.InstanceType,
+		Status:          src.Status,
+		LastHeartbeat:   src.LastHeartbeat,
+		LastHealthCheck: src.LastHealthCheck,
+		HealthStatus:    src.HealthStatus,
+		RegisteredAt:    src.RegisteredAt,
+		Metadata:        src.Metadata,
+		Config:          src.Config,
+	}
+	
+	if len(src.GPUs) > 0 {
+		dst.GPUs = make([]*pb.GPUInfo, len(src.GPUs))
+		copy(dst.GPUs, src.GPUs)
+	}
+	
+	return dst
 }
 
 // Close closes the database (no-op for in-memory).

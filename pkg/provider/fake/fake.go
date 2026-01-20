@@ -89,7 +89,7 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		return nil, fmt.Errorf("failed to create fake node agent: %w", err)
 	}
 
-	agentCtx, cancel := context.WithCancel(context.Background())
+	agentCtx, cancel := context.WithCancel(ctx)
 
 	fi := &fakeInstance{
 		node:   providerNode,

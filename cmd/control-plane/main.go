@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/pool"
@@ -23,34 +24,8 @@ import (
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
-func healthzHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
-
-func readyzHandler(database db.DB, logger *slog.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		if _, err := database.ListNodes(ctx); err != nil {
-			if logger != nil {
-				logger.Warn("readiness check failed", slog.String("error", err.Error()))
-			}
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("database not ready"))
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ready"))
-	}
-}
-
 func main() {
-	addr := flag.String("addr", ":50051", "HTTP server address")
-	healthCheckInterval := flag.Int("health-check-interval", 60, "Default health check interval in seconds")
-	heartbeatInterval := flag.Int("heartbeat-interval", 30, "Default heartbeat interval in seconds")
-	shutdownTimeout := flag.Int("shutdown-timeout", 30, "Graceful shutdown timeout in seconds")
-	poolsConfig := flag.String("pools-config", "", "Path to pools configuration YAML file")
-	autoscaleInterval := flag.Int("autoscale-interval", 30, "Autoscaler evaluation interval in seconds")
+	configPath := flag.String("config", "", "Path to configuration file")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -58,30 +33,34 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	var cfg *config.Config
+	var err error
+
+	if *configPath != "" {
+		cfg, err = config.Load(*configPath)
+		if err != nil {
+			logger.Error("failed to load config", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	} else {
+		cfg = defaultConfig()
+	}
+
 	logger.Info("starting Navarch Control Plane",
-		slog.String("addr", *addr),
-		slog.Int("shutdown_timeout_seconds", *shutdownTimeout),
+		slog.String("addr", cfg.Server.Address),
 	)
 
 	database := db.NewInMemDB()
-	logger.Info("using in-memory database")
 
-	cfg := controlplane.Config{
-		HealthCheckIntervalSeconds: int32(*healthCheckInterval),
-		HeartbeatIntervalSeconds:   int32(*heartbeatInterval),
+	srv := controlplane.NewServer(database, controlplane.Config{
+		HealthCheckIntervalSeconds: int32(cfg.Server.HealthCheckInterval.Seconds()),
+		HeartbeatIntervalSeconds:   int32(cfg.Server.HeartbeatInterval.Seconds()),
 		EnabledHealthChecks:        []string{"boot", "nvml", "xid"},
-	}
-	srv := controlplane.NewServer(database, cfg, logger)
+	}, logger)
 
-	// Initialize pool manager
 	var poolManager *controlplane.PoolManager
-	if *poolsConfig != "" {
-		controlPlaneURL := fmt.Sprintf("http://localhost%s", *addr)
-		if (*addr)[0] != ':' {
-			controlPlaneURL = "http://" + *addr
-		}
-		var err error
-		poolManager, err = initPoolManager(*poolsConfig, *autoscaleInterval, controlPlaneURL, logger)
+	if len(cfg.Pools) > 0 {
+		poolManager, err = initPoolManager(cfg, logger)
 		if err != nil {
 			logger.Error("failed to initialize pool manager", slog.String("error", err.Error()))
 			os.Exit(1)
@@ -91,102 +70,156 @@ func main() {
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
-
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler(database, logger))
 
-	logger.Info("control plane ready", slog.String("addr", *addr))
+	logger.Info("control plane ready", slog.String("addr", cfg.Server.Address))
 
-	// HTTP/2 without TLS via h2c
 	httpServer := &http.Server{
-		Addr:    *addr,
+		Addr:    cfg.Server.Address,
 		Handler: h2c.NewHandler(mux, &http2.Server{}),
 	}
 
-	// Start pool manager if configured
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if poolManager != nil {
 		poolManager.Start(ctx)
 	}
 
+	serverErrChan := make(chan error, 1)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server failed", slog.String("error", err.Error()))
-			os.Exit(1)
+			serverErrChan <- err
 		}
 	}()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	sig := <-sigChan
-	logger.Info("received shutdown signal",
-		slog.String("signal", sig.String()),
-		slog.Int("timeout_seconds", *shutdownTimeout),
-	)
-	cancel()
+	select {
+	case sig := <-sigChan:
+		logger.Info("received shutdown signal", slog.String("signal", sig.String()))
+	case err := <-serverErrChan:
+		logger.Error("server error triggered shutdown", slog.String("error", err.Error()))
+	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(*shutdownTimeout)*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
 	if poolManager != nil {
-		logger.Info("stopping pool manager")
 		poolManager.Stop()
 	}
 
-	logger.Info("stopping HTTP server")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error shutting down HTTP server", slog.String("error", err.Error()))
-	} else {
-		logger.Info("HTTP server stopped cleanly")
 	}
-
-	logger.Info("closing database connections")
 	if err := database.Close(); err != nil {
 		logger.Error("error closing database", slog.String("error", err.Error()))
-	} else {
-		logger.Info("database closed cleanly")
 	}
 
 	logger.Info("control plane stopped")
 }
 
-func initPoolManager(configPath string, intervalSec int, controlPlaneAddr string, logger *slog.Logger) (*controlplane.PoolManager, error) {
-	poolsCfg, err := controlplane.LoadPoolsConfig(configPath)
-	if err != nil {
-		return nil, err
+func defaultConfig() *config.Config {
+	return &config.Config{
+		Server: config.ServerConfig{
+			Address:             ":50051",
+			HeartbeatInterval:   30 * time.Second,
+			HealthCheckInterval: 60 * time.Second,
+			AutoscaleInterval:   30 * time.Second,
+		},
+		Providers: make(map[string]config.ProviderCfg),
+		Pools:     make(map[string]config.PoolCfg),
 	}
+}
 
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}
+
+func readyzHandler(database db.DB, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := database.ListNodes(r.Context()); err != nil {
+			logger.Warn("readiness check failed", slog.String("error", err.Error()))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("database not ready"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ready"))
+	}
+}
+
+func initPoolManager(cfg *config.Config, logger *slog.Logger) (*controlplane.PoolManager, error) {
 	pm := controlplane.NewPoolManager(controlplane.PoolManagerConfig{
-		EvaluationInterval: time.Duration(intervalSec) * time.Second,
+		EvaluationInterval: cfg.Server.AutoscaleInterval,
 	}, nil, logger)
 
 	providers := make(map[string]provider.Provider)
+	controlPlaneAddr := fmt.Sprintf("http://localhost%s", cfg.Server.Address)
+	if len(cfg.Server.Address) > 0 && cfg.Server.Address[0] != ':' {
+		controlPlaneAddr = "http://" + cfg.Server.Address
+	}
 
-	for _, poolYAML := range poolsCfg.Pools {
-		prov, ok := providers[poolYAML.Provider]
-		if !ok {
-			var err error
-			prov, err = createProvider(poolYAML.Provider, poolsCfg.Providers, controlPlaneAddr, logger)
+	for poolName, poolCfg := range cfg.Pools {
+		var poolProviders []pool.ProviderConfig
+
+		if poolCfg.Provider != "" {
+			prov, err := getOrCreateProvider(poolCfg.Provider, cfg, providers, controlPlaneAddr, logger)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create provider %s: %w", poolYAML.Provider, err)
+				return nil, fmt.Errorf("pool %s: %w", poolName, err)
 			}
-			providers[poolYAML.Provider] = prov
+			poolProviders = append(poolProviders, pool.ProviderConfig{
+				Name:     poolCfg.Provider,
+				Provider: prov,
+			})
+		} else {
+			for _, pe := range poolCfg.Providers {
+				prov, err := getOrCreateProvider(pe.Name, cfg, providers, controlPlaneAddr, logger)
+				if err != nil {
+					return nil, fmt.Errorf("pool %s: %w", poolName, err)
+				}
+				poolProviders = append(poolProviders, pool.ProviderConfig{
+					Name:         pe.Name,
+					Provider:     prov,
+					Priority:     pe.Priority,
+					Weight:       pe.Weight,
+					Regions:      pe.Regions,
+					InstanceType: pe.InstanceType,
+				})
+			}
 		}
 
-		poolCfg, err := poolYAML.ToPoolConfig(poolsCfg.Global)
+		p, err := pool.NewWithOptions(pool.NewPoolOptions{
+			Config: pool.Config{
+				Name:               poolName,
+				InstanceType:       poolCfg.InstanceType,
+				Region:             poolCfg.Region,
+				Zones:              poolCfg.Zones,
+				SSHKeyNames:        poolCfg.SSHKeys,
+				MinNodes:           poolCfg.MinNodes,
+				MaxNodes:           poolCfg.MaxNodes,
+				CooldownPeriod:     poolCfg.Cooldown,
+				UnhealthyThreshold: getUnhealthyThreshold(poolCfg.Health),
+				AutoReplace:        getAutoReplace(poolCfg.Health),
+				Labels:             poolCfg.Labels,
+			},
+			Providers:        poolProviders,
+			ProviderStrategy: poolCfg.Strategy,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("invalid pool config %s: %w", poolYAML.Name, err)
+			return nil, fmt.Errorf("failed to create pool %s: %w", poolName, err)
 		}
 
-		p, err := pool.New(poolCfg, prov)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create pool %s: %w", poolYAML.Name, err)
-		}
-
-		autoscaler, err := controlplane.BuildAutoscaler(poolYAML.Scaling.Autoscaler)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build autoscaler for pool %s: %w", poolYAML.Name, err)
+		var autoscaler pool.Autoscaler
+		if poolCfg.Autoscaling != nil {
+			autoscaler, err = buildAutoscaler(poolCfg.Autoscaling)
+			if err != nil {
+				return nil, fmt.Errorf("pool %s: %w", poolName, err)
+			}
 		}
 
 		if err := pm.AddPool(p, autoscaler); err != nil {
@@ -194,30 +227,36 @@ func initPoolManager(configPath string, intervalSec int, controlPlaneAddr string
 		}
 
 		logger.Info("pool configured",
-			slog.String("pool", poolYAML.Name),
-			slog.String("provider", poolYAML.Provider),
-			slog.String("instance_type", poolYAML.InstanceType),
-			slog.Int("min_nodes", poolYAML.Scaling.MinNodes),
-			slog.Int("max_nodes", poolYAML.Scaling.MaxNodes),
+			slog.String("pool", poolName),
+			slog.String("instance_type", poolCfg.InstanceType),
+			slog.Int("min_nodes", poolCfg.MinNodes),
+			slog.Int("max_nodes", poolCfg.MaxNodes),
 		)
 	}
 
 	return pm, nil
 }
 
-func createProvider(name string, configs map[string]controlplane.ProviderConfig, controlPlaneAddr string, logger *slog.Logger) (provider.Provider, error) {
-	cfg, ok := configs[name]
-	if !ok && name != "fake" {
-		return nil, fmt.Errorf("no configuration for provider %s", name)
+func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provider.Provider, controlPlaneAddr string, logger *slog.Logger) (provider.Provider, error) {
+	if prov, ok := cache[name]; ok {
+		return prov, nil
 	}
 
-	switch name {
+	provCfg, ok := cfg.Providers[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown provider: %s", name)
+	}
+
+	var prov provider.Provider
+	var err error
+
+	switch provCfg.Type {
 	case "fake":
 		gpuCount := 8
-		if cfg.GPUCount > 0 {
-			gpuCount = cfg.GPUCount
+		if provCfg.GPUCount > 0 {
+			gpuCount = provCfg.GPUCount
 		}
-		return fake.New(fake.Config{
+		prov, err = fake.New(fake.Config{
 			ControlPlaneAddr: controlPlaneAddr,
 			GPUCount:         gpuCount,
 			Logger:           logger,
@@ -225,18 +264,140 @@ func createProvider(name string, configs map[string]controlplane.ProviderConfig,
 
 	case "lambda":
 		apiKey := os.Getenv("LAMBDA_API_KEY")
-		if apiKey == "" && cfg.APIKeySecret != "" {
-			apiKey = os.Getenv(cfg.APIKeySecret)
+		if provCfg.APIKeyEnv != "" {
+			apiKey = os.Getenv(provCfg.APIKeyEnv)
 		}
 		if apiKey == "" {
 			return nil, fmt.Errorf("LAMBDA_API_KEY environment variable is required")
 		}
-		return lambda.New(lambda.Config{APIKey: apiKey})
+		prov, err = lambda.New(lambda.Config{APIKey: apiKey})
 
 	case "gcp", "aws":
-		return nil, fmt.Errorf("provider %s is not yet implemented", name)
+		return nil, fmt.Errorf("provider %s is not yet implemented", provCfg.Type)
 
 	default:
-		return nil, fmt.Errorf("unknown provider: %s", name)
+		return nil, fmt.Errorf("unknown provider type: %s", provCfg.Type)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	cache[name] = prov
+	return prov, nil
+}
+
+func getUnhealthyThreshold(h *config.HealthCfg) int {
+	if h == nil || h.UnhealthyAfter == 0 {
+		return 2
+	}
+	return h.UnhealthyAfter
+}
+
+func getAutoReplace(h *config.HealthCfg) bool {
+	if h == nil {
+		return true
+	}
+	return h.AutoReplace
+}
+
+func buildAutoscaler(cfg *config.AutoscalingCfg) (pool.Autoscaler, error) {
+	switch cfg.Type {
+	case "reactive":
+		scaleUp := 80.0
+		scaleDown := 20.0
+		if cfg.ScaleUpAt != nil {
+			scaleUp = float64(*cfg.ScaleUpAt)
+		}
+		if cfg.ScaleDownAt != nil {
+			scaleDown = float64(*cfg.ScaleDownAt)
+		}
+		return pool.NewReactiveAutoscaler(scaleUp, scaleDown), nil
+
+	case "queue":
+		jobsPerNode := 10
+		if cfg.JobsPerNode != nil {
+			jobsPerNode = *cfg.JobsPerNode
+		}
+		return pool.NewQueueBasedAutoscaler(jobsPerNode), nil
+
+	case "scheduled":
+		var entries []pool.ScheduleEntry
+		for _, s := range cfg.Schedule {
+			entries = append(entries, pool.ScheduleEntry{
+				DaysOfWeek: parseDaysOfWeek(s.Days),
+				StartHour:  s.Start,
+				EndHour:    s.End,
+				MinNodes:   s.MinNodes,
+				MaxNodes:   s.MaxNodes,
+			})
+		}
+		var fallback pool.Autoscaler
+		if cfg.Fallback != nil {
+			var err error
+			fallback, err = buildAutoscaler(cfg.Fallback)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return pool.NewScheduledAutoscaler(entries, fallback), nil
+
+	case "predictive":
+		lookback := 10
+		growth := 1.2
+		if cfg.LookbackWindow != nil {
+			lookback = *cfg.LookbackWindow
+		}
+		if cfg.GrowthFactor != nil {
+			growth = *cfg.GrowthFactor
+		}
+		var fallback pool.Autoscaler
+		if cfg.Fallback != nil {
+			var err error
+			fallback, err = buildAutoscaler(cfg.Fallback)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return pool.NewPredictiveAutoscaler(lookback, growth, fallback), nil
+
+	case "composite":
+		var autoscalers []pool.Autoscaler
+		for _, a := range cfg.Autoscalers {
+			as, err := buildAutoscaler(&a)
+			if err != nil {
+				return nil, err
+			}
+			autoscalers = append(autoscalers, as)
+		}
+		mode := pool.ModeMax
+		if cfg.Mode == "min" {
+			mode = pool.ModeMin
+		} else if cfg.Mode == "avg" {
+			mode = pool.ModeAvg
+		}
+		return pool.NewCompositeAutoscaler(mode, autoscalers...), nil
+
+	default:
+		return nil, fmt.Errorf("unknown autoscaler type: %s", cfg.Type)
+	}
+}
+
+func parseDaysOfWeek(days []string) []time.Weekday {
+	dayMap := map[string]time.Weekday{
+		"sunday":    time.Sunday,
+		"monday":    time.Monday,
+		"tuesday":   time.Tuesday,
+		"wednesday": time.Wednesday,
+		"thursday":  time.Thursday,
+		"friday":    time.Friday,
+		"saturday":  time.Saturday,
+	}
+	var result []time.Weekday
+	for _, d := range days {
+		if wd, ok := dayMap[d]; ok {
+			result = append(result, wd)
+		}
+	}
+	return result
 }
