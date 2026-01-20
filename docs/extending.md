@@ -1,13 +1,31 @@
 # Extending Navarch
 
-This document provides detailed examples for extending Navarch with custom implementations.
+Navarch can be extended via two main interfaces: providers and autoscalers.
 
-## Coming Soon
+## Custom providers
 
-Detailed examples for:
-- Custom cloud providers
-- Custom schedulers
-- Custom health checks
-- Custom remediators
-- Custom notifiers
+Implement `provider.Provider` to add support for new cloud platforms:
+
+```go
+type Provider interface {
+    Name() string
+    Provision(ctx context.Context, req ProvisionRequest) (*Node, error)
+    Terminate(ctx context.Context, nodeID string) error
+    List(ctx context.Context) ([]*Node, error)
+}
+```
+
+See `pkg/provider/lambda/` for a complete example.
+
+## Custom autoscalers
+
+Implement `pool.Autoscaler` for custom scaling logic:
+
+```go
+type Autoscaler interface {
+    Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error)
+}
+```
+
+See `pkg/pool/autoscaler.go` for built-in implementations.
 

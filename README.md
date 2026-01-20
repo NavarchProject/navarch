@@ -30,7 +30,7 @@ flowchart TB
     
     subgraph cp[control-plane]
         rpc[gRPC server]
-        scheduler[Scheduler]
+        pm[Pool Manager]
         providers[Providers]
     end
     
@@ -50,40 +50,26 @@ flowchart TB
 ```
 navarch/
 ├── cmd/
-│   ├── navarch/          # CLI entrypoint
+│   ├── navarch/          # CLI
 │   ├── control-plane/    # Control plane server
 │   ├── node/             # Node daemon
-│   └── simulator/        # Fleet simulator for testing
+│   └── simulator/        # Fleet simulator
 ├── pkg/
-│   ├── api/              # gRPC service definitions
+│   ├── config/           # Configuration loading
+│   ├── controlplane/     # Control plane logic
+│   ├── gpu/              # GPU detection and health checks
+│   ├── node/             # Node daemon logic
+│   ├── pool/             # Pool management and autoscaling
 │   ├── provider/         # Cloud provider implementations
-│   │   ├── provider.go   # Provider interface
+│   │   ├── lambda/
 │   │   ├── gcp/
-│   │   └── aws/
-│   ├── scheduler/        # Scheduling logic
-│   │   ├── scheduler.go  # Scheduler interface
-│   │   └── first.go      # FirstAvailable implementation
-│   ├── health/           # Health check implementations
-│   │   ├── health.go     # HealthCheck interface
-│   │   ├── nvml.go
-│   │   ├── xid.go
-│   │   └── boot.go
-│   ├── remediate/        # Remediation logic
-│   │   ├── remediate.go  # Remediator interface
-│   │   └── cordon.go
-│   ├── notify/           # Notification implementations
-│   │   ├── notify.go     # Notifier interface
-│   │   └── log.go
+│   │   ├── aws/
+│   │   └── fake/
 │   └── simulator/        # Fleet simulation framework
 ├── proto/                # Protobuf definitions
-│   └── navarch.proto
 ├── scenarios/            # Simulation scenario files
 ├── docs/
-│   ├── extending.md
-│   └── simulator.md
 └── examples/
-    ├── custom-provider/
-    └── cost-scheduler/
 ```
 
 ## Quick Start
@@ -150,17 +136,14 @@ The simulator creates an embedded control plane and simulated nodes. You can inj
 
 ## Extending Navarch
 
-Navarch is designed to be extended. The core handles provisioning and basic health monitoring; you can plug in custom logic for everything else.
+Navarch is designed to be extended via interfaces.
 
 ### Extension Points
 
 | Extension | Interface | Example use case |
 |-----------|-----------|------------------|
-| **Cloud Adapter** | `Provider` | Add support for Azure, CoreWeave, bare metal |
-| **Scheduler** | `Scheduler` | Cost optimization, region preferences, carbon-aware scheduling |
-| **Health Check** | `HealthCheck` | Custom diagnostics, fabric validation, workload-specific checks |
-| **Remediation** | `Remediator` | Custom recovery (reset GPU vs. replace node vs. alert-only) |
-| **Notifier** | `Notifier` | PagerDuty, Slack, custom alerting pipelines |
+| **Cloud Provider** | `provider.Provider` | Add support for Azure, CoreWeave, bare metal |
+| **Autoscaler** | `pool.Autoscaler` | Custom scaling logic, ML-based prediction |
 
 ### Interfaces
 
@@ -173,64 +156,26 @@ type Provider interface {
     List(ctx context.Context) ([]*Node, error)
 }
 
-// Scheduler scores provisioning options. Higher scores are preferred.
-type Scheduler interface {
-    Score(ctx context.Context, option ProvisionOption) (float64, error)
-}
-
-// HealthCheck runs a diagnostic and returns node health status.
-type HealthCheck interface {
-    Name() string
-    Run(ctx context.Context, node *Node) (*HealthResult, error)
-    // Interval returns how often this check should run.
-    // Return 0 for boot-only checks.
-    Interval() time.Duration
-}
-
-// Remediator decides what to do with an unhealthy node.
-type Remediator interface {
-    Remediate(ctx context.Context, node *Node, result *HealthResult) (Action, error)
-}
-
-// Notifier sends alerts when notable events occur.
-type Notifier interface {
-    Notify(ctx context.Context, event Event) error
+// Autoscaler decides how many nodes a pool should have.
+type Autoscaler interface {
+    Recommend(ctx context.Context, state PoolState) (ScaleRecommendation, error)
 }
 ```
 
 ### Built-in Implementations
 
-Navarch ships with default implementations:
-
-- **Providers**: GCP, AWS (more coming)
-- **Scheduler**: `FirstAvailable` (no preference) 
-- **Health Checks**: `NvmlCheck` (temperatures, ECC errors), `XidCheck` (dmesg parsing), `BootCheck` (basic GPU read/write)
-- **Remediator**: `CordonAndReplace` (marks node unhealthy, provisions replacement)
-- **Notifier**: `LogNotifier` (writes to stdout)
-
-To use custom implementations, register them with the control plane:
-
-```go
-cp := navarch.NewControlPlane(
-    navarch.WithProvider(myBareMetalProvider),
-    navarch.WithScheduler(myCostAwareScheduler),
-    navarch.WithHealthCheck(myFabricValidator),
-    navarch.WithNotifier(myPagerDutyNotifier),
-)
-```
-
-See [docs/extending.md](docs/extending.md) for detailed examples.
+- **Providers**: Lambda Labs, GCP, AWS, Fake (for testing)
+- **Autoscalers**: Reactive, Queue-based, Scheduled, Predictive, Composite
 
 ## Roadmap
 
-- [x] Basic multi-cloud provisioning (GCP, AWS)
-- [x] Node daemon with boot checks and passive NVML monitoring
-- [ ] XID error detection and classification
-- [ ] Automatic node replacement
+- [x] Multi-cloud provisioning (Lambda Labs, GCP, AWS)
+- [x] Node daemon with NVML monitoring and XID error detection
+- [x] Pool management with pluggable autoscaling
+- [x] Multi-provider pools (fungible compute)
 - [ ] Spot instance support with preemption handling
-- [ ] Active diagnostics (weekly `dcgmi diag`, GPU burn tests)
-- [ ] Topology-aware provisioning (same rack, same switch)
-- [ ] Fabric validation (NVLink/InfiniBand bandwidth via `nvbandwidth`, NCCL all-reduce)
+- [ ] Active diagnostics (`dcgmi diag`, GPU burn tests)
+- [ ] Topology-aware provisioning
 - [ ] Web dashboard
 
 ## License
