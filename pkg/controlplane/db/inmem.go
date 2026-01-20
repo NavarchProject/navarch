@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "github.com/NavarchProject/navarch/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // InMemDB is an in-memory implementation of the DB interface.
@@ -205,13 +206,23 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 		LastHealthCheck: src.LastHealthCheck,
 		HealthStatus:    src.HealthStatus,
 		RegisteredAt:    src.RegisteredAt,
-		Metadata:        src.Metadata,
-		Config:          src.Config,
+	}
+	
+	if src.Metadata != nil {
+		dst.Metadata = proto.Clone(src.Metadata).(*pb.NodeMetadata)
+	}
+	
+	if src.Config != nil {
+		dst.Config = proto.Clone(src.Config).(*pb.NodeConfig)
 	}
 	
 	if len(src.GPUs) > 0 {
 		dst.GPUs = make([]*pb.GPUInfo, len(src.GPUs))
-		copy(dst.GPUs, src.GPUs)
+		for i, gpu := range src.GPUs {
+			if gpu != nil {
+				dst.GPUs[i] = proto.Clone(gpu).(*pb.GPUInfo)
+			}
+		}
 	}
 	
 	return dst

@@ -105,6 +105,8 @@ func main() {
 		logger.Error("server error triggered shutdown", slog.String("error", err.Error()))
 	}
 
+	cancel()
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
