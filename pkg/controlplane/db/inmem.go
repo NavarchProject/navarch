@@ -18,6 +18,7 @@ type InMemDB struct {
 	healthChecks map[string][]*HealthCheckRecord // nodeID -> list of health checks
 	commands     map[string]*CommandRecord       // commandID -> command
 	nodeCommands map[string][]*CommandRecord     // nodeID -> list of commands
+	metrics      map[string][]*MetricsRecord     // nodeID -> list of metrics (max 100 per node)
 }
 
 // NewInMemDB creates a new in-memory database.
@@ -27,6 +28,7 @@ func NewInMemDB() *InMemDB {
 		healthChecks: make(map[string][]*HealthCheckRecord),
 		commands:     make(map[string]*CommandRecord),
 		nodeCommands: make(map[string][]*CommandRecord),
+		metrics:      make(map[string][]*MetricsRecord),
 	}
 }
 
@@ -226,6 +228,49 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 	}
 	
 	return dst
+}
+
+// RecordMetrics stores metrics from a node heartbeat.
+func (db *InMemDB) RecordMetrics(ctx context.Context, record *MetricsRecord) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if _, exists := db.nodes[record.NodeID]; !exists {
+		return fmt.Errorf("node %s not found", record.NodeID)
+	}
+
+	history := db.metrics[record.NodeID]
+	history = append(history, record)
+
+	// Keep only the most recent 100 metrics per node
+	if len(history) > 100 {
+		history = history[len(history)-100:]
+	}
+
+	db.metrics[record.NodeID] = history
+	return nil
+}
+
+// GetRecentMetrics retrieves metrics for a node within the specified duration.
+func (db *InMemDB) GetRecentMetrics(ctx context.Context, nodeID string, duration time.Duration) ([]*MetricsRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	if _, exists := db.nodes[nodeID]; !exists {
+		return nil, fmt.Errorf("node %s not found", nodeID)
+	}
+
+	cutoff := time.Now().Add(-duration)
+	history := db.metrics[nodeID]
+
+	var recent []*MetricsRecord
+	for _, record := range history {
+		if record.Timestamp.After(cutoff) {
+			recent = append(recent, record)
+		}
+	}
+
+	return recent, nil
 }
 
 // Close closes the database (no-op for in-memory).

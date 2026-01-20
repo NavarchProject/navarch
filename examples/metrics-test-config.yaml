@@ -1,0 +1,25 @@
+server:
+  address: ":50051"
+  heartbeat_interval: 5s
+  health_check_interval: 10s
+  autoscale_interval: 10s
+
+providers:
+  fake:
+    type: fake
+    gpu_count: 8
+
+pools:
+  test-pool:
+    provider: fake
+    instance_type: fake-8xgpu
+    min_nodes: 1
+    max_nodes: 5
+    cooldown: 30s
+    autoscaling:
+      type: reactive
+      scale_up_at: 75
+      scale_down_at: 25
+    labels:
+      pool: test-pool
+

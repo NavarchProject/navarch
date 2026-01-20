@@ -45,6 +45,13 @@ type CommandRecord struct {
 	Status     string // "pending", "acknowledged", "completed", "failed"
 }
 
+// MetricsRecord represents metrics collected from a node at a point in time.
+type MetricsRecord struct {
+	NodeID    string
+	Timestamp time.Time
+	Metrics   *pb.NodeMetrics
+}
+
 // DB is the interface for control plane data storage.
 type DB interface {
 	// Node operations
@@ -63,6 +70,10 @@ type DB interface {
 	CreateCommand(ctx context.Context, record *CommandRecord) error
 	GetPendingCommands(ctx context.Context, nodeID string) ([]*CommandRecord, error)
 	UpdateCommandStatus(ctx context.Context, commandID, status string) error
+	
+	// Metrics operations
+	RecordMetrics(ctx context.Context, record *MetricsRecord) error
+	GetRecentMetrics(ctx context.Context, nodeID string, duration time.Duration) ([]*MetricsRecord, error)
 	
 	// Cleanup
 	Close() error

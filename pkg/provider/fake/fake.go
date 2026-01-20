@@ -81,6 +81,7 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		Region:           req.Region,
 		Zone:             req.Zone,
 		InstanceType:     req.InstanceType,
+		Labels:           req.Labels,
 		GPU:              gpu.NewFake(p.config.GPUCount),
 	}
 

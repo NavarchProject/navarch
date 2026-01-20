@@ -35,6 +35,9 @@ type Config struct {
 	// InstanceType is the instance type (e.g., "a3-highgpu-8g").
 	InstanceType string
 
+	// Labels are user-defined key-value labels for this node.
+	Labels map[string]string
+
 	// GPU is the GPU manager to use. If nil, a fake GPU will be created.
 	GPU gpu.Manager
 }
@@ -156,6 +159,13 @@ func (n *Node) register(ctx context.Context) error {
 		hostname = n.config.NodeID
 	}
 
+	labels := make(map[string]string)
+	if n.config.Labels != nil {
+		for k, v := range n.config.Labels {
+			labels[k] = v
+		}
+	}
+
 	req := connect.NewRequest(&pb.RegisterNodeRequest{
 		NodeId:       n.config.NodeID,
 		Provider:     n.config.Provider,
@@ -167,7 +177,7 @@ func (n *Node) register(ctx context.Context) error {
 			Hostname:   hostname,
 			InternalIp: "",
 			ExternalIp: "",
-			Labels:     make(map[string]string),
+			Labels:     labels,
 		},
 	})
 	

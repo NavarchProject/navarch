@@ -16,9 +16,10 @@ import (
 
 // Server implements the ControlPlaneService Connect service.
 type Server struct {
-	db     db.DB
-	config Config
-	logger *slog.Logger
+	db            db.DB
+	config        Config
+	logger        *slog.Logger
+	metricsSource *DBMetricsSource
 }
 
 // Config holds configuration for the control plane server.
@@ -42,10 +43,12 @@ func NewServer(database db.DB, cfg Config, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	metricsSource := NewDBMetricsSource(database, logger)
 	return &Server{
-		db:     database,
-		config: cfg,
-		logger: logger,
+		db:            database,
+		config:        cfg,
+		logger:        logger,
+		metricsSource: metricsSource,
 	}
 }
 
@@ -166,7 +169,16 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
-	// TODO: Store metrics if provided
+	// Store metrics if provided
+	if req.Msg.Metrics != nil {
+		if err := s.metricsSource.StoreMetrics(ctx, req.Msg.NodeId, req.Msg.Metrics); err != nil {
+			s.logger.WarnContext(ctx, "failed to store metrics",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+			// Don't fail the heartbeat if metrics storage fails
+		}
+	}
 
 	return connect.NewResponse(&pb.HeartbeatResponse{
 		Acknowledged: true,

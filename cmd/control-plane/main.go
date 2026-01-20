@@ -61,7 +61,7 @@ func main() {
 
 	var poolManager *controlplane.PoolManager
 	if len(cfg.Pools) > 0 {
-		poolManager, err = initPoolManager(cfg, logger)
+		poolManager, err = initPoolManager(cfg, database, logger)
 		if err != nil {
 			logger.Error("failed to initialize pool manager", slog.String("error", err.Error()))
 			os.Exit(1)
@@ -156,10 +156,11 @@ func readyzHandler(database db.DB, logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func initPoolManager(cfg *config.Config, logger *slog.Logger) (*controlplane.PoolManager, error) {
+func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*controlplane.PoolManager, error) {
+	metricsSource := controlplane.NewDBMetricsSource(database, logger)
 	pm := controlplane.NewPoolManager(controlplane.PoolManagerConfig{
 		EvaluationInterval: cfg.Server.AutoscaleInterval,
-	}, nil, logger)
+	}, metricsSource, logger)
 
 	providers := make(map[string]provider.Provider)
 	controlPlaneAddr := fmt.Sprintf("http://localhost%s", cfg.Server.Address)
@@ -196,6 +197,15 @@ func initPoolManager(cfg *config.Config, logger *slog.Logger) (*controlplane.Poo
 			}
 		}
 
+		labels := make(map[string]string)
+		if poolCfg.Labels != nil {
+			for k, v := range poolCfg.Labels {
+				labels[k] = v
+			}
+		}
+		// Ensure pool name is always in labels for metrics aggregation
+		labels["pool"] = poolName
+
 		p, err := pool.NewWithOptions(pool.NewPoolOptions{
 			Config: pool.Config{
 				Name:               poolName,
@@ -208,7 +218,7 @@ func initPoolManager(cfg *config.Config, logger *slog.Logger) (*controlplane.Poo
 				CooldownPeriod:     poolCfg.Cooldown,
 				UnhealthyThreshold: getUnhealthyThreshold(poolCfg.Health),
 				AutoReplace:        getAutoReplace(poolCfg.Health),
-				Labels:             poolCfg.Labels,
+				Labels:             labels,
 			},
 			Providers:        poolProviders,
 			ProviderStrategy: poolCfg.Strategy,
