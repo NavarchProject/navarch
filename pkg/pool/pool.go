@@ -11,29 +11,26 @@ import (
 
 // Config defines a GPU node pool configuration.
 type Config struct {
-	Name     string
-	Provider string // "lambda", "gcp", "aws"
+	Name     string // Unique pool identifier
+	Provider string // Cloud provider name: "lambda", "gcp", "aws"
 
-	InstanceType string
-	Region       string
-	Zones        []string // For multi-zone pools
-	SSHKeyNames  []string
+	InstanceType string   // Instance type to provision (e.g., "gpu_8x_h100_sxm5")
+	Region       string   // Cloud region (e.g., "us-west-2")
+	Zones        []string // Availability zones for multi-zone pools
+	SSHKeyNames  []string // SSH key names to install on instances
 
-	// Scaling limits - users set these with confidence
-	MinNodes int
-	MaxNodes int
+	MinNodes int // Minimum nodes to maintain (hard floor)
+	MaxNodes int // Maximum nodes allowed (hard ceiling)
 
-	// Scaling behavior
-	ScaleUpThreshold   int           // % utilization to trigger scale up
-	ScaleDownThreshold int           // % utilization to trigger scale down
-	ScaleDownDelay     time.Duration // Wait before scaling down
-	CooldownPeriod     time.Duration // Min time between scaling actions
+	ScaleUpThreshold   int           // Utilization percentage to trigger scale up
+	ScaleDownThreshold int           // Utilization percentage to trigger scale down
+	ScaleDownDelay     time.Duration // Grace period before scaling down idle nodes
+	CooldownPeriod     time.Duration // Minimum time between scaling actions
 
-	UnhealthyThreshold int  // Consecutive failures before replacement
+	UnhealthyThreshold int  // Consecutive health check failures before node is unhealthy
 	AutoReplace        bool // Automatically replace unhealthy nodes
 
-	// Labels for workload routing
-	Labels map[string]string
+	Labels map[string]string // Key-value labels for workload routing
 }
 
 // Pool represents a managed group of GPU nodes.
@@ -47,24 +44,24 @@ type Pool struct {
 
 // ManagedNode tracks a node within a pool.
 type ManagedNode struct {
-	Node            *provider.Node
-	Pool            string
-	HealthFailures  int
-	LastHealthCheck time.Time
-	Cordoned        bool
-	ProvisionedAt   time.Time
+	Node            *provider.Node // Underlying provider node
+	Pool            string         // Name of the pool this node belongs to
+	HealthFailures  int            // Consecutive health check failures
+	LastHealthCheck time.Time      // When the last health check ran
+	Cordoned        bool           // If true, node is unschedulable for new workloads
+	ProvisionedAt   time.Time      // When this node was created
 }
 
 // Status represents the current state of a pool.
 type Status struct {
-	Name           string
-	TotalNodes     int
-	HealthyNodes   int
-	UnhealthyNodes int
-	CordonedNodes  int
-	Utilization    float64
-	CanScaleUp     bool
-	CanScaleDown   bool
+	Name           string  // Pool name
+	TotalNodes     int     // Total nodes in pool
+	HealthyNodes   int     // Nodes passing health checks
+	UnhealthyNodes int     // Nodes failing health checks
+	CordonedNodes  int     // Nodes marked unschedulable
+	Utilization    float64 // Average utilization percentage
+	CanScaleUp     bool    // True if pool is below MaxNodes
+	CanScaleDown   bool    // True if pool is above MinNodes
 }
 
 // New creates a new pool with the given configuration.

@@ -4,28 +4,27 @@ import "context"
 
 // Node represents a provisioned GPU instance.
 type Node struct {
-	ID           string
-	Provider     string
-	Region       string
-	Zone         string
-	InstanceType string
-	Status       string // provisioning, running, terminating, terminated
-	IPAddress    string
-	GPUCount     int
-	GPUType      string
-	Labels       map[string]string
+	ID           string            // Provider-assigned instance ID
+	Provider     string            // Provider name (e.g., "lambda", "gcp")
+	Region       string            // Cloud region
+	Zone         string            // Availability zone
+	InstanceType string            // Instance type name
+	Status       string            // Instance state: provisioning, running, terminating, terminated
+	IPAddress    string            // Public or private IP address
+	GPUCount     int               // Number of GPUs attached
+	GPUType      string            // GPU model description (e.g., "NVIDIA H100 80GB")
+	Labels       map[string]string // User-defined key-value labels
 }
 
 // ProvisionRequest contains parameters for provisioning a node.
 type ProvisionRequest struct {
-	Name         string
-	InstanceType string
-	Region       string
-	Zone         string
-	SSHKeyNames  []string
-	Labels       map[string]string
-	// UserData is a script to run on instance startup (cloud-init).
-	UserData string
+	Name         string            // Instance name (may be used as hostname)
+	InstanceType string            // Instance type to launch
+	Region       string            // Target region
+	Zone         string            // Target availability zone (optional)
+	SSHKeyNames  []string          // SSH key names to authorize
+	Labels       map[string]string // Labels to apply to the instance
+	UserData     string            // Startup script (cloud-init format)
 }
 
 // Provider abstracts cloud-specific provisioning operations.
@@ -38,14 +37,14 @@ type Provider interface {
 
 // InstanceType describes an available instance type from a provider.
 type InstanceType struct {
-	Name        string
-	GPUCount    int
-	GPUType     string
-	MemoryGB    int
-	VCPUs       int
-	PricePerHr  float64
-	Regions     []string
-	Available   bool
+	Name       string   // Instance type name (e.g., "gpu_8x_h100_sxm5")
+	GPUCount   int      // Number of GPUs
+	GPUType    string   // GPU model description
+	MemoryGB   int      // System memory in gigabytes
+	VCPUs      int      // Virtual CPU count
+	PricePerHr float64  // Price per hour in USD
+	Regions    []string // Regions where this type is offered
+	Available  bool     // True if capacity is currently available
 }
 
 // InstanceTypeLister is an optional interface for providers that can list available types.

@@ -14,28 +14,28 @@ type Autoscaler interface {
 
 // PoolState provides current pool metrics to the autoscaler.
 type PoolState struct {
-	Name           string
-	CurrentNodes   int
-	HealthyNodes   int
-	MinNodes       int
-	MaxNodes       int
-	Utilization    float64 // 0-100
-	PendingJobs    int
-	QueueDepth     int
-	LastScaleTime  time.Time
-	CooldownPeriod time.Duration
+	Name         string
+	CurrentNodes int // Total nodes in pool (healthy + unhealthy)
+	HealthyNodes int // Nodes passing health checks
+	MinNodes     int // Pool minimum node count
+	MaxNodes     int // Pool maximum node count
+	Utilization  float64 // Average GPU utilization (0-100)
+	PendingJobs  int     // Jobs waiting to be scheduled
+	QueueDepth   int     // Total jobs in queue (pending + running)
 
-	// Historical metrics for predictive scaling
-	UtilizationHistory []float64   // Recent utilization samples
-	TimeOfDay          time.Time   // For time-based patterns
-	DayOfWeek          time.Weekday
+	LastScaleTime  time.Time     // When the pool last scaled
+	CooldownPeriod time.Duration // Minimum time between scaling actions
+
+	UtilizationHistory []float64    // Recent utilization samples for trend analysis
+	TimeOfDay          time.Time    // Current time for scheduled scaling
+	DayOfWeek          time.Weekday // Current day for scheduled scaling
 }
 
 // ScaleDecision represents the autoscaler's recommendation.
 type ScaleDecision struct {
-	TargetNodes int
-	Reason      string
-	Confidence  float64 // 0-1, for predictive models
+	TargetNodes int     // Recommended node count
+	Reason      string  // Human-readable explanation
+	Confidence  float64 // Prediction confidence (0-1), used by predictive models
 }
 
 // ReactiveAutoscaler scales based on current utilization thresholds.
@@ -99,16 +99,17 @@ func (a *QueueBasedAutoscaler) Recommend(ctx context.Context, state PoolState) (
 
 // ScheduledAutoscaler scales based on time-of-day patterns.
 type ScheduledAutoscaler struct {
-	Schedule []ScheduleEntry
-	Fallback Autoscaler
+	Schedule []ScheduleEntry // Time-based scaling rules, evaluated in order
+	Fallback Autoscaler      // Autoscaler to use for actual recommendations
 }
 
+// ScheduleEntry defines scaling limits for a time window.
 type ScheduleEntry struct {
-	DaysOfWeek []time.Weekday
-	StartHour  int // 0-23
-	EndHour    int // 0-23
-	MinNodes   int
-	MaxNodes   int
+	DaysOfWeek []time.Weekday // Days this entry applies to; empty means all days
+	StartHour  int            // Start hour (0-23, inclusive)
+	EndHour    int            // End hour (0-23, exclusive)
+	MinNodes   int            // Override pool MinNodes during this window
+	MaxNodes   int            // Override pool MaxNodes during this window
 }
 
 func NewScheduledAutoscaler(schedule []ScheduleEntry, fallback Autoscaler) *ScheduledAutoscaler {
@@ -153,11 +154,10 @@ func (a *ScheduledAutoscaler) matchesDay(days []time.Weekday, day time.Weekday) 
 }
 
 // PredictiveAutoscaler uses historical data to forecast demand.
-// This is a placeholder for ML-based prediction models.
 type PredictiveAutoscaler struct {
-	Fallback       Autoscaler
-	LookbackWindow int     // Number of historical samples to consider
-	GrowthFactor   float64 // Multiplier for predicted growth
+	Fallback       Autoscaler // Used when insufficient history is available
+	LookbackWindow int        // Number of utilization samples to analyze
+	GrowthFactor   float64    // Multiplier applied to predicted growth (e.g., 1.5 = 50% buffer)
 }
 
 func NewPredictiveAutoscaler(lookback int, growthFactor float64, fallback Autoscaler) *PredictiveAutoscaler {
@@ -204,10 +204,10 @@ func (a *PredictiveAutoscaler) calculateTrend(history []float64) float64 {
 	return recent[len(recent)-1] - recent[0]
 }
 
-// CompositeAutoscaler combines multiple autoscalers with priority.
+// CompositeAutoscaler combines multiple autoscalers.
 type CompositeAutoscaler struct {
-	Autoscalers []Autoscaler
-	Mode        CompositeMode
+	Autoscalers []Autoscaler  // Autoscalers to query for recommendations
+	Mode        CompositeMode // How to combine recommendations
 }
 
 type CompositeMode int
@@ -270,4 +270,3 @@ func (a *CompositeAutoscaler) Recommend(ctx context.Context, state PoolState) (i
 
 	return state.CurrentNodes, nil
 }
-
