@@ -60,6 +60,14 @@ func (a *ReactiveAutoscaler) Recommend(ctx context.Context, state PoolState) (Sc
 		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "cooldown active"}, nil
 	}
 
+	// Ensure min_nodes are met
+	if state.CurrentNodes < state.MinNodes {
+		return ScaleRecommendation{
+			TargetNodes: state.MinNodes,
+			Reason:      fmt.Sprintf("below minimum: %d < %d", state.CurrentNodes, state.MinNodes),
+		}, nil
+	}
+
 	if state.Utilization > a.ScaleUpThreshold && state.CurrentNodes < state.MaxNodes {
 		target := min(state.CurrentNodes+a.ScaleUpStep, state.MaxNodes)
 		return ScaleRecommendation{
