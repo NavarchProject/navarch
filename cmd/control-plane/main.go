@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -397,7 +398,7 @@ func parseDaysOfWeek(days []string) []time.Weekday {
 	}
 	var result []time.Weekday
 	for _, d := range days {
-		if wd, ok := dayMap[d]; ok {
+		if wd, ok := dayMap[strings.ToLower(d)]; ok {
 			result = append(result, wd)
 		}
 	}
