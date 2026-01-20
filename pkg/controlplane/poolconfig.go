@@ -118,7 +118,6 @@ func LoadPoolsConfig(path string) (*PoolsConfig, error) {
 func (p *PoolConfigYAML) ToPoolConfig(global GlobalConfig) (pool.Config, error) {
 	cfg := pool.Config{
 		Name:               p.Name,
-		Provider:           p.Provider,
 		InstanceType:       p.InstanceType,
 		Region:             p.Region,
 		Zones:              p.Zones,
@@ -142,6 +141,11 @@ func (p *PoolConfigYAML) ToPoolConfig(global GlobalConfig) (pool.Config, error) 
 	}
 
 	return cfg, nil
+}
+
+// ProviderName returns the provider name for this pool configuration.
+func (p *PoolConfigYAML) ProviderName() string {
+	return p.Provider
 }
 
 // BuildAutoscaler creates an Autoscaler from YAML config.

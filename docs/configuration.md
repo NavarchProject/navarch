@@ -152,32 +152,22 @@ The fake provider simulates GPU instances by running node agents as goroutines.
 
 ## Pool
 
-Configures a GPU node pool with scaling and health policies.
+Configures a GPU node pool with scaling and health policies. A pool can use a single provider or multiple providers for fungible compute.
+
+### Single-provider pool
 
 ```yaml
 apiVersion: navarch.io/v1alpha1
 kind: Pool
 metadata:
   name: training
-  labels:
-    workload: training
-    tier: standard
 spec:
   providerRef: lambda
   instanceType: gpu_8x_h100_sxm5
   region: us-west-2
-  zones:
-    - us-west-2a
-    - us-west-2b
-  sshKeyNames:
-    - ops-team
-    - ml-team
-  labels:
-    workload: training
   scaling:
     minReplicas: 2
     maxReplicas: 20
-    cooldownPeriod: 5m
     autoscaler:
       type: reactive
       scaleUpThreshold: 80
@@ -187,13 +177,85 @@ spec:
     autoReplace: true
 ```
 
+### Multi-provider pool (fungible compute)
+
+Multi-provider pools treat GPUs as fungible compute across cloud providers. If Lambda Labs has no capacity, Navarch automatically provisions from GCP. This is the core promise of Navarch.
+
+```yaml
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: fungible
+spec:
+  providers:
+    - name: lambda
+      priority: 1
+      regions: [us-west-2, us-east-1]
+    - name: gcp
+      priority: 2
+      regions: [us-central1]
+      instanceType: a3-highgpu-8g  # Provider-specific override
+  providerStrategy: priority
+  instanceType: h100-8x  # Abstract type
+  scaling:
+    minReplicas: 4
+    maxReplicas: 32
+    autoscaler:
+      type: reactive
+      scaleUpThreshold: 75
+      scaleDownThreshold: 25
+  health:
+    unhealthyThreshold: 2
+    autoReplace: true
+```
+
+### Provider selection strategies
+
+When using multiple providers, `providerStrategy` determines how Navarch chooses between them:
+
+| Strategy | Description |
+|----------|-------------|
+| `priority` | Tries providers in priority order (lowest number first). Falls back on failure. Default. |
+| `cost` | Queries providers for pricing and selects the cheapest with available capacity. |
+| `availability` | Queries providers for capacity and selects the first with availability. |
+| `round-robin` | Distributes provisioning evenly across providers using weights. |
+
+### Abstract instance types
+
+Abstract types let you request hardware without knowing provider-specific names:
+
+| Abstract type | Lambda | GCP | AWS |
+|---------------|--------|-----|-----|
+| `h100-8x` | `gpu_8x_h100_sxm5` | `a3-highgpu-8g` | `p5.48xlarge` |
+| `h100-1x` | `gpu_1x_h100_pcie` | `a3-highgpu-1g` | `p5.xlarge` |
+| `a100-8x` | `gpu_8x_a100` | `a2-highgpu-8g` | `p4d.24xlarge` |
+| `a100-4x` | `gpu_4x_a100` | `a2-highgpu-4g` | `p4de.24xlarge` |
+| `a100-1x` | `gpu_1x_a100` | `a2-highgpu-1g` | - |
+| `a10-1x` | `gpu_1x_a10` | `g2-standard-4` | `g5.xlarge` |
+
+You can also use provider-specific instance types directly.
+
+### Provider reference fields
+
+When using `providers` (multi-provider):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `providers[].name` | string | Name of the Provider resource. |
+| `providers[].priority` | int | Selection priority (lower = preferred). |
+| `providers[].weight` | int | Weight for round-robin distribution. |
+| `providers[].regions` | []string | Regions to use with this provider. |
+| `providers[].instanceType` | string | Provider-specific instance type override. |
+
 ### Pool spec fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `providerRef` | string | Yes | Name of the Provider resource to use. |
-| `instanceType` | string | Yes | Cloud instance type to provision. |
-| `region` | string | Yes | Cloud region for instances. |
+| `providerRef` | string | * | Name of a single Provider. Mutually exclusive with `providers`. |
+| `providers` | []ProviderRef | * | Multiple providers for fungible compute. Mutually exclusive with `providerRef`. |
+| `providerStrategy` | string | No | Selection strategy: `priority`, `cost`, `availability`, or `round-robin`. |
+| `instanceType` | string | Yes | Instance type (abstract or provider-specific). |
+| `region` | string | No | Default cloud region for instances. |
 | `zones` | []string | No | Availability zones for multi-zone pools. |
 | `sshKeyNames` | []string | No | SSH key names to install on instances. |
 | `labels` | map | No | Labels applied to provisioned nodes. |
@@ -203,6 +265,8 @@ spec:
 | `scaling.autoscaler` | AutoscalerSpec | No | Autoscaler configuration. |
 | `health.unhealthyThreshold` | int | No | Consecutive failures before unhealthy (default: 3). |
 | `health.autoReplace` | bool | No | Automatically replace unhealthy nodes. |
+
+\* Either `providerRef` or `providers` is required, but not both.
 
 ## Autoscaler configuration
 

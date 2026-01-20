@@ -209,7 +209,7 @@ func TestConfig_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid",
+			name: "valid single provider",
 			cfg: &Config{
 				Providers: map[string]*Provider{
 					"fake": {Spec: ProviderSpec{Type: "fake"}},
@@ -227,6 +227,29 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid multi-provider",
+			cfg: &Config{
+				Providers: map[string]*Provider{
+					"lambda": {Spec: ProviderSpec{Type: "lambda"}},
+					"gcp":    {Spec: ProviderSpec{Type: "gcp"}},
+				},
+				Pools: []*Pool{
+					{
+						Metadata: ObjectMeta{Name: "pool-1"},
+						Spec: PoolSpec{
+							Providers: []PoolProviderRef{
+								{Name: "lambda", Priority: 1},
+								{Name: "gcp", Priority: 2},
+							},
+							ProviderStrategy: "priority",
+							Scaling:          ScalingSpec{MinReplicas: 0, MaxReplicas: 10},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "missing pool name",
 			cfg: &Config{
 				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
@@ -235,10 +258,25 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing providerRef",
+			name: "missing both providerRef and providers",
 			cfg: &Config{
 				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
 				Pools:     []*Pool{{Metadata: ObjectMeta{Name: "pool"}, Spec: PoolSpec{Scaling: ScalingSpec{MaxReplicas: 10}}}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "has both providerRef and providers",
+			cfg: &Config{
+				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
+				Pools: []*Pool{{
+					Metadata: ObjectMeta{Name: "pool"},
+					Spec: PoolSpec{
+						ProviderRef: "fake",
+						Providers:   []PoolProviderRef{{Name: "fake"}},
+						Scaling:     ScalingSpec{MaxReplicas: 10},
+					},
+				}},
 			},
 			wantErr: true,
 		},
@@ -249,6 +287,49 @@ func TestConfig_Validate(t *testing.T) {
 				Pools: []*Pool{
 					{Metadata: ObjectMeta{Name: "pool"}, Spec: PoolSpec{ProviderRef: "unknown", Scaling: ScalingSpec{MaxReplicas: 10}}},
 				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown provider in providers list",
+			cfg: &Config{
+				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
+				Pools: []*Pool{{
+					Metadata: ObjectMeta{Name: "pool"},
+					Spec: PoolSpec{
+						Providers: []PoolProviderRef{{Name: "unknown"}},
+						Scaling:   ScalingSpec{MaxReplicas: 10},
+					},
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty provider name in providers list",
+			cfg: &Config{
+				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
+				Pools: []*Pool{{
+					Metadata: ObjectMeta{Name: "pool"},
+					Spec: PoolSpec{
+						Providers: []PoolProviderRef{{Name: ""}},
+						Scaling:   ScalingSpec{MaxReplicas: 10},
+					},
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid provider strategy",
+			cfg: &Config{
+				Providers: map[string]*Provider{"fake": {Spec: ProviderSpec{Type: "fake"}}},
+				Pools: []*Pool{{
+					Metadata: ObjectMeta{Name: "pool"},
+					Spec: PoolSpec{
+						Providers:        []PoolProviderRef{{Name: "fake"}},
+						ProviderStrategy: "invalid-strategy",
+						Scaling:          ScalingSpec{MaxReplicas: 10},
+					},
+				}},
 			},
 			wantErr: true,
 		},

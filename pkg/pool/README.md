@@ -1,11 +1,13 @@
 # Pool management
 
-This package provides GPU node pool management with pluggable autoscaling strategies.
+This package provides GPU node pool management with pluggable autoscaling strategies and multi-provider support for fungible compute.
 
 ## Overview
 
 A pool is a managed group of GPU nodes with:
 
+- Multi-provider support (fungible compute across clouds).
+- Provider selection strategies (priority, cost, availability, round-robin).
 - Scaling limits (min/max nodes).
 - Health tracking and automatic replacement.
 - Pluggable autoscaling strategies.
@@ -13,10 +15,11 @@ A pool is a managed group of GPU nodes with:
 
 ## Pool configuration
 
+### Single provider
+
 ```go
-pool, err := pool.New(pool.Config{
+pool, err := pool.NewSimple(pool.Config{
     Name:         "training",
-    Provider:     "lambda",
     InstanceType: "gpu_8x_h100_sxm5",
     Region:       "us-west-2",
     
@@ -30,8 +33,37 @@ pool, err := pool.New(pool.Config{
     Labels: map[string]string{
         "workload": "training",
     },
-}, provider)
+}, lambdaProvider, "lambda")
 ```
+
+### Multi-provider (fungible compute)
+
+Multi-provider pools treat GPUs as fungible compute. If one provider lacks capacity, provisioning falls back to the next.
+
+```go
+pool, err := pool.NewWithOptions(pool.NewPoolOptions{
+    Config: pool.Config{
+        Name:         "fungible",
+        InstanceType: "h100-8x",  // Abstract type
+        MinNodes:     4,
+        MaxNodes:     32,
+    },
+    Providers: []pool.ProviderConfig{
+        {Name: "lambda", Provider: lambdaProvider, Priority: 1},
+        {Name: "gcp", Provider: gcpProvider, Priority: 2},
+    },
+    ProviderStrategy: "priority",  // or "cost", "availability", "round-robin"
+})
+```
+
+### Provider selection strategies
+
+| Strategy | Description |
+|----------|-------------|
+| `priority` | Tries providers in priority order (lowest first). Falls back on failure. Default. |
+| `cost` | Queries pricing and selects cheapest available. |
+| `availability` | Queries capacity and selects first with availability. |
+| `round-robin` | Distributes evenly, respecting weights. |
 
 ## Autoscaler interface
 
@@ -217,21 +249,29 @@ All autoscalers respect the cooldown period in `PoolState`. During cooldown, the
 ## Example: complete pool setup
 
 ```go
-// Create provider
-provider, _ := lambda.New(lambda.Config{
+// Create providers
+lambdaProvider, _ := lambda.New(lambda.Config{
     APIKey: os.Getenv("LAMBDA_API_KEY"),
 })
+gcpProvider, _ := gcp.New(gcp.Config{
+    Project: os.Getenv("GCP_PROJECT"),
+})
 
-// Create pool
-p, _ := pool.New(pool.Config{
-    Name:           "inference",
-    Provider:       "lambda",
-    InstanceType:   "gpu_1x_a100_sxm4",
-    Region:         "us-west-2",
-    MinNodes:       2,
-    MaxNodes:       50,
-    CooldownPeriod: 5 * time.Minute,
-}, provider)
+// Create multi-provider pool
+p, _ := pool.NewWithOptions(pool.NewPoolOptions{
+    Config: pool.Config{
+        Name:           "inference",
+        InstanceType:   "a100-8x",  // Abstract type
+        MinNodes:       2,
+        MaxNodes:       50,
+        CooldownPeriod: 5 * time.Minute,
+    },
+    Providers: []pool.ProviderConfig{
+        {Name: "lambda", Provider: lambdaProvider, Priority: 1},
+        {Name: "gcp", Provider: gcpProvider, Priority: 2},
+    },
+    ProviderStrategy: "priority",
+})
 
 // Create autoscaler
 as := pool.NewCompositeAutoscaler(

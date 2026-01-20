@@ -109,12 +109,37 @@ func (c *Config) Validate() error {
 		if pool.Metadata.Name == "" {
 			return fmt.Errorf("Pool must have metadata.name")
 		}
-		if pool.Spec.ProviderRef == "" {
-			return fmt.Errorf("Pool %q must have spec.providerRef", pool.Metadata.Name)
+
+		hasProviderRef := pool.Spec.ProviderRef != ""
+		hasProviders := len(pool.Spec.Providers) > 0
+
+		if !hasProviderRef && !hasProviders {
+			return fmt.Errorf("Pool %q must have either spec.providerRef or spec.providers", pool.Metadata.Name)
 		}
-		if _, ok := c.Providers[pool.Spec.ProviderRef]; !ok {
-			return fmt.Errorf("Pool %q references unknown provider %q", pool.Metadata.Name, pool.Spec.ProviderRef)
+		if hasProviderRef && hasProviders {
+			return fmt.Errorf("Pool %q cannot have both spec.providerRef and spec.providers", pool.Metadata.Name)
 		}
+
+		if hasProviderRef {
+			if _, ok := c.Providers[pool.Spec.ProviderRef]; !ok {
+				return fmt.Errorf("Pool %q references unknown provider %q", pool.Metadata.Name, pool.Spec.ProviderRef)
+			}
+		}
+
+		for _, pref := range pool.Spec.Providers {
+			if pref.Name == "" {
+				return fmt.Errorf("Pool %q has provider reference with empty name", pool.Metadata.Name)
+			}
+			if _, ok := c.Providers[pref.Name]; !ok {
+				return fmt.Errorf("Pool %q references unknown provider %q", pool.Metadata.Name, pref.Name)
+			}
+		}
+
+		validStrategies := map[string]bool{"": true, "priority": true, "cost": true, "availability": true, "round-robin": true}
+		if !validStrategies[pool.Spec.ProviderStrategy] {
+			return fmt.Errorf("Pool %q has invalid providerStrategy %q", pool.Metadata.Name, pool.Spec.ProviderStrategy)
+		}
+
 		if pool.Spec.Scaling.MinReplicas < 0 {
 			return fmt.Errorf("Pool %q: minReplicas must be >= 0", pool.Metadata.Name)
 		}

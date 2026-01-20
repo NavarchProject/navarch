@@ -111,7 +111,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.cfg, newMockProvider())
+			_, err := NewSimple(tt.cfg, newMockProvider(), "mock")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -119,15 +119,29 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestNew_NoProviders(t *testing.T) {
+	_, err := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:     "test-pool",
+			MinNodes: 0,
+			MaxNodes: 10,
+		},
+		Providers: nil,
+	})
+	if err == nil {
+		t.Error("New() should error when no providers given")
+	}
+}
+
 func TestPool_ScaleUp(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:         "test-pool",
 		MinNodes:     0,
 		MaxNodes:     5,
 		InstanceType: "gpu_1x_a100",
 		Region:       "us-west-2",
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 
@@ -164,11 +178,11 @@ func TestPool_ScaleUp(t *testing.T) {
 
 func TestPool_ScaleDown(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:     "test-pool",
 		MinNodes: 2,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 
@@ -206,11 +220,11 @@ func TestPool_ScaleDown(t *testing.T) {
 
 func TestPool_Cordon(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:     "test-pool",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 	nodes, _ := pool.ScaleUp(ctx, 2)
@@ -240,11 +254,11 @@ func TestPool_Cordon(t *testing.T) {
 
 func TestPool_ScaleDown_PrefersCordoned(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:     "test-pool",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 	nodes, _ := pool.ScaleUp(ctx, 3)
@@ -266,12 +280,12 @@ func TestPool_ScaleDown_PrefersCordoned(t *testing.T) {
 
 func TestPool_ReplaceNode(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:         "test-pool",
 		MinNodes:     1,
 		MaxNodes:     10,
 		InstanceType: "gpu_1x_a100",
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 	nodes, _ := pool.ScaleUp(ctx, 1)
@@ -302,13 +316,13 @@ func TestPool_ReplaceNode(t *testing.T) {
 
 func TestPool_HealthTracking(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:               "test-pool",
 		MinNodes:           0,
 		MaxNodes:           10,
 		UnhealthyThreshold: 3,
 		AutoReplace:        true,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 	nodes, _ := pool.ScaleUp(ctx, 1)
@@ -338,12 +352,12 @@ func TestPool_HealthTracking(t *testing.T) {
 
 func TestPool_Cooldown(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:           "test-pool",
 		MinNodes:       0,
 		MaxNodes:       10,
 		CooldownPeriod: 100 * time.Millisecond,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 
@@ -371,12 +385,12 @@ func TestPool_Cooldown(t *testing.T) {
 
 func TestPool_Status(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := New(Config{
+	pool, _ := NewSimple(Config{
 		Name:               "test-pool",
 		MinNodes:           2,
 		MaxNodes:           10,
 		UnhealthyThreshold: 2,
-	}, prov)
+	}, prov, "mock")
 
 	ctx := context.Background()
 	nodes, _ := pool.ScaleUp(ctx, 5)
@@ -406,6 +420,143 @@ func TestPool_Status(t *testing.T) {
 	}
 	if !status.CanScaleDown {
 		t.Error("CanScaleDown should be true")
+	}
+}
+
+func TestPool_MultiProvider_Priority(t *testing.T) {
+	primary := newMockProvider()
+	secondary := newMockProvider()
+
+	pool, err := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "multi-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+		},
+		Providers: []ProviderConfig{
+			{Name: "primary", Provider: primary, Priority: 1},
+			{Name: "secondary", Provider: secondary, Priority: 2},
+		},
+		ProviderStrategy: "priority",
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	ctx := context.Background()
+	nodes, err := pool.ScaleUp(ctx, 2)
+	if err != nil {
+		t.Fatalf("ScaleUp() error = %v", err)
+	}
+
+	// Both nodes should come from primary provider
+	for _, n := range nodes {
+		if n.Provider != "mock" { // mockProvider always returns "mock"
+			t.Errorf("expected node from primary provider")
+		}
+	}
+	if len(primary.nodes) != 2 {
+		t.Errorf("primary provider should have 2 nodes, got %d", len(primary.nodes))
+	}
+	if len(secondary.nodes) != 0 {
+		t.Errorf("secondary provider should have 0 nodes, got %d", len(secondary.nodes))
+	}
+}
+
+func TestPool_MultiProvider_Fallback(t *testing.T) {
+	primary := newMockProvider()
+	primary.failOn = "provision" // Primary fails
+	secondary := newMockProvider()
+
+	pool, _ := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "failover-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+		},
+		Providers: []ProviderConfig{
+			{Name: "primary", Provider: primary, Priority: 1},
+			{Name: "secondary", Provider: secondary, Priority: 2},
+		},
+		ProviderStrategy: "priority",
+	})
+
+	ctx := context.Background()
+	nodes, err := pool.ScaleUp(ctx, 1)
+	if err != nil {
+		t.Fatalf("ScaleUp() should succeed via fallback, got error = %v", err)
+	}
+
+	if len(nodes) != 1 {
+		t.Errorf("expected 1 node, got %d", len(nodes))
+	}
+	if len(secondary.nodes) != 1 {
+		t.Errorf("secondary provider should have 1 node, got %d", len(secondary.nodes))
+	}
+
+	// Verify the node is tracked with correct provider
+	managedNodes := pool.Nodes()
+	if len(managedNodes) != 1 {
+		t.Fatalf("expected 1 managed node, got %d", len(managedNodes))
+	}
+	if managedNodes[0].ProviderName != "secondary" {
+		t.Errorf("ProviderName = %s, want secondary", managedNodes[0].ProviderName)
+	}
+}
+
+func TestPool_MultiProvider_AllFail(t *testing.T) {
+	primary := newMockProvider()
+	primary.failOn = "provision"
+	secondary := newMockProvider()
+	secondary.failOn = "provision"
+
+	pool, _ := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "all-fail-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+		},
+		Providers: []ProviderConfig{
+			{Name: "primary", Provider: primary, Priority: 1},
+			{Name: "secondary", Provider: secondary, Priority: 2},
+		},
+		ProviderStrategy: "priority",
+	})
+
+	ctx := context.Background()
+	_, err := pool.ScaleUp(ctx, 1)
+	if err == nil {
+		t.Error("ScaleUp() should fail when all providers fail")
+	}
+}
+
+func TestPool_MultiProvider_RoundRobin(t *testing.T) {
+	provider1 := newMockProvider()
+	provider2 := newMockProvider()
+
+	pool, _ := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "rr-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+		},
+		Providers: []ProviderConfig{
+			{Name: "provider1", Provider: provider1, Weight: 1},
+			{Name: "provider2", Provider: provider2, Weight: 1},
+		},
+		ProviderStrategy: "round-robin",
+	})
+
+	ctx := context.Background()
+	pool.ScaleUp(ctx, 4)
+
+	// Round-robin should distribute evenly (2 each)
+	if len(provider1.nodes)+len(provider2.nodes) != 4 {
+		t.Errorf("total nodes should be 4, got %d", len(provider1.nodes)+len(provider2.nodes))
 	}
 }
 

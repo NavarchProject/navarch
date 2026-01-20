@@ -75,15 +75,44 @@ type Pool struct {
 
 // PoolSpec defines the desired state of a pool.
 type PoolSpec struct {
-	ProviderRef  string            `yaml:"providerRef" json:"providerRef"`   // Name of Provider resource
-	InstanceType string            `yaml:"instanceType" json:"instanceType"` // Cloud instance type
-	Region       string            `yaml:"region" json:"region"`
-	Zones        []string          `yaml:"zones,omitempty" json:"zones,omitempty"`
-	SSHKeyNames  []string          `yaml:"sshKeyNames,omitempty" json:"sshKeyNames,omitempty"`
-	Labels       map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"` // Labels applied to nodes
+	// Single provider reference (simple case, mutually exclusive with Providers)
+	ProviderRef string `yaml:"providerRef,omitempty" json:"providerRef,omitempty"`
+
+	// Multiple providers for fungible compute (mutually exclusive with ProviderRef)
+	Providers []PoolProviderRef `yaml:"providers,omitempty" json:"providers,omitempty"`
+
+	// Strategy for selecting between multiple providers: priority, cost, availability, round-robin
+	ProviderStrategy string `yaml:"providerStrategy,omitempty" json:"providerStrategy,omitempty"`
+
+	// Instance type - either provider-specific or abstract (e.g., "h100-8x")
+	InstanceType string `yaml:"instanceType" json:"instanceType"`
+
+	Region      string   `yaml:"region,omitempty" json:"region,omitempty"`
+	Zones       []string `yaml:"zones,omitempty" json:"zones,omitempty"`
+	SSHKeyNames []string `yaml:"sshKeyNames,omitempty" json:"sshKeyNames,omitempty"`
+
+	Labels map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
 
 	Scaling ScalingSpec `yaml:"scaling" json:"scaling"`
 	Health  HealthSpec  `yaml:"health,omitempty" json:"health,omitempty"`
+}
+
+// PoolProviderRef references a provider with optional constraints and preferences.
+type PoolProviderRef struct {
+	// Name of the Provider resource
+	Name string `yaml:"name" json:"name"`
+
+	// Priority for selection (lower = preferred). Defaults to order in list.
+	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
+
+	// Weight for round-robin selection. Higher weight = more allocations.
+	Weight int `yaml:"weight,omitempty" json:"weight,omitempty"`
+
+	// Regions to use for this provider (overrides pool-level region)
+	Regions []string `yaml:"regions,omitempty" json:"regions,omitempty"`
+
+	// InstanceType override for this provider (maps abstract type to provider-specific)
+	InstanceType string `yaml:"instanceType,omitempty" json:"instanceType,omitempty"`
 }
 
 // ScalingSpec configures pool scaling behavior.

@@ -48,11 +48,11 @@ func TestPoolManager_AddRemovePool(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
 
 	prov := &mockProvider{}
-	p, err := pool.New(pool.Config{
+	p, err := pool.NewSimple(pool.Config{
 		Name:     "test-pool",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,11 +88,11 @@ func TestPoolManager_GetPool(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.New(pool.Config{
+	p, _ := pool.NewSimple(pool.Config{
 		Name:     "test",
 		MinNodes: 0,
 		MaxNodes: 5,
-	}, prov)
+	}, prov, "mock")
 	pm.AddPool(p, nil)
 
 	got, ok := pm.GetPool("test")
@@ -110,11 +110,11 @@ func TestPoolManager_GetPoolStatus(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.New(pool.Config{
+	p, _ := pool.NewSimple(pool.Config{
 		Name:     "status-test",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 	pm.AddPool(p, nil)
 
 	status, err := pm.GetPoolStatus("status-test")
@@ -135,11 +135,11 @@ func TestPoolManager_ScalePool(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.New(pool.Config{
+	p, _ := pool.NewSimple(pool.Config{
 		Name:     "scale-test",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 	pm.AddPool(p, nil)
 
 	ctx := context.Background()
@@ -167,11 +167,11 @@ func TestPoolManager_StartStop(t *testing.T) {
 	}, nil, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.New(pool.Config{
+	p, _ := pool.NewSimple(pool.Config{
 		Name:     "loop-test",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 	pm.AddPool(p, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,11 +190,11 @@ func TestPoolManager_AutoscalerLoop(t *testing.T) {
 	}, metrics, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.New(pool.Config{
+	p, _ := pool.NewSimple(pool.Config{
 		Name:     "autoscale-test",
 		MinNodes: 0,
 		MaxNodes: 10,
-	}, prov)
+	}, prov, "mock")
 
 	autoscaler := pool.NewReactiveAutoscaler(80, 20)
 

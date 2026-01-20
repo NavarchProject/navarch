@@ -11,11 +11,10 @@ import (
 
 // Config defines a GPU node pool configuration.
 type Config struct {
-	Name     string // Unique pool identifier
-	Provider string // Cloud provider name: "lambda", "gcp", "aws"
+	Name string // Unique pool identifier
 
-	InstanceType string   // Instance type to provision (e.g., "gpu_8x_h100_sxm5")
-	Region       string   // Cloud region (e.g., "us-west-2")
+	InstanceType string   // Abstract or provider-specific instance type
+	Region       string   // Default region for provisioning
 	Zones        []string // Availability zones for multi-zone pools
 	SSHKeyNames  []string // SSH key names to install on instances
 
@@ -33,10 +32,21 @@ type Config struct {
 	Labels map[string]string // Key-value labels for workload routing
 }
 
-// Pool represents a managed group of GPU nodes.
+// ProviderConfig holds configuration for a single provider within a pool.
+type ProviderConfig struct {
+	Name         string           // Provider name
+	Provider     provider.Provider
+	Priority     int              // Lower = preferred
+	Weight       int              // For round-robin weighting
+	Regions      []string         // Regions to use with this provider
+	InstanceType string           // Provider-specific instance type override
+}
+
+// Pool represents a managed group of GPU nodes backed by one or more providers.
 type Pool struct {
 	config    Config
-	provider  provider.Provider
+	providers []ProviderConfig
+	selector  ProviderSelector
 	mu        sync.RWMutex
 	nodes     map[string]*ManagedNode
 	lastScale time.Time
@@ -46,6 +56,7 @@ type Pool struct {
 type ManagedNode struct {
 	Node            *provider.Node // Underlying provider node
 	Pool            string         // Name of the pool this node belongs to
+	ProviderName    string         // Which provider created this node
 	HealthFailures  int            // Consecutive health check failures
 	LastHealthCheck time.Time      // When the last health check ran
 	Cordoned        bool           // If true, node is unschedulable for new workloads
@@ -64,26 +75,75 @@ type Status struct {
 	CanScaleDown   bool    // True if pool is above MinNodes
 }
 
-// New creates a new pool with the given configuration.
+// NewPoolOptions configures pool creation.
+type NewPoolOptions struct {
+	Config           Config
+	Providers        []ProviderConfig
+	ProviderStrategy string // priority, cost, availability, round-robin
+}
+
+// New creates a pool with a single provider.
 func New(cfg Config, prov provider.Provider) (*Pool, error) {
-	if cfg.Name == "" {
+	return NewSimple(cfg, prov, prov.Name())
+}
+
+// NewWithOptions creates a new pool with multiple providers.
+func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
+	if opts.Config.Name == "" {
 		return nil, fmt.Errorf("pool name is required")
 	}
-	if cfg.MinNodes < 0 {
+	if opts.Config.MinNodes < 0 {
 		return nil, fmt.Errorf("min_nodes must be >= 0")
 	}
-	if cfg.MaxNodes < cfg.MinNodes {
+	if opts.Config.MaxNodes < opts.Config.MinNodes {
 		return nil, fmt.Errorf("max_nodes must be >= min_nodes")
 	}
-	if cfg.MaxNodes == 0 {
+	if opts.Config.MaxNodes == 0 {
 		return nil, fmt.Errorf("max_nodes must be > 0")
+	}
+	if len(opts.Providers) == 0 {
+		return nil, fmt.Errorf("at least one provider is required")
+	}
+
+	candidates := make([]ProviderCandidate, len(opts.Providers))
+	for i, pc := range opts.Providers {
+		instanceType := pc.InstanceType
+		if instanceType == "" {
+			instanceType = provider.ResolveInstanceType(opts.Config.InstanceType, pc.Name)
+		}
+
+		candidates[i] = ProviderCandidate{
+			Provider:     pc.Provider,
+			Name:         pc.Name,
+			Priority:     pc.Priority,
+			Weight:       pc.Weight,
+			Regions:      pc.Regions,
+			InstanceType: instanceType,
+		}
+	}
+
+	selector, err := NewSelector(opts.ProviderStrategy, candidates)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Pool{
-		config:   cfg,
-		provider: prov,
-		nodes:    make(map[string]*ManagedNode),
+		config:    opts.Config,
+		providers: opts.Providers,
+		selector:  selector,
+		nodes:     make(map[string]*ManagedNode),
 	}, nil
+}
+
+// NewSimple creates a pool with a single provider (convenience function).
+func NewSimple(cfg Config, prov provider.Provider, providerName string) (*Pool, error) {
+	return NewWithOptions(NewPoolOptions{
+		Config: cfg,
+		Providers: []ProviderConfig{
+			{Name: providerName, Provider: prov},
+		},
+		ProviderStrategy: "priority",
+	})
 }
 
 // Config returns the pool configuration.
@@ -117,7 +177,8 @@ func (p *Pool) Status() Status {
 	return status
 }
 
-// ScaleUp adds nodes to the pool.
+// ScaleUp adds nodes to the pool using the configured provider selection strategy.
+// On provider failure, falls back to the next available provider.
 func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -137,21 +198,15 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 
 	var nodes []*provider.Node
 	for i := 0; i < count; i++ {
-		node, err := p.provider.Provision(ctx, provider.ProvisionRequest{
-			Name:         fmt.Sprintf("%s-%d", p.config.Name, currentCount+i+1),
-			InstanceType: p.config.InstanceType,
-			Region:       p.config.Region,
-			SSHKeyNames:  p.config.SSHKeyNames,
-			Labels:       p.config.Labels,
-		})
+		node, providerName, err := p.provisionWithFallback(ctx, currentCount+i+1)
 		if err != nil {
-			// Return what we provisioned so far
 			return nodes, fmt.Errorf("failed to provision node %d: %w", i+1, err)
 		}
 
 		p.nodes[node.ID] = &ManagedNode{
 			Node:          node,
 			Pool:          p.config.Name,
+			ProviderName:  providerName,
 			ProvisionedAt: time.Now(),
 		}
 		nodes = append(nodes, node)
@@ -159,6 +214,64 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 
 	p.lastScale = time.Now()
 	return nodes, nil
+}
+
+// provisionWithFallback tries providers in order until one succeeds.
+func (p *Pool) provisionWithFallback(ctx context.Context, nodeNum int) (*provider.Node, string, error) {
+	candidates := p.buildCandidates()
+
+	var lastErr error
+	for {
+		candidate, err := p.selector.Select(ctx, candidates)
+		if err != nil {
+			if lastErr != nil {
+				return nil, "", fmt.Errorf("all providers failed, last error: %w", lastErr)
+			}
+			return nil, "", err
+		}
+
+		region := p.config.Region
+		if len(candidate.Regions) > 0 {
+			region = candidate.Regions[0]
+		}
+
+		node, err := candidate.Provider.Provision(ctx, provider.ProvisionRequest{
+			Name:         fmt.Sprintf("%s-%d", p.config.Name, nodeNum),
+			InstanceType: candidate.InstanceType,
+			Region:       region,
+			SSHKeyNames:  p.config.SSHKeyNames,
+			Labels:       p.config.Labels,
+		})
+		if err != nil {
+			p.selector.RecordFailure(candidate.Name, err)
+			lastErr = fmt.Errorf("%s: %w", candidate.Name, err)
+			continue
+		}
+
+		p.selector.RecordSuccess(candidate.Name)
+		return node, candidate.Name, nil
+	}
+}
+
+// buildCandidates creates provider candidates from configuration.
+func (p *Pool) buildCandidates() []ProviderCandidate {
+	candidates := make([]ProviderCandidate, len(p.providers))
+	for i, pc := range p.providers {
+		instanceType := pc.InstanceType
+		if instanceType == "" {
+			instanceType = provider.ResolveInstanceType(p.config.InstanceType, pc.Name)
+		}
+
+		candidates[i] = ProviderCandidate{
+			Provider:     pc.Provider,
+			Name:         pc.Name,
+			Priority:     pc.Priority,
+			Weight:       pc.Weight,
+			Regions:      pc.Regions,
+			InstanceType: instanceType,
+		}
+	}
+	return candidates
 }
 
 // ScaleDown removes nodes from the pool.
@@ -181,13 +294,28 @@ func (p *Pool) ScaleDown(ctx context.Context, count int) error {
 	toRemove := p.selectForRemoval(count)
 
 	for _, nodeID := range toRemove {
-		if err := p.provider.Terminate(ctx, nodeID); err != nil {
+		mn := p.nodes[nodeID]
+		prov := p.getProvider(mn.ProviderName)
+		if prov == nil {
+			return fmt.Errorf("provider %s not found for node %s", mn.ProviderName, nodeID)
+		}
+		if err := prov.Terminate(ctx, nodeID); err != nil {
 			return fmt.Errorf("failed to terminate node %s: %w", nodeID, err)
 		}
 		delete(p.nodes, nodeID)
 	}
 
 	p.lastScale = time.Now()
+	return nil
+}
+
+// getProvider returns the provider by name.
+func (p *Pool) getProvider(name string) provider.Provider {
+	for _, pc := range p.providers {
+		if pc.Name == name {
+			return pc.Provider
+		}
+	}
 	return nil
 }
 
@@ -247,6 +375,9 @@ func (p *Pool) Uncordon(nodeID string) error {
 }
 
 // ReplaceNode terminates an unhealthy node and provisions a replacement.
+// Currently uses fallback behavior (tries all providers). Future enhancement:
+// add ReplacementStrategy config to prefer same provider for stateful workloads
+// that need storage locality (e.g., training with checkpoints).
 func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -256,18 +387,17 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		return nil, fmt.Errorf("node %s not found in pool", nodeID)
 	}
 
-	if err := p.provider.Terminate(ctx, nodeID); err != nil {
+	prov := p.getProvider(mn.ProviderName)
+	if prov == nil {
+		return nil, fmt.Errorf("provider %s not found for node %s", mn.ProviderName, nodeID)
+	}
+
+	if err := prov.Terminate(ctx, nodeID); err != nil {
 		return nil, fmt.Errorf("failed to terminate node: %w", err)
 	}
 	delete(p.nodes, nodeID)
 
-	node, err := p.provider.Provision(ctx, provider.ProvisionRequest{
-		Name:         mn.Node.ID + "-replacement",
-		InstanceType: p.config.InstanceType,
-		Region:       p.config.Region,
-		SSHKeyNames:  p.config.SSHKeyNames,
-		Labels:       p.config.Labels,
-	})
+	node, providerName, err := p.provisionWithFallback(ctx, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to provision replacement: %w", err)
 	}
@@ -275,6 +405,7 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 	p.nodes[node.ID] = &ManagedNode{
 		Node:          node,
 		Pool:          p.config.Name,
+		ProviderName:  providerName,
 		ProvisionedAt: time.Now(),
 	}
 

@@ -1,6 +1,6 @@
 # Navarch configuration
 #
-# This file demonstrates the Kubernetes-style configuration format.
+# This file demonstrates configuration with single-provider and multi-provider pools.
 # Resources are separated by --- and each has apiVersion, kind, metadata, and spec.
 
 # Control plane configuration
@@ -34,6 +34,19 @@ spec:
     apiKeyEnvVar: LAMBDA_API_KEY
 
 ---
+# GCP provider
+apiVersion: navarch.io/v1alpha1
+kind: Provider
+metadata:
+  name: gcp
+  labels:
+    cloud: gcp
+spec:
+  type: gcp
+  gcp:
+    project: my-gcp-project
+
+---
 # Fake provider for development
 apiVersion: navarch.io/v1alpha1
 kind: Provider
@@ -47,7 +60,66 @@ spec:
     gpuCount: 8
 
 ---
-# Training pool with reactive autoscaling
+# Multi-provider pool: fungible compute across Lambda and GCP
+# Uses priority strategy: tries Lambda first, falls back to GCP if unavailable
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: fungible
+  labels:
+    workload: training
+    tier: premium
+spec:
+  providers:
+    - name: lambda
+      priority: 1
+      regions: [us-west-2, us-east-1]
+    - name: gcp
+      priority: 2
+      regions: [us-central1]
+      instanceType: a3-highgpu-8g  # Override for GCP-specific type
+  providerStrategy: priority
+  instanceType: h100-8x  # Abstract type, mapped to provider-specific types
+  scaling:
+    minReplicas: 4
+    maxReplicas: 32
+    cooldownPeriod: 5m
+    autoscaler:
+      type: reactive
+      scaleUpThreshold: 75
+      scaleDownThreshold: 25
+  health:
+    unhealthyThreshold: 2
+    autoReplace: true
+
+---
+# Cost-optimized multi-provider pool: always picks cheapest option
+apiVersion: navarch.io/v1alpha1
+kind: Pool
+metadata:
+  name: cost-optimized
+  labels:
+    workload: batch
+    tier: economy
+spec:
+  providers:
+    - name: lambda
+    - name: gcp
+  providerStrategy: cost
+  instanceType: a100-8x
+  scaling:
+    minReplicas: 0
+    maxReplicas: 100
+    cooldownPeriod: 3m
+    autoscaler:
+      type: queue
+      jobsPerNode: 10
+  health:
+    unhealthyThreshold: 3
+    autoReplace: true
+
+---
+# Training pool with reactive autoscaling (single provider)
 apiVersion: navarch.io/v1alpha1
 kind: Pool
 metadata:
