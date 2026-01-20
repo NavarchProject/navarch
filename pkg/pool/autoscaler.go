@@ -38,7 +38,6 @@ type PoolState struct {
 	DayOfWeek          time.Weekday // Current day for scheduled scaling
 }
 
-
 // ReactiveAutoscaler scales based on current utilization thresholds.
 type ReactiveAutoscaler struct {
 	ScaleUpThreshold   float64 // Scale up when utilization exceeds this
