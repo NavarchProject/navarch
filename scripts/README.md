@@ -4,6 +4,28 @@ This directory contains test scripts for validating Navarch on GPU instances.
 
 ## Scripts
 
+### stress-test.sh
+
+Comprehensive system stress test using the fake provider. Does not require GPU hardware.
+
+```bash
+./scripts/stress-test.sh
+```
+
+What it does:
+
+1. Creates a test configuration with multiple pools.
+2. Starts control plane with autoscaling enabled.
+3. Tests initial node provisioning (16 nodes across 4 pools).
+4. Runs 100 concurrent list operations.
+5. Tests concurrent get operations on all nodes.
+6. Tests cordon and drain operations.
+7. Monitors autoscaler behavior.
+8. Runs sustained load test (157+ requests).
+9. Checks memory usage and logs for errors.
+
+This test validates the control plane, pool manager, autoscaler, and CLI under load without requiring GPU hardware.
+
 ### test-gpu.sh
 
 Basic GPU test that validates NVIDIA driver and runs all GPU-related tests.
