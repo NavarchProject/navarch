@@ -359,39 +359,38 @@ func (pm *PoolManager) handleUnhealthyNode(ctx context.Context, node *Node) erro
 ### Pool configuration
 
 ```yaml
-# Example pool configuration
-pools:
-  - name: training-pool
-    provider: gcp
-    region: us-central1
-    zones:
-      - us-central1-a
-      - us-central1-b
-    
-    instanceType: a3-highgpu-8g
-    gpuType: nvidia-h100-80gb
-    gpusPerNode: 8
-    
-    scaling:
-      minNodes: 2
-      maxNodes: 100
-      scaleUpThreshold: 80   # % utilization to trigger scale up
-      scaleDownThreshold: 20 # % utilization to trigger scale down
-      scaleDownDelay: 10m    # wait before scaling down
-    
-    health:
-      unhealthyThreshold: 2  # consecutive failures before replacement
-      replacementPolicy: auto
-    
-    image:
-      family: navarch-gpu
-      project: my-gcp-project
+providers:
+  gcp:
+    type: gcp
+    project: my-gcp-project
 
-  - name: inference-pool
-    provider: aws
+  aws:
+    type: aws
     region: us-east-1
-    instanceType: p4d.24xlarge
-    # ... similar config
+
+pools:
+  training:
+    provider: gcp
+    instance_type: a3-highgpu-8g
+    region: us-central1
+    zones: [us-central1-a, us-central1-b]
+    min_nodes: 2
+    max_nodes: 100
+    cooldown: 10m
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+    health:
+      unhealthy_after: 2
+      auto_replace: true
+
+  inference:
+    provider: aws
+    instance_type: p4d.24xlarge
+    region: us-east-1
+    min_nodes: 4
+    max_nodes: 50
 ```
 
 ### Multi-cloud support

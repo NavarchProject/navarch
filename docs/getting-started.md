@@ -30,54 +30,42 @@ The fake provider simulates GPU instances without cloud costs. Use it for local 
 
 ### Step 1: Create a configuration file
 
-Create `navarch.yaml`:
+Create `config.yaml`:
 
 ```yaml
-apiVersion: navarch.io/v1alpha1
-kind: ControlPlane
-metadata:
-  name: dev
-spec:
+server:
   address: ":50051"
-  autoscaleInterval: 10s
----
-apiVersion: navarch.io/v1alpha1
-kind: Provider
-metadata:
-  name: fake
-spec:
-  type: fake
+  autoscale_interval: 10s
+
+providers:
   fake:
-    gpuCount: 8
----
-apiVersion: navarch.io/v1alpha1
-kind: Pool
-metadata:
-  name: dev-pool
-spec:
-  providerRef: fake
-  instanceType: gpu_8x_h100
-  region: local
-  scaling:
-    minReplicas: 2
-    maxReplicas: 5
-    cooldownPeriod: 10s
-    autoscaler:
+    type: fake
+    gpu_count: 8
+
+pools:
+  dev:
+    provider: fake
+    instance_type: gpu_8x_h100
+    region: local
+    min_nodes: 2
+    max_nodes: 5
+    cooldown: 10s
+    autoscaling:
       type: reactive
-      scaleUpThreshold: 80
-      scaleDownThreshold: 20
-  health:
-    unhealthyThreshold: 2
-    autoReplace: true
+      scale_up_at: 80
+      scale_down_at: 20
+    health:
+      unhealthy_after: 2
+      auto_replace: true
 ```
 
 ### Step 2: Start the control plane
 
 ```bash
-./control-plane --config navarch.yaml
+./control-plane --config config.yaml
 ```
 
-The control plane starts and provisions two fake nodes (the `minReplicas` value).
+The control plane starts and provisions two fake nodes (the `min_nodes` value).
 
 ### Step 3: List nodes
 
@@ -167,7 +155,7 @@ If `navarch list` returns "connection refused":
 If nodes do not appear after starting the control plane:
 
 1. Check the control plane logs for errors.
-2. Verify the pool configuration has `minReplicas` greater than zero.
+2. Verify the pool configuration has `min_nodes` greater than zero.
 3. Confirm the provider is configured correctly.
 
 ### Build errors
@@ -177,4 +165,3 @@ If the build fails:
 1. Verify Go 1.21 or later is installed: `go version`
 2. Run `go mod download` to fetch dependencies.
 3. Check for missing NVML headers if building with GPU support.
-

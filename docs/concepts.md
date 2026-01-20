@@ -37,32 +37,22 @@ A pool is a group of GPU nodes with shared configuration:
 Pools enable you to manage different workload types independently. For example:
 
 ```yaml
-# Training pool: Large instances, conservative scaling
-apiVersion: navarch.io/v1alpha1
-kind: Pool
-metadata:
-  name: training
-spec:
-  providerRef: lambda
-  instanceType: gpu_8x_h100_sxm5
-  scaling:
-    minReplicas: 2
-    maxReplicas: 20
-    cooldownPeriod: 10m
+pools:
+  # Training pool: Large instances, conservative scaling
+  training:
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    min_nodes: 2
+    max_nodes: 20
+    cooldown: 10m
 
-# Inference pool: Smaller instances, aggressive scaling
----
-apiVersion: navarch.io/v1alpha1
-kind: Pool
-metadata:
-  name: inference
-spec:
-  providerRef: lambda
-  instanceType: gpu_1x_a100
-  scaling:
-    minReplicas: 5
-    maxReplicas: 100
-    cooldownPeriod: 2m
+  # Inference pool: Smaller instances, aggressive scaling
+  inference:
+    provider: lambda
+    instance_type: gpu_1x_a100
+    min_nodes: 5
+    max_nodes: 100
+    cooldown: 2m
 ```
 
 ## Providers
@@ -189,19 +179,24 @@ Labels are key-value pairs attached to resources. Use them for:
 - Organizing resources by team or project.
 
 ```yaml
-metadata:
-  labels:
-    workload: training
-    team: ml-platform
-    environment: production
+pools:
+  training:
+    provider: lambda
+    instance_type: gpu_8x_h100
+    min_nodes: 2
+    max_nodes: 20
+    labels:
+      workload: training
+      team: ml-platform
+      environment: production
 ```
 
 ## Scaling limits
 
-Each pool has minimum and maximum replica counts:
+Each pool has minimum and maximum node counts:
 
-- `minReplicas`: Nodes are never scaled below this count. Set to zero for pools that can be empty.
-- `maxReplicas`: Nodes are never scaled above this count. Protects against runaway scaling and cost overruns.
+- `min_nodes`: Nodes are never scaled below this count. Set to zero for pools that can be empty.
+- `max_nodes`: Nodes are never scaled above this count. Protects against runaway scaling and cost overruns.
 
 The autoscaler operates within these limits. Manual scaling commands also respect these limits.
 
