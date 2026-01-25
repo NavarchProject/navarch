@@ -93,6 +93,32 @@ AI didn't help me figure out which XID error codes matter. It didn't tell me tha
 
 The "thinking" work is the same. The "typing" work largely disappeared.
 
+---
+
+## The Hot Take: Stop Reading the Code
+
+Here's where I'll lose some of you: **stop reviewing the code directly.**
+
+The conventional wisdom says review every line. I don't. Here's what I do instead:
+
+**Deeply understand the system itself.** The architecture. The critical user journeys. The data models. How information flows between components. The failure modes that matter.
+
+**Trust the implementation.** If I've clearly specified what a component should do—its inputs, outputs, invariants, error cases—Claude can implement it correctly. I don't need to verify the syntax. I need to verify the behavior.
+
+**Build systems for confidence.** Instead of reading code, I ask: what tests, simulators, or evaluations would give me confidence this works? Then I build those. The 5,000-node chaos simulator isn't just for finding bugs—it's my verification that the system behaves correctly under stress.
+
+**Expect bugs anyway.** Here's the thing: bugs will reach production whether a human or AI wrote the code. Code review catches some bugs. Testing catches different bugs. Production catches the rest.
+
+The question isn't "is this code bug-free?" It's "do I understand this system well enough to diagnose and fix issues when they appear?"
+
+When something breaks, my deep understanding of the architecture tells me where to look. Then I either fix it myself or describe the problem to Claude and have it fix it. Either way, the system knowledge matters more than having read every line.
+
+This is a different skill than code review. It's closer to being an architect than a proofreader.
+
+---
+
+## The Real Question
+
 If you're a senior engineer who's been avoiding AI tools because "I can code faster than I can prompt"—you might be right for small tasks. You're definitely wrong for large systems.
 
 The question isn't whether AI makes you faster at coding. It's whether you have time to build the things you actually want to build.
