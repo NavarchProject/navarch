@@ -107,6 +107,14 @@ The conventional wisdom says review every line. I don't. Here's what I do instea
 
 **Build systems for confidence.** Instead of reading code, I ask: what tests, simulators, or evaluations would give me confidence this works? Then I build those. The 5,000-node chaos simulator isn't just for finding bugs—it's my verification that the system behaves correctly under stress.
 
+And here's the thing about tests: **your unit tests are only as good as the bugs you remembered to write tests for.** You're not going to catch bugs you didn't know to anticipate. Unit tests verify the behavior you specified. They don't verify the behavior you forgot to specify.
+
+That's why integration tests, load tests, and chaos tests matter—they find the bugs you didn't think to write unit tests for. The cascading failure that only happens under specific timing. The race condition that only appears at scale. The edge case in your cloud provider's SDK that nobody documented.
+
+Before AI, these kinds of tests were hard to justify. Building a 5,000-node chaos simulator? That's weeks of engineering effort for something that *might* find bugs. It was never in the budget. It was always "nice to have" that got cut.
+
+Now I can ask Claude to build the chaos testing framework too. The comprehensive testing that was economically impossible is suddenly viable. Not because the tests are less important, but because the cost of building them collapsed.
+
 **Expect bugs anyway.** Here's the thing: bugs will reach production whether a human or AI wrote the code. Code review catches some bugs. Testing catches different bugs. Production catches the rest.
 
 And here's the meta point: **it was never sustainable to rely on "cracked developers writing perfect PRs."**
