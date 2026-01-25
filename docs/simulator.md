@@ -475,9 +475,20 @@ templates:
     gpu_count: 8
     gpu_type: "NVIDIA H100 80GB HBM3"
     instance_type: a3-highgpu-8g
+    price_per_hour: 28.00  # Optional: hourly cost in USD for cost estimation
     labels:
       tier: premium
 ```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Template name (used in generated node IDs) |
+| `weight` | Relative frequency for this template |
+| `gpu_count` | Number of GPUs per node |
+| `gpu_type` | GPU model string |
+| `instance_type` | Cloud instance type |
+| `price_per_hour` | Optional hourly cost in USD (uses defaults if not specified) |
+| `labels` | Optional key-value labels |
 
 #### Startup patterns
 
@@ -675,6 +686,110 @@ Correlation scopes:
 - `same_zone`: Nodes in same availability zone
 - `random`: Random node in cluster
 
+### Cloud cost estimation
+
+The simulator includes cloud cost estimation to help you understand the financial impact of running GPU fleets and the cost of failures.
+
+#### Enabling cost estimation
+
+Cost estimation is automatic when using stress tests. You can specify pricing in your scenario:
+
+```yaml
+templates:
+  - name: h100-8gpu
+    weight: 50
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+    instance_type: a3-highgpu-8g
+    price_per_hour: 28.00  # ~$3.50/GPU/hr for H100
+
+  - name: a100-8gpu
+    weight: 30
+    gpu_count: 8
+    gpu_type: "NVIDIA A100 80GB"
+    instance_type: a2-ultragpu-8g
+    price_per_hour: 16.00  # ~$2.00/GPU/hr for A100 80GB
+```
+
+#### Default pricing
+
+If you don't specify `price_per_hour`, the simulator uses built-in defaults based on GPU type:
+
+| GPU Type | Per-GPU Price | 8-GPU Node Price |
+|----------|---------------|------------------|
+| NVIDIA H100 80GB | $3.50/hr | $28.00/hr |
+| NVIDIA A100 80GB | $2.00/hr | $16.00/hr |
+| NVIDIA A100 40GB | $1.50/hr | $12.00/hr |
+| NVIDIA A10 | $1.00/hr | $8.00/hr |
+| NVIDIA L4 | $0.60/hr | $4.80/hr |
+| NVIDIA T4 | $0.35/hr | $2.80/hr |
+| NVIDIA V100 | $1.50/hr | $12.00/hr |
+
+These are approximate prices based on major cloud providers (GCP, AWS, Lambda Labs) as of 2024.
+
+#### Cost metrics
+
+The simulator calculates and reports:
+
+| Metric | Description |
+|--------|-------------|
+| `total_cost` | Total cost of running the fleet for the test duration |
+| `total_compute_hours` | Sum of all node uptime hours |
+| `total_gpu_hours` | Sum of all GPU-hours (nodes × GPUs × hours) |
+| `effective_cost_per_hour` | Average hourly cost across the test |
+| `wasted_cost` | Cost of compute lost to failures (nodes unhealthy but still billed) |
+| `wasted_percentage` | Percentage of total cost wasted due to failures |
+| `avg_cost_per_failure` | Average cost impact per failure event |
+| `cost_by_gpu_type` | Cost breakdown by GPU type |
+| `cost_by_provider` | Cost breakdown by cloud provider |
+| `cost_by_region` | Cost breakdown by region |
+
+#### GPU efficiency metrics
+
+For each GPU type, the simulator tracks:
+
+- Total cost and hours
+- Wasted cost and hours (time spent unhealthy)
+- Efficiency percentage: `(total - wasted) / total × 100`
+- Failure count and cost per failure
+
+This helps identify which GPU types or configurations have the best reliability-to-cost ratio.
+
+#### Console output
+
+Cost summary is printed to the console after each stress test:
+
+```
+=== COST ANALYSIS ===
+Total Cost: $4,666.67 (compute_hours=166.67, gpu_hours=1333.33)
+Effective Rate: $28.00/hr
+Wasted Compute: $233.33 (5.0%, hours=8.33)
+Failure Impact: avg_cost=$2.33/failure, total=$233.33
+Cost by Provider:
+  gcp: $2,333.33 (50.0%)
+  aws: $1,633.33 (35.0%)
+  lambda: $700.00 (15.0%)
+Cost by GPU Type:
+  NVIDIA H100 80GB HBM3: $3,266.67 (70.0%)
+  NVIDIA A100 80GB: $1,400.00 (30.0%)
+```
+
+#### HTML report visualization
+
+Enable HTML reports to get visual cost analysis:
+
+```yaml
+stress:
+  report_file: stress-report.json
+  html_report_file: stress-report.html  # Includes cost charts
+```
+
+The HTML report includes:
+- Cost overview cards (total, wasted, per-failure)
+- Cost breakdown pie charts (by GPU type, provider)
+- GPU efficiency table
+- Top cost drivers list
+
 ### Stress test reports
 
 Stress tests generate JSON reports with comprehensive metrics:
@@ -734,6 +849,36 @@ Example report structure:
       {"code": 31, "name": "GPU memory page fault", "count": 15, "fatal": false},
       {"code": 79, "name": "GPU has fallen off the bus", "count": 8, "fatal": true}
     ]
+  },
+  "cost": {
+    "total_cost": 4666.67,
+    "total_compute_hours": 166.67,
+    "total_gpu_hours": 1333.33,
+    "effective_cost_per_hour": 28.00,
+    "wasted_cost": 233.33,
+    "wasted_compute_hours": 8.33,
+    "wasted_gpu_hours": 66.67,
+    "wasted_percentage": 5.0,
+    "avg_cost_per_failure": 2.38,
+    "total_failure_cost": 233.33,
+    "cost_by_gpu_type": {
+      "NVIDIA H100 80GB HBM3": 3266.67,
+      "NVIDIA A100 80GB": 1400.00
+    },
+    "cost_by_provider": {
+      "gcp": 2333.33,
+      "aws": 1633.33,
+      "lambda": 700.00
+    },
+    "gpu_type_efficiency": {
+      "NVIDIA H100 80GB HBM3": {
+        "total_cost": 3266.67,
+        "wasted_cost": 163.33,
+        "efficiency_pct": 95.0,
+        "failure_count": 68,
+        "cost_per_failure": 2.40
+      }
+    }
   },
   "timeline": [...]
 }

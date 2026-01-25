@@ -104,6 +104,9 @@ func (g *FleetGenerator) generateNode(index int) NodeSpec {
 	labels["generated"] = "true"
 	labels["index"] = fmt.Sprintf("%d", index)
 
+	// Get pricing for this node
+	pricePerHour := GetPriceForTemplate(template)
+
 	return NodeSpec{
 		ID:           nodeID,
 		Provider:     provider,
@@ -113,6 +116,8 @@ func (g *FleetGenerator) generateNode(index int) NodeSpec {
 		GPUCount:     template.GPUCount,
 		GPUType:      template.GPUType,
 		Labels:       labels,
+		PricePerHour: pricePerHour,
+		TemplateName: template.Name,
 	}
 }
 

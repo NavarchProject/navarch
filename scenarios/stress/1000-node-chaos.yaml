@@ -14,6 +14,7 @@ stress:
   metrics_interval: 5s
   seed: 12345  # Reproducible randomness
   report_file: stress-report-1000-nodes.json
+  html_report_file: stress-report-1000-nodes.html
 
   fleet_gen:
     total_nodes: 1000
@@ -24,6 +25,7 @@ stress:
         gpu_count: 8
         gpu_type: "NVIDIA H100 80GB HBM3"
         instance_type: a3-highgpu-8g
+        price_per_hour: 28.00  # ~$3.50/GPU/hr for H100
         labels:
           tier: premium
           workload: training
@@ -33,6 +35,7 @@ stress:
         gpu_count: 8
         gpu_type: "NVIDIA A100 80GB"
         instance_type: a2-ultragpu-8g
+        price_per_hour: 16.00  # ~$2.00/GPU/hr for A100 80GB
         labels:
           tier: standard
           workload: training
@@ -42,6 +45,7 @@ stress:
         gpu_count: 4
         gpu_type: "NVIDIA H100 80GB HBM3"
         instance_type: a3-highgpu-4g
+        price_per_hour: 14.00  # ~$3.50/GPU/hr for H100
         labels:
           tier: standard
           workload: inference
@@ -51,6 +55,7 @@ stress:
         gpu_count: 4
         gpu_type: "NVIDIA A100 40GB"
         instance_type: a2-highgpu-4g
+        price_per_hour: 6.00  # ~$1.50/GPU/hr for A100 40GB
         labels:
           tier: economy
           workload: inference

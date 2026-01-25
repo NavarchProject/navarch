@@ -45,6 +45,9 @@ type StressMetrics struct {
 
 	// Per-node tracking
 	nodeStatus map[string]string
+
+	// Cost tracking
+	costCalculator *CostCalculator
 }
 
 // MetricSample represents a point-in-time metric snapshot.
@@ -70,6 +73,7 @@ type StressReport struct {
 	Summary       ReportSummary `json:"summary"`
 	Failures      FailureReport `json:"failures"`
 	Timeline      []MetricSample `json:"timeline"`
+	Cost          *CostReport   `json:"cost,omitempty"` // Cost analysis (if pricing data available)
 }
 
 // ReportConfig summarizes the stress test configuration.
@@ -119,6 +123,7 @@ func NewStressMetrics(logger *slog.Logger) *StressMetrics {
 		failuresByXID:  make(map[int]int64),
 		nodeStatus:     make(map[string]string),
 		samples:        make([]MetricSample, 0, 1000),
+		costCalculator: NewCostCalculator(),
 	}
 }
 
@@ -127,6 +132,21 @@ func (m *StressMetrics) RecordNodeStart(nodeID string) {
 	atomic.AddInt64(&m.nodesStarted, 1)
 	m.mu.Lock()
 	m.nodeStatus[nodeID] = "healthy"
+	m.mu.Unlock()
+	atomic.AddInt64(&m.nodesHealthy, 1)
+}
+
+// RecordNodeStartWithSpec records a node starting with full spec (for cost tracking).
+func (m *StressMetrics) RecordNodeStartWithSpec(spec NodeSpec) {
+	atomic.AddInt64(&m.nodesStarted, 1)
+	m.mu.Lock()
+	m.nodeStatus[spec.ID] = "healthy"
+	// Register with cost calculator
+	pricePerHour := spec.PricePerHour
+	if pricePerHour == 0 {
+		pricePerHour = GetPriceForNodeSpec(spec)
+	}
+	m.costCalculator.RegisterNode(spec, pricePerHour)
 	m.mu.Unlock()
 	atomic.AddInt64(&m.nodesHealthy, 1)
 }
@@ -141,6 +161,8 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 	m.mu.Lock()
 	oldStatus := m.nodeStatus[nodeID]
 	m.nodeStatus[nodeID] = status
+	// Update cost calculator with state change
+	m.costCalculator.UpdateNodeState(nodeID, status)
 	m.mu.Unlock()
 
 	// Update counters
@@ -178,6 +200,8 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 	if event.Type == "xid_error" {
 		m.failuresByXID[event.XIDCode]++
 	}
+	// Track failure for cost calculation
+	m.costCalculator.RecordFailure(event.NodeID)
 	m.mu.Unlock()
 }
 
@@ -256,6 +280,9 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	// Finalize cost tracking
+	m.costCalculator.Finalize()
+
 	report := &StressReport{
 		Name:      name,
 		StartTime: m.startTime,
@@ -282,6 +309,9 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 
 	// Failure breakdown
 	report.Failures = m.computeFailureReport()
+
+	// Cost analysis
+	report.Cost = m.costCalculator.GenerateCostReport()
 
 	return report
 }
@@ -444,6 +474,72 @@ func (m *StressMetrics) PrintSummary() {
 			}
 			m.logger.Info(fmt.Sprintf("  XID %d: %s", entries[i].code, name),
 				slog.Int64("count", entries[i].count),
+			)
+		}
+	}
+
+	// Cost summary
+	m.printCostSummary()
+}
+
+// printCostSummary prints cost information to the logger.
+func (m *StressMetrics) printCostSummary() {
+	// Finalize cost calculations
+	m.costCalculator.Finalize()
+	costReport := m.costCalculator.GenerateCostReport()
+
+	if costReport.TotalCost == 0 {
+		return // No cost data available
+	}
+
+	m.logger.Info("=== COST ANALYSIS ===")
+	m.logger.Info("Total Cost",
+		slog.String("amount", FormatCost(costReport.TotalCost)),
+		slog.Float64("compute_hours", costReport.TotalComputeHours),
+		slog.Float64("gpu_hours", costReport.TotalGPUHours),
+	)
+	m.logger.Info("Effective Rate",
+		slog.String("per_hour", FormatCost(costReport.EffectiveCostPerHour)),
+	)
+	m.logger.Info("Wasted Compute",
+		slog.String("cost", FormatCost(costReport.WastedCost)),
+		slog.String("percentage", fmt.Sprintf("%.1f%%", costReport.WastedPercentage)),
+		slog.Float64("hours", costReport.WastedComputeHours),
+	)
+
+	if costReport.AvgCostPerFailure > 0 {
+		m.logger.Info("Failure Impact",
+			slog.String("avg_cost_per_failure", FormatCost(costReport.AvgCostPerFailure)),
+			slog.String("total_failure_cost", FormatCost(costReport.TotalFailureCost)),
+		)
+	}
+
+	// Cost by provider
+	if len(costReport.CostByProvider) > 0 {
+		m.logger.Info("Cost by Provider:")
+		for provider, cost := range costReport.CostByProvider {
+			pct := 0.0
+			if costReport.TotalCost > 0 {
+				pct = (cost / costReport.TotalCost) * 100
+			}
+			m.logger.Info(fmt.Sprintf("  %s", provider),
+				slog.String("cost", FormatCost(cost)),
+				slog.String("percentage", fmt.Sprintf("%.1f%%", pct)),
+			)
+		}
+	}
+
+	// Cost by GPU type
+	if len(costReport.CostByGPUType) > 0 {
+		m.logger.Info("Cost by GPU Type:")
+		for gpuType, cost := range costReport.CostByGPUType {
+			pct := 0.0
+			if costReport.TotalCost > 0 {
+				pct = (cost / costReport.TotalCost) * 100
+			}
+			m.logger.Info(fmt.Sprintf("  %s", gpuType),
+				slog.String("cost", FormatCost(cost)),
+				slog.String("percentage", fmt.Sprintf("%.1f%%", pct)),
 			)
 		}
 	}

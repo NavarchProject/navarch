@@ -18,6 +18,7 @@ stress:
         gpu_count: 8
         gpu_type: "NVIDIA H100 80GB HBM3"
         instance_type: a3-highgpu-8g
+        price_per_hour: 28.00  # ~$3.50/GPU/hr for H100
     providers:
       gcp: 100
     regions:

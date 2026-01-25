@@ -14,6 +14,7 @@ stress:
   metrics_interval: 3s
   seed: 99999
   report_file: stress-report-xid-comprehensive.json
+  html_report_file: stress-report-xid-comprehensive.html
 
   fleet_gen:
     total_nodes: 500
@@ -24,6 +25,7 @@ stress:
         gpu_count: 8
         gpu_type: "NVIDIA H100 80GB HBM3"
         instance_type: a3-highgpu-8g
+        price_per_hour: 28.00  # ~$3.50/GPU/hr for H100
 
     providers:
       gcp: 100

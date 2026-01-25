@@ -73,6 +73,7 @@ type NodeTemplate struct {
 	GPUType      string            `yaml:"gpu_type"`
 	InstanceType string            `yaml:"instance_type"`
 	Labels       map[string]string `yaml:"labels,omitempty"`
+	PricePerHour float64           `yaml:"price_per_hour,omitempty"` // Hourly cost in USD (uses default if not specified)
 }
 
 // StartupConfig controls how nodes join the cluster.
@@ -172,6 +173,8 @@ type NodeSpec struct {
 	GPUCount     int               `yaml:"gpu_count"`
 	GPUType      string            `yaml:"gpu_type"`
 	Labels       map[string]string `yaml:"labels,omitempty"`
+	PricePerHour float64           `yaml:"price_per_hour,omitempty"` // Hourly cost in USD
+	TemplateName string            `yaml:"template_name,omitempty"` // Name of the template used to generate this node
 }
 
 // Event represents something that happens during a scenario.

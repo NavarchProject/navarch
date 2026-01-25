@@ -30,6 +30,7 @@ func (g *HTMLReportGenerator) Generate(outputPath string) error {
 
 	funcMap := template.FuncMap{
 		"mul": func(a, b float64) float64 { return a * b },
+		"sub": func(a, b float64) float64 { return a - b },
 	}
 
 	tmpl, err := template.New("report").Funcs(funcMap).Parse(htmlReportTemplate)
@@ -130,6 +131,35 @@ type templateData struct {
 	XIDDistData         template.JS
 	ProviderLabels      template.JS
 	ProviderData        template.JS
+
+	// Cost analysis
+	HasCost              bool
+	TotalCost            string
+	TotalCostRaw         float64
+	TotalComputeHours    float64
+	TotalGPUHours        float64
+	EffectiveCostPerHour string
+	WastedCost           string
+	WastedCostRaw        float64
+	WastedPercentage     float64
+	WastedComputeHours   float64
+	WastedGPUHours       float64
+	AvgCostPerFailure    string
+	TotalFailureCost     string
+
+	// Cost breakdown chart data
+	CostByGPUTypeLabels   template.JS
+	CostByGPUTypeData     template.JS
+	CostByProviderLabels  template.JS
+	CostByProviderData    template.JS
+	CostByRegionLabels    template.JS
+	CostByRegionData      template.JS
+
+	// GPU efficiency data
+	GPUEfficiency []gpuEfficiencyData
+
+	// Top cost drivers
+	TopCostDrivers []costDriverData
 }
 
 type fleetTemplateData struct {
@@ -159,6 +189,25 @@ type outageData struct {
 	Scope       string
 	Target      string
 	FailureType string
+}
+
+type gpuEfficiencyData struct {
+	GPUType        string
+	TotalCost      string
+	TotalHours     float64
+	WastedCost     string
+	WastedHours    float64
+	EfficiencyPct  float64
+	FailureCount   int64
+	CostPerFailure string
+}
+
+type costDriverData struct {
+	Category   string
+	Name       string
+	TotalCost  string
+	Percentage float64
+	NodeCount  int
 }
 
 func (g *HTMLReportGenerator) prepareTemplateData() templateData {
@@ -343,6 +392,78 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 		}
 	}
 
+	// Cost analysis data
+	if r.Cost != nil && r.Cost.TotalCost > 0 {
+		data.HasCost = true
+		data.TotalCost = FormatCost(r.Cost.TotalCost)
+		data.TotalCostRaw = r.Cost.TotalCost
+		data.TotalComputeHours = r.Cost.TotalComputeHours
+		data.TotalGPUHours = r.Cost.TotalGPUHours
+		data.EffectiveCostPerHour = FormatCost(r.Cost.EffectiveCostPerHour)
+		data.WastedCost = FormatCost(r.Cost.WastedCost)
+		data.WastedCostRaw = r.Cost.WastedCost
+		data.WastedPercentage = r.Cost.WastedPercentage
+		data.WastedComputeHours = r.Cost.WastedComputeHours
+		data.WastedGPUHours = r.Cost.WastedGPUHours
+		data.AvgCostPerFailure = FormatCost(r.Cost.AvgCostPerFailure)
+		data.TotalFailureCost = FormatCost(r.Cost.TotalFailureCost)
+
+		// Cost by GPU type chart
+		var gpuTypeLabels []string
+		var gpuTypeData []float64
+		for gpuType, cost := range r.Cost.CostByGPUType {
+			gpuTypeLabels = append(gpuTypeLabels, truncate(gpuType, 25))
+			gpuTypeData = append(gpuTypeData, cost)
+		}
+		data.CostByGPUTypeLabels = toJSArray(gpuTypeLabels)
+		data.CostByGPUTypeData = toJSArray(gpuTypeData)
+
+		// Cost by provider chart
+		var providerLabels []string
+		var providerCostData []float64
+		for provider, cost := range r.Cost.CostByProvider {
+			providerLabels = append(providerLabels, provider)
+			providerCostData = append(providerCostData, cost)
+		}
+		data.CostByProviderLabels = toJSArray(providerLabels)
+		data.CostByProviderData = toJSArray(providerCostData)
+
+		// Cost by region chart
+		var regionLabels []string
+		var regionCostData []float64
+		for region, cost := range r.Cost.CostByRegion {
+			regionLabels = append(regionLabels, region)
+			regionCostData = append(regionCostData, cost)
+		}
+		data.CostByRegionLabels = toJSArray(regionLabels)
+		data.CostByRegionData = toJSArray(regionCostData)
+
+		// GPU efficiency data
+		for gpuType, eff := range r.Cost.GPUTypeEfficiency {
+			data.GPUEfficiency = append(data.GPUEfficiency, gpuEfficiencyData{
+				GPUType:        gpuType,
+				TotalCost:      FormatCost(eff.TotalCost),
+				TotalHours:     eff.TotalHours,
+				WastedCost:     FormatCost(eff.WastedCost),
+				WastedHours:    eff.WastedHours,
+				EfficiencyPct:  eff.EfficiencyPct,
+				FailureCount:   eff.FailureCount,
+				CostPerFailure: FormatCost(eff.CostPerFailure),
+			})
+		}
+
+		// Top cost drivers
+		for _, driver := range r.Cost.TopCostDrivers {
+			data.TopCostDrivers = append(data.TopCostDrivers, costDriverData{
+				Category:   driver.Category,
+				Name:       driver.Name,
+				TotalCost:  FormatCost(driver.TotalCost),
+				Percentage: driver.Percentage,
+				NodeCount:  driver.NodeCount,
+			})
+		}
+	}
+
 	return data
 }
 
@@ -489,6 +610,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
         .badge.recoverable { background: #3fb95022; color: #3fb950; }
         .badge.enabled { background: #3fb95022; color: #3fb950; }
         .badge.disabled { background: #48505822; color: #484f58; }
+        .badge.info { background: #58a6ff22; color: #58a6ff; }
 
         .config-section {
             background: #161b22;
@@ -548,6 +670,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('results')">Results</button>
+            {{if .HasCost}}<button class="tab" onclick="showTab('cost')">Cost Analysis</button>{{end}}
             <button class="tab" onclick="showTab('config')">Configuration</button>
         </div>
 
@@ -650,6 +773,162 @@ const htmlReportTemplate = `<!DOCTYPE html>
             </div>
             {{end}}
         </div>
+
+        <!-- Cost Analysis Tab -->
+        {{if .HasCost}}
+        <div id="cost" class="tab-content">
+            <h2>Cost Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-card info">
+                    <div class="stat-label">Total Cost</div>
+                    <div class="stat-value">{{.TotalCost}}</div>
+                </div>
+                <div class="stat-card info">
+                    <div class="stat-label">Cost Per Hour</div>
+                    <div class="stat-value">{{.EffectiveCostPerHour}}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Total Compute Hours</div>
+                    <div class="stat-value">{{printf "%.1f" .TotalComputeHours}}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Total GPU Hours</div>
+                    <div class="stat-value">{{printf "%.1f" .TotalGPUHours}}</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">Wasted Cost</div>
+                    <div class="stat-value">{{.WastedCost}}</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">Wasted %</div>
+                    <div class="stat-value">{{printf "%.1f" .WastedPercentage}}%</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Avg Cost/Failure</div>
+                    <div class="stat-value">{{.AvgCostPerFailure}}</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Wasted GPU Hours</div>
+                    <div class="stat-value">{{printf "%.1f" .WastedGPUHours}}</div>
+                </div>
+            </div>
+
+            <h2>Cost Breakdown</h2>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Cost by GPU Type</h3>
+                    <div class="chart-container">
+                        <canvas id="costByGPUTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Cost by Provider</h3>
+                    <div class="chart-container">
+                        <canvas id="costByProviderChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            {{if .GPUEfficiency}}
+            <h2>GPU Type Efficiency</h2>
+            <div class="chart-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>GPU Type</th>
+                            <th>Total Cost</th>
+                            <th>Hours</th>
+                            <th>Wasted Cost</th>
+                            <th>Efficiency</th>
+                            <th>Failures</th>
+                            <th>Cost/Failure</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .GPUEfficiency}}
+                        <tr>
+                            <td><strong>{{.GPUType}}</strong></td>
+                            <td>{{.TotalCost}}</td>
+                            <td>{{printf "%.1f" .TotalHours}}</td>
+                            <td>{{.WastedCost}}</td>
+                            <td>
+                                {{if ge .EfficiencyPct 90.0}}<span class="badge enabled">{{printf "%.1f" .EfficiencyPct}}%</span>
+                                {{else if ge .EfficiencyPct 75.0}}<span class="badge" style="background: #d2992222; color: #d29922;">{{printf "%.1f" .EfficiencyPct}}%</span>
+                                {{else}}<span class="badge fatal">{{printf "%.1f" .EfficiencyPct}}%</span>{{end}}
+                            </td>
+                            <td>{{.FailureCount}}</td>
+                            <td>{{.CostPerFailure}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{end}}
+
+            {{if .TopCostDrivers}}
+            <h2>Top Cost Drivers</h2>
+            <div class="chart-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Name</th>
+                            <th>Total Cost</th>
+                            <th>% of Total</th>
+                            <th>Node Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .TopCostDrivers}}
+                        <tr>
+                            <td><span class="badge info">{{.Category}}</span></td>
+                            <td><strong>{{.Name}}</strong></td>
+                            <td>{{.TotalCost}}</td>
+                            <td>{{printf "%.1f" .Percentage}}%</td>
+                            <td>{{.NodeCount}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{end}}
+
+            <h2>Cost Insights</h2>
+            <div class="config-section">
+                <h3>Summary</h3>
+                <div class="config-grid">
+                    <div>
+                        <div class="config-item">
+                            <span class="config-label">Test Duration</span>
+                            <span class="config-value">{{.Duration}}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Total Nodes</span>
+                            <span class="config-value">{{.TotalNodes}}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Total Failures</span>
+                            <span class="config-value">{{.TotalFailures}}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="config-item">
+                            <span class="config-label">Productive Compute</span>
+                            <span class="config-value">{{printf "%.1f" (sub .TotalComputeHours .WastedComputeHours)}} hrs</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Productive GPU Time</span>
+                            <span class="config-value">{{printf "%.1f" (sub .TotalGPUHours .WastedGPUHours)}} GPU-hrs</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Effective Utilization</span>
+                            <span class="config-value">{{printf "%.1f" (sub 100.0 .WastedPercentage)}}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
 
         <!-- Configuration Tab -->
         <div id="config" class="tab-content">
@@ -999,6 +1278,65 @@ const htmlReportTemplate = `<!DOCTYPE html>
                 datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#f85149', '#d29922', '#58a6ff', '#3fb950', '#a371f7', '#f778ba', '#79c0ff', '#7ee787', '#ffa657', '#ff7b72'] }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+        {{end}}
+
+        // Cost Analysis Charts
+        {{if .HasCost}}
+        // Cost by GPU Type
+        new Chart(document.getElementById('costByGPUTypeChart'), {
+            type: 'doughnut',
+            data: {
+                labels: {{.CostByGPUTypeLabels}},
+                datasets: [{
+                    data: {{.CostByGPUTypeData}},
+                    backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#a371f7', '#f778ba', '#79c0ff', '#7ee787', '#ffa657', '#ff7b72']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let value = context.raw;
+                                return context.label + ': $' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Cost by Provider
+        new Chart(document.getElementById('costByProviderChart'), {
+            type: 'bar',
+            data: {
+                labels: {{.CostByProviderLabels}},
+                datasets: [{
+                    label: 'Cost ($)',
+                    data: {{.CostByProviderData}},
+                    backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#f85149', '#a371f7'],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.raw.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
         });
         {{end}}
     </script>
