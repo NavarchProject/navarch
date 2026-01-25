@@ -164,16 +164,16 @@ func (db *InMemDB) CreateCommand(ctx context.Context, record *CommandRecord) err
 func (db *InMemDB) GetPendingCommands(ctx context.Context, nodeID string) ([]*CommandRecord, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	
+
 	commands := db.nodeCommands[nodeID]
 	pending := make([]*CommandRecord, 0)
-	
+
 	for _, cmd := range commands {
 		if cmd.Status == "pending" {
-			pending = append(pending, cmd)
+			pending = append(pending, db.copyCommandRecord(cmd))
 		}
 	}
-	
+
 	return pending, nil
 }
 
@@ -196,7 +196,7 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 	if src == nil {
 		return nil
 	}
-	
+
 	dst := &NodeRecord{
 		NodeID:          src.NodeID,
 		Provider:        src.Provider,
@@ -209,15 +209,15 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 		HealthStatus:    src.HealthStatus,
 		RegisteredAt:    src.RegisteredAt,
 	}
-	
+
 	if src.Metadata != nil {
 		dst.Metadata = proto.Clone(src.Metadata).(*pb.NodeMetadata)
 	}
-	
+
 	if src.Config != nil {
 		dst.Config = proto.Clone(src.Config).(*pb.NodeConfig)
 	}
-	
+
 	if len(src.GPUs) > 0 {
 		dst.GPUs = make([]*pb.GPUInfo, len(src.GPUs))
 		for i, gpu := range src.GPUs {
@@ -226,7 +226,49 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 			}
 		}
 	}
-	
+
+	return dst
+}
+
+// copyCommandRecord creates a deep copy of a CommandRecord to prevent data races.
+func (db *InMemDB) copyCommandRecord(src *CommandRecord) *CommandRecord {
+	if src == nil {
+		return nil
+	}
+
+	dst := &CommandRecord{
+		CommandID: src.CommandID,
+		NodeID:    src.NodeID,
+		Type:      src.Type,
+		IssuedAt:  src.IssuedAt,
+		Status:    src.Status,
+	}
+
+	if src.Parameters != nil {
+		dst.Parameters = make(map[string]string, len(src.Parameters))
+		for k, v := range src.Parameters {
+			dst.Parameters[k] = v
+		}
+	}
+
+	return dst
+}
+
+// copyMetricsRecord creates a deep copy of a MetricsRecord to prevent data races.
+func (db *InMemDB) copyMetricsRecord(src *MetricsRecord) *MetricsRecord {
+	if src == nil {
+		return nil
+	}
+
+	dst := &MetricsRecord{
+		NodeID:    src.NodeID,
+		Timestamp: src.Timestamp,
+	}
+
+	if src.Metrics != nil {
+		dst.Metrics = proto.Clone(src.Metrics).(*pb.NodeMetrics)
+	}
+
 	return dst
 }
 
@@ -266,7 +308,7 @@ func (db *InMemDB) GetRecentMetrics(ctx context.Context, nodeID string, duration
 	var recent []*MetricsRecord
 	for _, record := range history {
 		if record.Timestamp.After(cutoff) {
-			recent = append(recent, record)
+			recent = append(recent, db.copyMetricsRecord(record))
 		}
 	}
 
