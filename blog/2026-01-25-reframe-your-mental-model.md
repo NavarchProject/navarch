@@ -109,6 +109,14 @@ The conventional wisdom says review every line. I don't. Here's what I do instea
 
 **Expect bugs anyway.** Here's the thing: bugs will reach production whether a human or AI wrote the code. Code review catches some bugs. Testing catches different bugs. Production catches the rest.
 
+And here's the meta point: **it was never sustainable to rely on "cracked developers writing perfect PRs."**
+
+We've been telling ourselves a story that if we just review carefully enough, if we just hire well enough, if we just have enough senior eyes on the code—we'll catch the bugs. But we don't. We never did. There are always cases where we fundamentally don't understand how something works until it breaks.
+
+Once you accept that, it's much easier to let go of reading every line. You were never going to read every line of every dependency. You were never going to understand every edge case in your cloud provider's SDK. You were already trusting code you didn't write and didn't review.
+
+AI-generated code isn't a new category of risk. It's the same risk you've always had, with a different author.
+
 The question isn't "is this code bug-free?" It's "do I understand this system well enough to diagnose and fix issues when they appear?"
 
 When something breaks, my deep understanding of the architecture tells me where to look. Then I either fix it myself or describe the problem to Claude and have it fix it. Either way, the system knowledge matters more than having read every line.
