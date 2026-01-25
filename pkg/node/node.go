@@ -12,6 +12,7 @@ import (
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node/metrics"
+	"github.com/NavarchProject/navarch/pkg/retry"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
@@ -52,8 +53,12 @@ type Node struct {
 	metricsCollector metrics.Collector
 
 	// Configuration received from control plane
-	healthCheckInterval time.Duration
-	heartbeatInterval   time.Duration
+	healthCheckInterval  time.Duration
+	heartbeatInterval    time.Duration
+	commandPollInterval  time.Duration
+
+	// Command handling
+	commandDispatcher *CommandDispatcher
 }
 
 // New creates a new Node. If logger is nil, slog.Default() is used.
@@ -82,6 +87,8 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		metricsCollector:    metricsCollector,
 		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
+		commandPollInterval: 10 * time.Second,
+		commandDispatcher:   NewCommandDispatcher(logger),
 	}, nil
 }
 
@@ -127,7 +134,11 @@ func (n *Node) Start(ctx context.Context) error {
 		slog.String("addr", n.config.ControlPlaneAddr),
 	)
 
-	if err := n.register(ctx); err != nil {
+	// Register with retry logic
+	err := retry.Do(ctx, retry.NetworkConfig(), func(ctx context.Context) error {
+		return n.register(ctx)
+	})
+	if err != nil {
 		return fmt.Errorf("failed to register with control plane: %w", err)
 	}
 
@@ -245,13 +256,25 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 	ticker := time.NewTicker(n.heartbeatInterval)
 	defer ticker.Stop()
 
+	// Retry config for heartbeats - faster retries since they're periodic
+	retryCfg := retry.Config{
+		MaxAttempts:  3,
+		InitialDelay: 500 * time.Millisecond,
+		MaxDelay:     2 * time.Second,
+		Multiplier:   2.0,
+		Jitter:       0.1,
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := n.sendHeartbeat(ctx); err != nil {
-				n.logger.ErrorContext(ctx, "failed to send heartbeat",
+			err := retry.Do(ctx, retryCfg, func(ctx context.Context) error {
+				return n.sendHeartbeat(ctx)
+			})
+			if err != nil {
+				n.logger.ErrorContext(ctx, "failed to send heartbeat after retries",
 					slog.String("error", err.Error()),
 				)
 			}
@@ -435,7 +458,7 @@ func (n *Node) runXIDCheck(ctx context.Context) *pb.HealthCheckResult {
 
 // commandPollLoop polls for commands from the control plane.
 func (n *Node) commandPollLoop(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second) // Poll every 10 seconds
+	ticker := time.NewTicker(n.commandPollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -464,12 +487,41 @@ func (n *Node) pollCommands(ctx context.Context) error {
 	}
 
 	for _, cmd := range resp.Msg.Commands {
-		n.logger.InfoContext(ctx, "received command",
-			slog.String("command_type", cmd.Type.String()),
-			slog.String("command_id", cmd.CommandId),
-		)
-		// TODO: Execute commands
+		// Execute the command
+		if err := n.commandDispatcher.Dispatch(ctx, cmd); err != nil {
+			n.logger.ErrorContext(ctx, "command execution failed",
+				slog.String("command_id", cmd.CommandId),
+				slog.String("command_type", cmd.Type.String()),
+				slog.String("error", err.Error()),
+			)
+			// Acknowledge the command as failed
+			n.acknowledgeCommand(ctx, cmd.CommandId, "failed", err.Error())
+			continue
+		}
+
+		// Acknowledge successful completion
+		n.acknowledgeCommand(ctx, cmd.CommandId, "completed", "")
 	}
 
 	return nil
+}
+
+// acknowledgeCommand logs command completion status.
+// TODO: Add AcknowledgeCommand RPC to proto for proper status updates.
+func (n *Node) acknowledgeCommand(ctx context.Context, commandID, status, message string) {
+	n.logger.InfoContext(ctx, "command status update",
+		slog.String("command_id", commandID),
+		slog.String("status", status),
+		slog.String("message", message),
+	)
+}
+
+// IsCordoned returns whether the node is currently cordoned.
+func (n *Node) IsCordoned() bool {
+	return n.commandDispatcher.IsCordoned()
+}
+
+// IsDraining returns whether the node is currently draining.
+func (n *Node) IsDraining() bool {
+	return n.commandDispatcher.IsDraining()
 }

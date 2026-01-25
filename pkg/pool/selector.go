@@ -33,16 +33,39 @@ type ProviderCandidate struct {
 	InstanceType string
 }
 
-// PrioritySelector selects providers in priority order (lowest first).
-// Falls back to next provider on failure.
-type PrioritySelector struct {
+// baseSelector provides common functionality for all selectors.
+type baseSelector struct {
 	attempted map[string]bool
 	mu        sync.Mutex
 }
 
+func newBaseSelector() baseSelector {
+	return baseSelector{
+		attempted: make(map[string]bool),
+	}
+}
+
+func (b *baseSelector) isAttempted(name string) bool {
+	return b.attempted[name]
+}
+
+func (b *baseSelector) markAttempted(name string) {
+	b.attempted[name] = true
+}
+
+func (b *baseSelector) resetAttempted() {
+	b.attempted = make(map[string]bool)
+}
+
+// PrioritySelector selects providers in priority order (lowest first).
+// Falls back to next provider on failure.
+type PrioritySelector struct {
+	baseSelector
+}
+
 func NewPrioritySelector() *PrioritySelector {
 	return &PrioritySelector{
-		attempted: make(map[string]bool),
+		baseSelector: newBaseSelector(),
 	}
 }
 
@@ -57,7 +80,7 @@ func (s *PrioritySelector) Select(ctx context.Context, candidates []ProviderCand
 	})
 
 	for i := range sorted {
-		if !s.attempted[sorted[i].Name] {
+		if !s.isAttempted(sorted[i].Name) {
 			return &sorted[i], nil
 		}
 	}
@@ -68,23 +91,22 @@ func (s *PrioritySelector) Select(ctx context.Context, candidates []ProviderCand
 func (s *PrioritySelector) RecordSuccess(providerName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted = make(map[string]bool)
+	s.resetAttempted()
 }
 
 func (s *PrioritySelector) RecordFailure(providerName string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted[providerName] = true
+	s.markAttempted(providerName)
 }
 
 // RoundRobinSelector distributes provisioning evenly across providers.
 // Uses weights to bias distribution. Tracks failures to prevent infinite loops.
 type RoundRobinSelector struct {
+	baseSelector
 	counter   uint64
 	weights   map[string]int
 	providers []string
-	attempted map[string]bool
-	mu        sync.Mutex
 }
 
 func NewRoundRobinSelector(candidates []ProviderCandidate) *RoundRobinSelector {
@@ -103,9 +125,9 @@ func NewRoundRobinSelector(candidates []ProviderCandidate) *RoundRobinSelector {
 	}
 
 	return &RoundRobinSelector{
-		weights:   weights,
-		providers: providers,
-		attempted: make(map[string]bool),
+		baseSelector: newBaseSelector(),
+		weights:      weights,
+		providers:    providers,
 	}
 }
 
@@ -123,7 +145,7 @@ func (s *RoundRobinSelector) Select(ctx context.Context, candidates []ProviderCa
 		idx := (startIdx + uint64(i)) % uint64(len(s.providers))
 		name := s.providers[idx]
 
-		if s.attempted[name] {
+		if s.isAttempted(name) {
 			continue
 		}
 
@@ -140,24 +162,23 @@ func (s *RoundRobinSelector) Select(ctx context.Context, candidates []ProviderCa
 func (s *RoundRobinSelector) RecordSuccess(providerName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted = make(map[string]bool)
+	s.resetAttempted()
 }
 
 func (s *RoundRobinSelector) RecordFailure(providerName string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted[providerName] = true
+	s.markAttempted(providerName)
 }
 
 // AvailabilitySelector queries providers for capacity and selects one with availability.
 type AvailabilitySelector struct {
-	attempted map[string]bool
-	mu        sync.Mutex
+	baseSelector
 }
 
 func NewAvailabilitySelector() *AvailabilitySelector {
 	return &AvailabilitySelector{
-		attempted: make(map[string]bool),
+		baseSelector: newBaseSelector(),
 	}
 }
 
@@ -172,7 +193,7 @@ func (s *AvailabilitySelector) Select(ctx context.Context, candidates []Provider
 	})
 
 	for i := range sorted {
-		if s.attempted[sorted[i].Name] {
+		if s.isAttempted(sorted[i].Name) {
 			continue
 		}
 
@@ -183,7 +204,7 @@ func (s *AvailabilitySelector) Select(ctx context.Context, candidates []Provider
 
 		types, err := lister.ListInstanceTypes(ctx)
 		if err != nil {
-			s.attempted[sorted[i].Name] = true
+			s.markAttempted(sorted[i].Name)
 			continue
 		}
 
@@ -192,7 +213,7 @@ func (s *AvailabilitySelector) Select(ctx context.Context, candidates []Provider
 				return &sorted[i], nil
 			}
 		}
-		s.attempted[sorted[i].Name] = true
+		s.markAttempted(sorted[i].Name)
 	}
 
 	return nil, errors.New("no providers with available capacity")
@@ -201,24 +222,23 @@ func (s *AvailabilitySelector) Select(ctx context.Context, candidates []Provider
 func (s *AvailabilitySelector) RecordSuccess(providerName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted = make(map[string]bool)
+	s.resetAttempted()
 }
 
 func (s *AvailabilitySelector) RecordFailure(providerName string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted[providerName] = true
+	s.markAttempted(providerName)
 }
 
 // CostSelector queries providers for pricing and selects the cheapest.
 type CostSelector struct {
-	attempted map[string]bool
-	mu        sync.Mutex
+	baseSelector
 }
 
 func NewCostSelector() *CostSelector {
 	return &CostSelector{
-		attempted: make(map[string]bool),
+		baseSelector: newBaseSelector(),
 	}
 }
 
@@ -234,7 +254,7 @@ func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidat
 	var priced []pricedCandidate
 
 	for i := range candidates {
-		if s.attempted[candidates[i].Name] {
+		if s.isAttempted(candidates[i].Name) {
 			continue
 		}
 
@@ -278,13 +298,13 @@ func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidat
 func (s *CostSelector) RecordSuccess(providerName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted = make(map[string]bool)
+	s.resetAttempted()
 }
 
 func (s *CostSelector) RecordFailure(providerName string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempted[providerName] = true
+	s.markAttempted(providerName)
 }
 
 // NewSelector creates a ProviderSelector based on strategy name.
