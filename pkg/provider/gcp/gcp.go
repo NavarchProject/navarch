@@ -428,15 +428,6 @@ func (p *Provider) buildInstanceRequest(req provider.ProvisionRequest, zone stri
 		})
 	}
 
-	// Add guest accelerators for non-A2/A3/G2 machine types
-	// A2, A3, G2 have GPUs built-in; other types need explicit accelerators
-	if !strings.HasPrefix(req.InstanceType, "a2-") &&
-		!strings.HasPrefix(req.InstanceType, "a3-") &&
-		!strings.HasPrefix(req.InstanceType, "g2-") {
-		// For custom GPU configurations, add accelerators
-		// This would need to be extended based on configuration
-	}
-
 	return instance
 }
 
