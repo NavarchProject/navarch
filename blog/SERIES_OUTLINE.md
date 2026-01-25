@@ -48,6 +48,7 @@ This series explores how to use Claude Code effectively for building complex, pr
 - Provider selection strategies (priority, round-robin, weighted)
 - Handling provider-specific quirks (quotas, rate limits, instance naming)
 - Testing provider implementations without real cloud calls
+- **The spec-first workflow**: How defining CUJs, data models, and protos upfront shaped the provider interface
 
 **Code highlighted**:
 - Provider interface definition
@@ -182,12 +183,14 @@ This series explores how to use Claude Code effectively for building complex, pr
 - Operational runbooks: common issues and resolutions
 - Cost monitoring and optimization
 - Security considerations: authentication, authorization, secrets
+- **CLAUDE.md configuration**: How we structured project context for Claude Code
 
 **Code highlighted**:
 - Configuration loading and validation
 - Structured logging setup
 - Graceful shutdown handlers
 - Health endpoints
+- Example CLAUDE.md with project-specific rules
 
 **Human vs. AI roles**:
 - Human: Security architecture, operational priorities
@@ -208,6 +211,14 @@ This series explores how to use Claude Code effectively for building complex, pr
 - Where human judgment was irreplaceable
 - Advice for others building distributed systems with AI tools
 - The future roadmap: spot instances, HA, topology awareness
+- **The "Don't Vibe, Control" pattern**: How our workflow aligns with research on professional AI-assisted development
+- **Spec-driven development**: CUJs → data models → protos → implementation as a repeatable pattern
+- **The reliability inversion thesis**: How AI assistance enabled MORE reliability engineering, not less
+
+**Research to reference**:
+- "Professional Software Developers Don't Vibe, They Control" (UC San Diego/Cornell, 2025)
+- GitHub Spec Kit and spec-driven development patterns
+- Addy Osmani's workflow guides
 
 **No code**: This is a reflection piece
 
@@ -221,6 +232,7 @@ Each post should address these themes where relevant:
 - What Claude Code did well
 - What required human direction
 - The iteration cycle
+- **"Don't Vibe, Control"**: Maintaining architectural agency while delegating implementation
 
 ### 2. Testing Philosophy
 - How the feature was tested
@@ -234,6 +246,11 @@ Each post should address these themes where relevant:
 ### 4. Production Readiness
 - What makes this production-grade
 - Remaining gaps and roadmap
+
+### 5. The Reliability Inversion (Series Theme)
+- AI assistance enables reliability work you'd otherwise skip
+- Implementation speed → bandwidth for chaos testing, simulation, edge case coverage
+- Counter-narrative to "AI makes code less reliable"
 
 ---
 
