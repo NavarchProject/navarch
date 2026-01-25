@@ -14,6 +14,23 @@ This series explores how to use Claude Code effectively for building complex, pr
 
 ---
 
+## LinkedIn Post: Reframe Your Mental Model ✅ (DRAFTED)
+
+*File: `2026-01-25-reframe-your-mental-model.md`*
+
+**Focus**: The calibration problem—our intuition about project timelines is wrong
+
+**Key points**:
+- Built a production distributed system in evenings/weekends over 6 weeks
+- Old estimate: 4 months full-time. Actual: ~60-90 hours total
+- The work shifted from implementing to directing
+- Architecture thinking didn't get faster—but it's now the only bottleneck
+- Side projects are viable again, prototypes can be production-grade
+
+**Tone**: Personal reflection, punchy, LinkedIn-optimized
+
+---
+
 ## Post 1: Testing at Scale Without Breaking the Bank ✅ (DRAFTED)
 
 *File: `2026-01-25-testing-distributed-systems-with-claude-code.md`*
