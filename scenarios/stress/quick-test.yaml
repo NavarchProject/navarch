@@ -1,0 +1,91 @@
+name: quick-stress-test
+description: Quick stress test with 50 nodes for validation
+
+fleet: []
+
+stress:
+  duration: 1m
+  metrics_interval: 5s
+  seed: 42
+  report_file: /tmp/quick-stress-report.json
+  html_report_file: /tmp/quick-stress-report.html
+
+  fleet_gen:
+    total_nodes: 50
+
+    templates:
+      - name: h100-8gpu
+        weight: 70
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+
+      - name: a100-8gpu
+        weight: 30
+        gpu_count: 8
+        gpu_type: "NVIDIA A100 80GB"
+        instance_type: a2-ultragpu-8g
+
+    providers:
+      gcp: 60
+      aws: 40
+
+    regions:
+      us-central1: 50
+      us-east1: 50
+
+    startup:
+      pattern: linear
+      duration: 10s
+      jitter_percent: 10
+
+  chaos:
+    enabled: true
+    failure_rate: 20.0  # High rate for quick test
+
+    xid_distribution:
+      13: 20  # Graphics Engine Exception
+      31: 25  # GPU memory page fault
+      48: 15  # Double Bit ECC Error
+      79: 10  # GPU fallen off bus
+      74: 10  # NVLink Error
+      94: 20  # Contained ECC error
+
+    failure_types:
+      - type: xid_error
+        weight: 70
+      - type: temperature
+        weight: 15
+      - type: nvml_failure
+        weight: 15
+
+    cascading:
+      enabled: true
+      probability: 0.2
+      max_depth: 2
+      min_delay: 500ms
+      max_delay: 3s
+      scope: zone
+      max_affected_percent: 0.15
+
+    recovery:
+      enabled: true
+      probability: 0.6
+      mean_time: 30s
+      std_dev: 10s
+
+events:
+  - at: 0s
+    action: log
+    params:
+      log_message: "Quick stress test starting"
+
+  - at: 15s
+    action: log
+    params:
+      log_message: "Fleet started, chaos active"
+
+  - at: 45s
+    action: log
+    params:
+      log_message: "Final phase"

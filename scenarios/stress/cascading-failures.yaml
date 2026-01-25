@@ -1,0 +1,187 @@
+name: cascading-failure-test
+description: |
+  Tests cascading failure behavior at scale. Simulates scenarios where:
+  - A single failure triggers failures in nearby nodes
+  - Power/thermal events cascade across racks
+  - NVLink failures cascade across multi-GPU configurations
+  - Zone-level failures propagate
+
+  This helps validate isolation and blast radius containment.
+
+fleet: []
+
+stress:
+  duration: 20m
+  metrics_interval: 2s
+  seed: 777
+  report_file: stress-report-cascading.json
+
+  fleet_gen:
+    total_nodes: 2000
+
+    templates:
+      - name: h100-8gpu-nvlink
+        weight: 60
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3 NVLink"
+        instance_type: a3-megagpu-8g
+        labels:
+          interconnect: nvlink
+
+      - name: h100-8gpu
+        weight: 40
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+
+    providers:
+      gcp: 60
+      aws: 40
+
+    regions:
+      us-central1: 35
+      us-east1: 35
+      us-west1: 30
+
+    zones:
+      us-central1: [us-central1-a, us-central1-b, us-central1-c]
+      us-east1: [us-east1-b, us-east1-c, us-east1-d]
+      us-west1: [us-west1-a, us-west1-b]
+
+    startup:
+      pattern: wave
+      duration: 3m
+      batch_size: 200
+      jitter_percent: 10
+
+  chaos:
+    enabled: true
+    failure_rate: 5.0  # Lower base rate - cascades will amplify
+
+    xid_distribution:
+      74: 30  # NVLink Error - primary cascade trigger
+      79: 20  # GPU fallen off bus
+      48: 20  # Double Bit ECC
+      43: 15  # GPU stopped processing
+      95: 15  # Uncontained ECC error
+
+    failure_types:
+      - type: xid_error
+        weight: 60
+      - type: temperature
+        weight: 25  # Temperature often cascades
+      - type: network
+        weight: 15
+
+    cascading:
+      enabled: true
+      probability: 0.5  # High cascade probability to stress test
+      max_depth: 5      # Allow deep cascades
+      min_delay: 500ms
+      max_delay: 5s
+      scope: zone       # Cascade within zone
+      max_affected_percent: 0.3  # Up to 30% of zone can be affected
+
+    recovery:
+      enabled: true
+      probability: 0.4  # Lower recovery - most cascade scenarios are severe
+      mean_time: 10m
+      std_dev: 3m
+
+    # Specific cascade-inducing outages
+    scheduled_outages:
+      # Simulate rack-level power event
+      - name: rack-power-event-1
+        start_time: 5m
+        duration: 2m
+        scope: percentage
+        target: "5"
+        failure_type: boot_failure
+
+      # NVLink topology disruption
+      - name: nvlink-fabric-disruption
+        start_time: 10m
+        duration: 3m
+        scope: zone
+        target: us-central1-a
+        failure_type: xid_error
+
+      # Thermal event that propagates
+      - name: cooling-failure
+        start_time: 15m
+        duration: 4m
+        scope: zone
+        target: us-east1-b
+        failure_type: temperature
+
+    correlated_failures:
+      # NVLink errors cascade to adjacent GPUs on same node
+      - name: nvlink-gpu-cascade
+        trigger: "74"
+        response: xid_error
+        probability: 0.6
+        delay: 1s
+        scope: same_node
+
+      # Temperature issues cascade to nearby nodes (same rack)
+      - name: thermal-propagation
+        trigger: temperature
+        response: temperature
+        probability: 0.4
+        delay: 3s
+        scope: same_rack
+
+      # Fatal errors can cause preemptive cleanup on same node
+      - name: fatal-cleanup-cascade
+        trigger: "79"
+        response: xid_error
+        probability: 0.8
+        delay: 500ms
+        scope: same_node
+
+events:
+  - at: 0s
+    action: log
+    params:
+      log_message: "=== CASCADE FAILURE TEST STARTING ==="
+
+  - at: 4m
+    action: log
+    params:
+      log_message: "Fleet stable, baseline established"
+
+  - at: 5m
+    action: log
+    params:
+      log_message: ">>> TRIGGERING: Rack power event (5% nodes)"
+
+  - at: 7m
+    action: log
+    params:
+      log_message: ">>> Rack power event resolved"
+
+  - at: 10m
+    action: log
+    params:
+      log_message: ">>> TRIGGERING: NVLink fabric disruption in us-central1-a"
+
+  - at: 13m
+    action: log
+    params:
+      log_message: ">>> NVLink disruption resolved"
+
+  - at: 15m
+    action: log
+    params:
+      log_message: ">>> TRIGGERING: Cooling failure in us-east1-b"
+
+  - at: 19m
+    action: log
+    params:
+      log_message: ">>> Cooling failure resolved, collecting final metrics"
+
+assertions:
+  # Verify blast radius was contained - at least 60% should survive
+  - type: node_count
+    target: all
+    expected: "1200"
