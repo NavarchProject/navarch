@@ -17,6 +17,79 @@ import (
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
+// NodeState represents the current state of a node in its lifecycle.
+type NodeState int
+
+const (
+	// StateActive is the default state where the node accepts workloads.
+	StateActive NodeState = iota
+	// StateCordoned means the node is not accepting new workloads but can be uncordoned.
+	StateCordoned
+	// StateDraining means the node is gracefully draining workloads and cannot go back.
+	StateDraining
+	// StateTerminating means the node is shutting down (terminal state).
+	StateTerminating
+)
+
+func (s NodeState) String() string {
+	switch s {
+	case StateActive:
+		return "active"
+	case StateCordoned:
+		return "cordoned"
+	case StateDraining:
+		return "draining"
+	case StateTerminating:
+		return "terminating"
+	default:
+		return "unknown"
+	}
+}
+
+// validTransitions defines the allowed state transitions.
+// Key is current state, value is set of valid target states.
+var validTransitions = map[NodeState]map[NodeState]bool{
+	StateActive: {
+		StateCordoned:    true,
+		StateDraining:    true,
+		StateTerminating: true,
+	},
+	StateCordoned: {
+		StateActive:      true, // Can uncordon
+		StateDraining:    true,
+		StateTerminating: true,
+	},
+	StateDraining: {
+		StateTerminating: true, // Can only move forward to terminating
+	},
+	StateTerminating: {
+		// Terminal state - no valid transitions out
+	},
+}
+
+// ErrInvalidStateTransition is returned when a command would cause an invalid state transition.
+type ErrInvalidStateTransition struct {
+	From    NodeState
+	To      NodeState
+	Command string
+}
+
+func (e *ErrInvalidStateTransition) Error() string {
+	return fmt.Sprintf("invalid state transition from %s to %s (command: %s)", e.From, e.To, e.Command)
+}
+
+// canTransition checks if a state transition is valid.
+func canTransition(from, to NodeState) bool {
+	if from == to {
+		return true // No-op transitions are always valid
+	}
+	targets, ok := validTransitions[from]
+	if !ok {
+		return false
+	}
+	return targets[to]
+}
+
 // Config holds configuration for the node daemon.
 type Config struct {
 	// ControlPlaneAddr is the address of the control plane HTTP server.
@@ -57,10 +130,8 @@ type Node struct {
 	heartbeatInterval   time.Duration
 
 	// Node state (protected by stateMu)
-	stateMu      sync.RWMutex
-	cordoned     bool
-	draining     bool
-	shuttingDown bool
+	stateMu sync.RWMutex
+	state   NodeState
 
 	// Shutdown coordination
 	shutdownCh chan struct{}
@@ -92,6 +163,7 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		metricsCollector:    metricsCollector,
 		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
+		state:               StateActive,
 		shutdownCh:          make(chan struct{}),
 	}, nil
 }
@@ -512,14 +584,22 @@ func (n *Node) executeCordon(ctx context.Context, cmd *pb.NodeCommand) error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	if n.cordoned {
+	if n.state == StateCordoned {
 		n.logger.InfoContext(ctx, "node already cordoned",
 			slog.String("command_id", cmd.CommandId),
 		)
 		return nil
 	}
 
-	n.cordoned = true
+	if !canTransition(n.state, StateCordoned) {
+		return &ErrInvalidStateTransition{
+			From:    n.state,
+			To:      StateCordoned,
+			Command: "cordon",
+		}
+	}
+
+	n.state = StateCordoned
 	reason := cmd.Parameters["reason"]
 	n.logger.InfoContext(ctx, "node cordoned",
 		slog.String("command_id", cmd.CommandId),
@@ -532,7 +612,7 @@ func (n *Node) executeCordon(ctx context.Context, cmd *pb.NodeCommand) error {
 // executeDrain initiates graceful draining of workloads.
 func (n *Node) executeDrain(ctx context.Context, cmd *pb.NodeCommand) error {
 	n.stateMu.Lock()
-	if n.draining {
+	if n.state == StateDraining {
 		n.stateMu.Unlock()
 		n.logger.InfoContext(ctx, "node already draining",
 			slog.String("command_id", cmd.CommandId),
@@ -540,9 +620,16 @@ func (n *Node) executeDrain(ctx context.Context, cmd *pb.NodeCommand) error {
 		return nil
 	}
 
-	// Draining implies cordoned
-	n.cordoned = true
-	n.draining = true
+	if !canTransition(n.state, StateDraining) {
+		n.stateMu.Unlock()
+		return &ErrInvalidStateTransition{
+			From:    n.state,
+			To:      StateDraining,
+			Command: "drain",
+		}
+	}
+
+	n.state = StateDraining
 	n.stateMu.Unlock()
 
 	n.logger.InfoContext(ctx, "node draining started",
@@ -596,6 +683,19 @@ func (n *Node) executeDrain(ctx context.Context, cmd *pb.NodeCommand) error {
 
 // executeDiagnostic runs GPU diagnostic tests.
 func (n *Node) executeDiagnostic(ctx context.Context, cmd *pb.NodeCommand) error {
+	n.stateMu.RLock()
+	currentState := n.state
+	n.stateMu.RUnlock()
+
+	// Diagnostics cannot run on a terminating node
+	if currentState == StateTerminating {
+		return &ErrInvalidStateTransition{
+			From:    currentState,
+			To:      currentState, // Not actually transitioning, but command is invalid
+			Command: "run_diagnostic",
+		}
+	}
+
 	testType := cmd.Parameters["test_type"]
 	if testType == "" {
 		testType = "quick"
@@ -604,6 +704,7 @@ func (n *Node) executeDiagnostic(ctx context.Context, cmd *pb.NodeCommand) error
 	n.logger.InfoContext(ctx, "starting diagnostic",
 		slog.String("command_id", cmd.CommandId),
 		slog.String("test_type", testType),
+		slog.String("state", currentState.String()),
 	)
 
 	// Run diagnostics asynchronously to not block command polling
@@ -677,7 +778,7 @@ func (n *Node) runDiagnostics(ctx context.Context, testType string) (string, err
 // executeTerminate prepares the node for shutdown.
 func (n *Node) executeTerminate(ctx context.Context, cmd *pb.NodeCommand) error {
 	n.stateMu.Lock()
-	if n.shuttingDown {
+	if n.state == StateTerminating {
 		n.stateMu.Unlock()
 		n.logger.InfoContext(ctx, "node already shutting down",
 			slog.String("command_id", cmd.CommandId),
@@ -685,9 +786,16 @@ func (n *Node) executeTerminate(ctx context.Context, cmd *pb.NodeCommand) error 
 		return nil
 	}
 
-	n.cordoned = true
-	n.draining = true
-	n.shuttingDown = true
+	if !canTransition(n.state, StateTerminating) {
+		n.stateMu.Unlock()
+		return &ErrInvalidStateTransition{
+			From:    n.state,
+			To:      StateTerminating,
+			Command: "terminate",
+		}
+	}
+
+	n.state = StateTerminating
 	n.stateMu.Unlock()
 
 	n.logger.InfoContext(ctx, "node termination initiated",
@@ -706,25 +814,34 @@ func (n *Node) executeTerminate(ctx context.Context, cmd *pb.NodeCommand) error 
 	return nil
 }
 
-// IsCordoned returns whether the node is cordoned.
+// State returns the current state of the node.
+func (n *Node) State() NodeState {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.state
+}
+
+// IsCordoned returns whether the node is cordoned (not accepting new workloads).
+// This is true for StateCordoned, StateDraining, and StateTerminating.
 func (n *Node) IsCordoned() bool {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.cordoned
+	return n.state >= StateCordoned
 }
 
-// IsDraining returns whether the node is draining.
+// IsDraining returns whether the node is draining workloads.
+// This is true for StateDraining and StateTerminating.
 func (n *Node) IsDraining() bool {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.draining
+	return n.state >= StateDraining
 }
 
 // IsShuttingDown returns whether the node is shutting down.
 func (n *Node) IsShuttingDown() bool {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.shuttingDown
+	return n.state == StateTerminating
 }
 
 // ShutdownCh returns a channel that is closed when the node begins termination.

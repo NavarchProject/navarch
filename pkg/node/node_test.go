@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -248,9 +249,6 @@ func TestCommandExecution(t *testing.T) {
 		if !n.IsCordoned() {
 			t.Error("Node should be cordoned when draining")
 		}
-
-		// Wait for drain to complete
-		time.Sleep(2 * time.Second)
 	})
 
 	t.Run("diagnostic_command", func(t *testing.T) {
@@ -371,7 +369,7 @@ func TestRunDiagnostics(t *testing.T) {
 		}
 
 		// Should contain info about 2 GPUs
-		if !contains(results, "2 GPUs tested") {
+		if !strings.Contains(results, "2 GPUs tested") {
 			t.Errorf("Expected results to mention 2 GPUs, got: %s", results)
 		}
 	})
@@ -387,15 +385,290 @@ func TestRunDiagnostics(t *testing.T) {
 	})
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+func TestStateTransitions(t *testing.T) {
+	t.Run("valid_transitions", func(t *testing.T) {
+		// Test all valid transitions from the state graph
+		tests := []struct {
+			from NodeState
+			to   NodeState
+			want bool
+		}{
+			// From Active
+			{StateActive, StateActive, true},
+			{StateActive, StateCordoned, true},
+			{StateActive, StateDraining, true},
+			{StateActive, StateTerminating, true},
+			// From Cordoned
+			{StateCordoned, StateCordoned, true},
+			{StateCordoned, StateActive, true}, // Can uncordon
+			{StateCordoned, StateDraining, true},
+			{StateCordoned, StateTerminating, true},
+			// From Draining
+			{StateDraining, StateDraining, true},
+			{StateDraining, StateTerminating, true},
+			{StateDraining, StateActive, false},    // Cannot go back
+			{StateDraining, StateCordoned, false},  // Cannot go back
+			// From Terminating (terminal state)
+			{StateTerminating, StateTerminating, true},
+			{StateTerminating, StateActive, false},
+			{StateTerminating, StateCordoned, false},
+			{StateTerminating, StateDraining, false},
+		}
+
+		for _, tt := range tests {
+			name := tt.from.String() + "_to_" + tt.to.String()
+			t.Run(name, func(t *testing.T) {
+				got := canTransition(tt.from, tt.to)
+				if got != tt.want {
+					t.Errorf("canTransition(%s, %s) = %v, want %v",
+						tt.from, tt.to, got, tt.want)
+				}
+			})
+		}
+	})
 }
 
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+func TestInvalidStateTransitions(t *testing.T) {
+	ctx := context.Background()
+	fakeGPU := gpu.NewFake(2)
+
+	cfg := Config{
+		ControlPlaneAddr: "http://localhost:50051",
+		NodeID:           "test-node",
+		GPU:              fakeGPU,
+	}
+
+	t.Run("cordon_from_draining", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		// First, put node in draining state
+		drainCmd := &pb.NodeCommand{
+			CommandId:  "cmd-drain",
+			Type:       pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+			Parameters: map[string]string{"timeout": "1s"},
 		}
+		if err := n.executeCommand(ctx, drainCmd); err != nil {
+			t.Fatalf("drain command failed: %v", err)
+		}
+
+		if n.State() != StateDraining {
+			t.Fatalf("expected state draining, got %s", n.State())
+		}
+
+		// Now try to cordon (should fail - can't go backwards)
+		cordonCmd := &pb.NodeCommand{
+			CommandId: "cmd-cordon",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		}
+		err := n.executeCommand(ctx, cordonCmd)
+		if err == nil {
+			t.Error("expected error when cordoning a draining node")
+		}
+
+		var stateErr *ErrInvalidStateTransition
+		if !isInvalidStateTransitionError(err, &stateErr) {
+			t.Errorf("expected ErrInvalidStateTransition, got %T: %v", err, err)
+		} else {
+			if stateErr.From != StateDraining {
+				t.Errorf("expected from=draining, got %s", stateErr.From)
+			}
+			if stateErr.To != StateCordoned {
+				t.Errorf("expected to=cordoned, got %s", stateErr.To)
+			}
+		}
+	})
+
+	t.Run("cordon_from_terminating", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		// Put node in terminating state
+		terminateCmd := &pb.NodeCommand{
+			CommandId: "cmd-terminate",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+		if err := n.executeCommand(ctx, terminateCmd); err != nil {
+			t.Fatalf("terminate command failed: %v", err)
+		}
+
+		// Try to cordon (should fail)
+		cordonCmd := &pb.NodeCommand{
+			CommandId: "cmd-cordon",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		}
+		err := n.executeCommand(ctx, cordonCmd)
+		if err == nil {
+			t.Error("expected error when cordoning a terminating node")
+		}
+	})
+
+	t.Run("drain_from_terminating", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		// Put node in terminating state
+		terminateCmd := &pb.NodeCommand{
+			CommandId: "cmd-terminate",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+		if err := n.executeCommand(ctx, terminateCmd); err != nil {
+			t.Fatalf("terminate command failed: %v", err)
+		}
+
+		// Try to drain (should fail)
+		drainCmd := &pb.NodeCommand{
+			CommandId: "cmd-drain",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+		}
+		err := n.executeCommand(ctx, drainCmd)
+		if err == nil {
+			t.Error("expected error when draining a terminating node")
+		}
+	})
+
+	t.Run("diagnostic_from_terminating", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+		if err := fakeGPU.Initialize(ctx); err != nil {
+			t.Fatalf("GPU Initialize failed: %v", err)
+		}
+		n.gpu = fakeGPU
+
+		// Put node in terminating state
+		terminateCmd := &pb.NodeCommand{
+			CommandId: "cmd-terminate",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+		if err := n.executeCommand(ctx, terminateCmd); err != nil {
+			t.Fatalf("terminate command failed: %v", err)
+		}
+
+		// Try to run diagnostic (should fail)
+		diagCmd := &pb.NodeCommand{
+			CommandId: "cmd-diag",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_RUN_DIAGNOSTIC,
+		}
+		err := n.executeCommand(ctx, diagCmd)
+		if err == nil {
+			t.Error("expected error when running diagnostic on terminating node")
+		}
+	})
+}
+
+func TestStateAccessors(t *testing.T) {
+	ctx := context.Background()
+	fakeGPU := gpu.NewFake(2)
+
+	cfg := Config{
+		ControlPlaneAddr: "http://localhost:50051",
+		NodeID:           "test-node",
+		GPU:              fakeGPU,
+	}
+
+	t.Run("initial_state", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		if n.State() != StateActive {
+			t.Errorf("expected initial state active, got %s", n.State())
+		}
+		if n.IsCordoned() {
+			t.Error("new node should not be cordoned")
+		}
+		if n.IsDraining() {
+			t.Error("new node should not be draining")
+		}
+		if n.IsShuttingDown() {
+			t.Error("new node should not be shutting down")
+		}
+	})
+
+	t.Run("cordoned_state", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-cordon",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		}
+		n.executeCommand(ctx, cmd)
+
+		if n.State() != StateCordoned {
+			t.Errorf("expected state cordoned, got %s", n.State())
+		}
+		if !n.IsCordoned() {
+			t.Error("cordoned node should report IsCordoned=true")
+		}
+		if n.IsDraining() {
+			t.Error("cordoned node should not be draining")
+		}
+		if n.IsShuttingDown() {
+			t.Error("cordoned node should not be shutting down")
+		}
+	})
+
+	t.Run("draining_state", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		cmd := &pb.NodeCommand{
+			CommandId:  "cmd-drain",
+			Type:       pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+			Parameters: map[string]string{"timeout": "100ms"},
+		}
+		n.executeCommand(ctx, cmd)
+
+		if n.State() != StateDraining {
+			t.Errorf("expected state draining, got %s", n.State())
+		}
+		if !n.IsCordoned() {
+			t.Error("draining node should report IsCordoned=true")
+		}
+		if !n.IsDraining() {
+			t.Error("draining node should report IsDraining=true")
+		}
+		if n.IsShuttingDown() {
+			t.Error("draining node should not be shutting down")
+		}
+	})
+
+	t.Run("terminating_state", func(t *testing.T) {
+		n, _ := New(cfg, nil)
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-terminate",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+		n.executeCommand(ctx, cmd)
+
+		if n.State() != StateTerminating {
+			t.Errorf("expected state terminating, got %s", n.State())
+		}
+		if !n.IsCordoned() {
+			t.Error("terminating node should report IsCordoned=true")
+		}
+		if !n.IsDraining() {
+			t.Error("terminating node should report IsDraining=true")
+		}
+		if !n.IsShuttingDown() {
+			t.Error("terminating node should report IsShuttingDown=true")
+		}
+	})
+}
+
+func TestErrInvalidStateTransition(t *testing.T) {
+	err := &ErrInvalidStateTransition{
+		From:    StateDraining,
+		To:      StateCordoned,
+		Command: "cordon",
+	}
+
+	expected := "invalid state transition from draining to cordoned (command: cordon)"
+	if err.Error() != expected {
+		t.Errorf("error message = %q, want %q", err.Error(), expected)
+	}
+}
+
+// isInvalidStateTransitionError checks if err is an ErrInvalidStateTransition
+// and assigns it to target if so.
+func isInvalidStateTransitionError(err error, target **ErrInvalidStateTransition) bool {
+	if e, ok := err.(*ErrInvalidStateTransition); ok {
+		*target = e
+		return true
 	}
 	return false
 }
