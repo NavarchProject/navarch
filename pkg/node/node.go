@@ -55,9 +55,6 @@ type Node struct {
 	heartbeatInterval    time.Duration
 	commandPollInterval  time.Duration
 
-	// Metrics collection
-	metricsCollector *MetricsCollector
-
 	// Command handling
 	commandDispatcher *CommandDispatcher
 }
@@ -86,7 +83,6 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		healthCheckInterval:  60 * time.Second,
 		heartbeatInterval:    30 * time.Second,
 		commandPollInterval:  10 * time.Second,
-		metricsCollector:     NewMetricsCollector(),
 		commandDispatcher:    NewCommandDispatcher(logger),
 	}, nil
 }
@@ -283,28 +279,12 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 
 // sendHeartbeat sends a heartbeat to the control plane.
 func (n *Node) sendHeartbeat(ctx context.Context) error {
-	// Collect system metrics
-	sysMetrics, err := n.metricsCollector.Collect()
-	if err != nil {
-		n.logger.WarnContext(ctx, "failed to collect system metrics",
-			slog.String("error", err.Error()),
-		)
-	}
-
-	// Collect GPU metrics
-	gpuMetrics, err := n.collectGPUMetrics(ctx)
-	if err != nil {
-		n.logger.WarnContext(ctx, "failed to collect GPU metrics",
-			slog.String("error", err.Error()),
-		)
-	}
-
 	req := connect.NewRequest(&pb.HeartbeatRequest{
 		NodeId: n.config.NodeID,
 		Metrics: &pb.NodeMetrics{
-			CpuUsagePercent:    sysMetrics.CPUUsagePercent,
-			MemoryUsagePercent: sysMetrics.MemoryUsagePercent,
-			GpuMetrics:         gpuMetrics,
+			CpuUsagePercent:    0.0, // TODO: Collect actual metrics
+			MemoryUsagePercent: 0.0,
+			GpuMetrics:         []*pb.GPUMetrics{},
 		},
 	})
 
@@ -314,44 +294,10 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 	}
 
 	if resp.Msg.Acknowledged {
-		n.logger.DebugContext(ctx, "heartbeat acknowledged",
-			slog.Float64("cpu_percent", sysMetrics.CPUUsagePercent),
-			slog.Float64("memory_percent", sysMetrics.MemoryUsagePercent),
-		)
+		n.logger.DebugContext(ctx, "heartbeat acknowledged")
 	}
 
 	return nil
-}
-
-// collectGPUMetrics gathers metrics from all GPUs.
-func (n *Node) collectGPUMetrics(ctx context.Context) ([]*pb.GPUMetrics, error) {
-	count, err := n.gpu.GetDeviceCount(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get device count: %w", err)
-	}
-
-	metrics := make([]*pb.GPUMetrics, 0, count)
-	for i := 0; i < count; i++ {
-		health, err := n.gpu.GetDeviceHealth(ctx, i)
-		if err != nil {
-			n.logger.WarnContext(ctx, "failed to get GPU health",
-				slog.Int("gpu", i),
-				slog.String("error", err.Error()),
-			)
-			continue
-		}
-
-		metrics = append(metrics, &pb.GPUMetrics{
-			GpuIndex:         int32(i),
-			UtilizationGpu:   int32(health.Utilization),
-			MemoryUsed:       int64(health.MemoryUsed),
-			MemoryTotal:      int64(health.MemoryTotal),
-			TemperatureCelsius: int32(health.Temperature),
-			PowerUsageWatts:  int32(health.Power),
-		})
-	}
-
-	return metrics, nil
 }
 
 // healthCheckLoop runs health checks periodically and reports results.
