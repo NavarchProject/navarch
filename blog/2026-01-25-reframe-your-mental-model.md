@@ -117,6 +117,29 @@ This is a different skill than code review. It's closer to being an architect th
 
 ---
 
+## The Fun Part
+
+Here's what I've realized: **the fun part of engineering isn't writing every line of code.**
+
+It's not debugging why a goroutine isn't being canceled properly. It's not wrestling with SDK authentication flows. It's not writing the fifteenth REST endpoint that looks like the last fourteen.
+
+The fun part is:
+- What are the data models?
+- What are the interfaces?
+- What are the components and what responsibilities do they own?
+- How does state flow through the system?
+- What are the failure modes and how do we handle them?
+
+*That's* the interesting work. The architectural decisions. The system design. The "why" and "what," not the "how do I express this in Go."
+
+For years, the interesting work was buried under implementation. You'd spend 20% of your time on the fun stuff and 80% translating it into code. Now that ratio is flipping.
+
+I get to spend most of my time on data models, interfaces, component boundaries, and state flow. The parts I actually enjoy. The parts that actually matter.
+
+AI didn't just make me faster. It gave me back the parts of engineering I became an engineer for.
+
+---
+
 ## The Real Question
 
 If you're a senior engineer who's been avoiding AI tools because "I can code faster than I can prompt"—you might be right for small tasks. You're definitely wrong for large systems.
