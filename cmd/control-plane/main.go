@@ -21,6 +21,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 	"github.com/NavarchProject/navarch/pkg/provider/fake"
+	"github.com/NavarchProject/navarch/pkg/provider/gcp"
 	"github.com/NavarchProject/navarch/pkg/provider/lambda"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
@@ -285,7 +286,17 @@ func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provi
 		}
 		prov, err = lambda.New(lambda.Config{APIKey: apiKey})
 
-	case "gcp", "aws":
+	case "gcp":
+		zone := provCfg.Zone
+		if zone == "" {
+			zone = "us-central1-a" // Default zone
+		}
+		prov, err = gcp.New(gcp.Config{
+			Project: provCfg.Project,
+			Zone:    zone,
+		})
+
+	case "aws":
 		return nil, fmt.Errorf("provider %s is not yet implemented", provCfg.Type)
 
 	default:

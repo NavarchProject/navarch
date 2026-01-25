@@ -33,6 +33,7 @@ type ProviderCfg struct {
 
 	// GCP
 	Project string `yaml:"project,omitempty"`
+	Zone    string `yaml:"zone,omitempty"`
 
 	// AWS
 	Region string `yaml:"region,omitempty"`
