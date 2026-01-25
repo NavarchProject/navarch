@@ -305,7 +305,7 @@ finished:
 
 		// Write HTML report
 		if stress.HTMLReportFile != "" {
-			if err := r.metrics.WriteHTMLReport(report, stress.HTMLReportFile); err != nil {
+			if err := r.metrics.WriteHTMLReport(report, stress, stress.HTMLReportFile); err != nil {
 				r.logger.Error("failed to write HTML report", slog.String("error", err.Error()))
 			}
 		}

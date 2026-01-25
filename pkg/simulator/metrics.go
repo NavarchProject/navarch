@@ -386,8 +386,8 @@ func (m *StressMetrics) WriteReport(report *StressReport, filename string) error
 }
 
 // WriteHTMLReport writes an HTML visual report.
-func (m *StressMetrics) WriteHTMLReport(report *StressReport, filename string) error {
-	generator := NewHTMLReportGenerator(report)
+func (m *StressMetrics) WriteHTMLReport(report *StressReport, config *StressConfig, filename string) error {
+	generator := NewHTMLReportGenerator(report, config)
 	if err := generator.Generate(filename); err != nil {
 		return err
 	}
