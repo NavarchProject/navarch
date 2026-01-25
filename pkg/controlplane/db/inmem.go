@@ -192,6 +192,8 @@ func (db *InMemDB) UpdateCommandStatus(ctx context.Context, commandID, status st
 }
 
 // copyNodeRecord creates a deep copy of a NodeRecord to prevent data races.
+// Pass-by-value won't work here because NodeRecord contains pointer fields
+// (Metadata, Config, GPUs) that would share underlying protobuf data.
 func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 	if src == nil {
 		return nil
@@ -231,6 +233,8 @@ func (db *InMemDB) copyNodeRecord(src *NodeRecord) *NodeRecord {
 }
 
 // copyCommandRecord creates a deep copy of a CommandRecord to prevent data races.
+// Pass-by-value won't work here because CommandRecord.Parameters is a map, which
+// is a reference type. A value copy would share the underlying map data.
 func (db *InMemDB) copyCommandRecord(src *CommandRecord) *CommandRecord {
 	if src == nil {
 		return nil
@@ -255,6 +259,10 @@ func (db *InMemDB) copyCommandRecord(src *CommandRecord) *CommandRecord {
 }
 
 // copyMetricsRecord creates a deep copy of a MetricsRecord to prevent data races.
+// Pass-by-value won't work here because MetricsRecord.Metrics is a pointer to a
+// protobuf message (*pb.NodeMetrics). A value copy would still share the underlying
+// protobuf data, leading to data races if the original is modified while the
+// caller is reading the copy. We use proto.Clone for proper deep copying.
 func (db *InMemDB) copyMetricsRecord(src *MetricsRecord) *MetricsRecord {
 	if src == nil {
 		return nil

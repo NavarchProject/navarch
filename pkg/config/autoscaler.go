@@ -1,3 +1,32 @@
+// Package config provides configuration building utilities for the Navarch control plane.
+//
+// # Autoscaler Configuration
+//
+// Navarch supports multiple autoscaling strategies that can be configured via YAML.
+// Each strategy has default values chosen based on common production workloads:
+//
+// ## Reactive Autoscaler
+// Scales based on current GPU utilization across the pool.
+//   - ScaleUpAt (default: 80%): Add nodes when average utilization exceeds this threshold.
+//     80% provides headroom for bursty workloads while keeping resources well-utilized.
+//   - ScaleDownAt (default: 20%): Remove nodes when utilization drops below this threshold.
+//     20% prevents thrashing while reclaiming significantly underutilized capacity.
+//
+// ## Queue-Based Autoscaler
+// Scales based on pending jobs in the workload queue.
+//   - JobsPerNode (default: 10): Target number of queued jobs per node.
+//     This assumes average job duration and provides reasonable queue depth.
+//
+// ## Predictive Autoscaler
+// Uses historical patterns to pre-scale before demand spikes.
+//   - LookbackWindow (default: 10 intervals): Number of past intervals to analyze.
+//   - GrowthFactor (default: 1.2): Multiply predicted demand by this factor for safety margin.
+//
+// ## Scheduled Autoscaler
+// Enforces capacity based on time-of-day schedules (e.g., business hours).
+//
+// ## Composite Autoscaler
+// Combines multiple autoscalers using min/max/avg aggregation.
 package config
 
 import (
@@ -36,6 +65,8 @@ func BuildAutoscaler(cfg *AutoscalingCfg) (pool.Autoscaler, error) {
 }
 
 func buildReactiveAutoscaler(cfg *AutoscalingCfg) *pool.ReactiveAutoscaler {
+	// Default thresholds: scale up at 80% utilization, scale down at 20%.
+	// See package documentation for rationale.
 	scaleUp := 80.0
 	scaleDown := 20.0
 	if cfg.ScaleUpAt != nil {
