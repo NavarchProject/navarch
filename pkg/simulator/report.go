@@ -347,7 +347,11 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 }
 
 func toJSArray(v interface{}) template.JS {
-	b, _ := json.Marshal(v)
+	b, err := json.Marshal(v)
+	if err != nil {
+		// Return empty array on error to prevent broken charts
+		return template.JS("[]")
+	}
 	return template.JS(b)
 }
 

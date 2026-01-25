@@ -272,6 +272,10 @@ func (s *NodeStarter) startInstant(ctx context.Context, specs []NodeSpec) (map[s
 }
 
 func (s *NodeStarter) startLinear(ctx context.Context, specs []NodeSpec) (map[string]*SimulatedNode, error) {
+	if len(specs) == 0 {
+		return s.nodes, nil
+	}
+
 	duration := s.config.Duration.Duration()
 	if duration == 0 {
 		duration = 30 * time.Second
@@ -306,6 +310,10 @@ func (s *NodeStarter) startLinear(ctx context.Context, specs []NodeSpec) (map[st
 }
 
 func (s *NodeStarter) startExponential(ctx context.Context, specs []NodeSpec) (map[string]*SimulatedNode, error) {
+	if len(specs) == 0 {
+		return s.nodes, nil
+	}
+
 	duration := s.config.Duration.Duration()
 	if duration == 0 {
 		duration = 2 * time.Minute
@@ -332,6 +340,10 @@ func (s *NodeStarter) startExponential(ctx context.Context, specs []NodeSpec) (m
 		rounds++
 	}
 
+	// Protect against division by zero (should not happen with non-empty specs)
+	if rounds == 0 {
+		rounds = 1
+	}
 	roundInterval := duration / time.Duration(rounds)
 	batchSize = 1
 
@@ -373,6 +385,10 @@ func (s *NodeStarter) startExponential(ctx context.Context, specs []NodeSpec) (m
 }
 
 func (s *NodeStarter) startWave(ctx context.Context, specs []NodeSpec) (map[string]*SimulatedNode, error) {
+	if len(specs) == 0 {
+		return s.nodes, nil
+	}
+
 	duration := s.config.Duration.Duration()
 	if duration == 0 {
 		duration = 5 * time.Minute
@@ -384,6 +400,9 @@ func (s *NodeStarter) startWave(ctx context.Context, specs []NodeSpec) (map[stri
 	}
 
 	numBatches := (len(specs) + batchSize - 1) / batchSize
+	if numBatches == 0 {
+		numBatches = 1
+	}
 	batchInterval := duration / time.Duration(numBatches)
 
 	s.logger.Info("starting fleet in waves",
