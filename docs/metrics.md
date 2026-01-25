@@ -37,6 +37,42 @@ Every heartbeat (5-30 seconds) includes:
 └─────────────┘                     └──────────────┘
 ```
 
+### Node-side collection
+
+The node daemon uses the `metrics.Collector` to gather system and GPU metrics.
+
+**System metrics** are collected from `/proc` filesystem (Linux):
+- **CPU usage**: Calculated from `/proc/stat` using delta between consecutive reads
+- **Memory usage**: Read from `/proc/meminfo` using `MemTotal` and `MemAvailable`
+
+**GPU metrics** are collected via the GPU manager interface:
+- Uses NVML (NVIDIA Management Library) on systems with NVIDIA GPUs
+- Falls back to fake GPU manager for testing/development
+
+**Code location**: `pkg/node/metrics/`
+
+```go
+// Create a metrics collector
+collector := metrics.NewCollector(gpuManager, nil)
+
+// Collect all metrics
+nodeMetrics, err := collector.Collect(ctx)
+// Returns: CpuUsagePercent, MemoryUsagePercent, GpuMetrics[]
+```
+
+**Custom system reader**: For non-Linux systems or testing, implement `SystemMetricsReader`:
+
+```go
+type SystemMetricsReader interface {
+    ReadCPUUsage(ctx context.Context) (float64, error)
+    ReadMemoryUsage(ctx context.Context) (float64, error)
+}
+
+// Use custom reader
+customReader := &MyCustomReader{}
+collector := metrics.NewCollector(gpuManager, customReader)
+```
+
 ### Storage and retention
 
 Metrics are stored in-memory per node:

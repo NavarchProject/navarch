@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
+	"github.com/NavarchProject/navarch/pkg/node/metrics"
 	"github.com/NavarchProject/navarch/pkg/retry"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
@@ -45,10 +46,11 @@ type Config struct {
 
 // Node represents the node daemon that communicates with the control plane.
 type Node struct {
-	config Config
-	client protoconnect.ControlPlaneServiceClient
-	logger *slog.Logger
-	gpu    gpu.Manager
+	config           Config
+	client           protoconnect.ControlPlaneServiceClient
+	logger           *slog.Logger
+	gpu              gpu.Manager
+	metricsCollector metrics.Collector
 
 	// Configuration received from control plane
 	healthCheckInterval  time.Duration
@@ -76,14 +78,17 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		gpuManager = createGPUManager(logger)
 	}
 
+	metricsCollector := metrics.NewCollector(gpuManager, nil)
+
 	return &Node{
-		config:               cfg,
-		logger:               logger,
-		gpu:                  gpuManager,
-		healthCheckInterval:  60 * time.Second,
-		heartbeatInterval:    30 * time.Second,
-		commandPollInterval:  10 * time.Second,
-		commandDispatcher:    NewCommandDispatcher(logger),
+		config:              cfg,
+		logger:              logger,
+		gpu:                 gpuManager,
+		metricsCollector:    metricsCollector,
+		healthCheckInterval: 60 * time.Second,
+		heartbeatInterval:   30 * time.Second,
+		commandPollInterval: 10 * time.Second,
+		commandDispatcher:   NewCommandDispatcher(logger),
 	}, nil
 }
 
@@ -279,13 +284,24 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 
 // sendHeartbeat sends a heartbeat to the control plane.
 func (n *Node) sendHeartbeat(ctx context.Context) error {
+	// Collect metrics from system and GPUs
+	nodeMetrics, err := n.metricsCollector.Collect(ctx)
+	if err != nil {
+		n.logger.WarnContext(ctx, "failed to collect metrics, sending empty metrics",
+			slog.String("error", err.Error()),
+		)
+		nodeMetrics = &pb.NodeMetrics{}
+	}
+
+	n.logger.DebugContext(ctx, "collected metrics",
+		slog.Float64("cpu_percent", nodeMetrics.CpuUsagePercent),
+		slog.Float64("memory_percent", nodeMetrics.MemoryUsagePercent),
+		slog.Int("gpu_count", len(nodeMetrics.GpuMetrics)),
+	)
+
 	req := connect.NewRequest(&pb.HeartbeatRequest{
-		NodeId: n.config.NodeID,
-		Metrics: &pb.NodeMetrics{
-			CpuUsagePercent:    0.0, // TODO: Collect actual metrics
-			MemoryUsagePercent: 0.0,
-			GpuMetrics:         []*pb.GPUMetrics{},
-		},
+		NodeId:  n.config.NodeID,
+		Metrics: nodeMetrics,
 	})
 
 	resp, err := n.client.SendHeartbeat(ctx, req)
