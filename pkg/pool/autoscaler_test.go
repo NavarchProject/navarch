@@ -334,8 +334,8 @@ func TestScheduledAutoscaler_EmptyDaysMatchesAll(t *testing.T) {
 	}
 
 	rec, _ := as.Recommend(ctx, state)
-	if rec.TargetNodes != 6 { // MinNodes=10 enforced, but scaling from 5 goes to 6
-		t.Errorf("Recommend() = %d, want 6", rec.TargetNodes)
+	if rec.TargetNodes != 10 { // MinNodes=10 enforced, scales directly to min
+		t.Errorf("Recommend() = %d, want 10", rec.TargetNodes)
 	}
 }
 
