@@ -37,8 +37,11 @@ type StressConfig struct {
 	// Random seed for reproducibility (0 = random)
 	Seed int64 `yaml:"seed,omitempty"`
 
-	// Report output file
+	// Report output file (JSON format)
 	ReportFile string `yaml:"report_file,omitempty"`
+
+	// HTML report output file (visual report with charts)
+	HTMLReportFile string `yaml:"html_report_file,omitempty"`
 }
 
 // FleetGeneratorConfig defines how to generate a large fleet programmatically.

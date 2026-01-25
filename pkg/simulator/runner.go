@@ -292,11 +292,22 @@ finished:
 	// Print summary
 	r.metrics.PrintSummary()
 
-	// Generate report if configured
-	if stress.ReportFile != "" {
+	// Generate reports if configured
+	if stress.ReportFile != "" || stress.HTMLReportFile != "" {
 		report := r.metrics.GenerateReport(r.scenario.Name, stress)
-		if err := r.metrics.WriteReport(report, stress.ReportFile); err != nil {
-			r.logger.Error("failed to write report", slog.String("error", err.Error()))
+
+		// Write JSON report
+		if stress.ReportFile != "" {
+			if err := r.metrics.WriteReport(report, stress.ReportFile); err != nil {
+				r.logger.Error("failed to write JSON report", slog.String("error", err.Error()))
+			}
+		}
+
+		// Write HTML report
+		if stress.HTMLReportFile != "" {
+			if err := r.metrics.WriteHTMLReport(report, stress.HTMLReportFile); err != nil {
+				r.logger.Error("failed to write HTML report", slog.String("error", err.Error()))
+			}
 		}
 	}
 

@@ -7,6 +7,8 @@ stress:
   duration: 30s
   metrics_interval: 5s
   seed: 123
+  report_file: /tmp/high-failure-report.json
+  html_report_file: /tmp/high-failure-report.html
 
   fleet_gen:
     total_nodes: 20

@@ -8,6 +8,7 @@ stress:
   metrics_interval: 5s
   seed: 42
   report_file: /tmp/quick-stress-report.json
+  html_report_file: /tmp/quick-stress-report.html
 
   fleet_gen:
     total_nodes: 50

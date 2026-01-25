@@ -370,7 +370,7 @@ func (m *StressMetrics) computeFailureReport() FailureReport {
 	return report
 }
 
-// WriteReport writes the report to a file.
+// WriteReport writes the report to a file (JSON format).
 func (m *StressMetrics) WriteReport(report *StressReport, filename string) error {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -381,7 +381,18 @@ func (m *StressMetrics) WriteReport(report *StressReport, filename string) error
 		return fmt.Errorf("failed to write report: %w", err)
 	}
 
-	m.logger.Info("report written", slog.String("file", filename))
+	m.logger.Info("JSON report written", slog.String("file", filename))
+	return nil
+}
+
+// WriteHTMLReport writes an HTML visual report.
+func (m *StressMetrics) WriteHTMLReport(report *StressReport, filename string) error {
+	generator := NewHTMLReportGenerator(report)
+	if err := generator.Generate(filename); err != nil {
+		return err
+	}
+
+	m.logger.Info("HTML report written", slog.String("file", filename))
 	return nil
 }
 
