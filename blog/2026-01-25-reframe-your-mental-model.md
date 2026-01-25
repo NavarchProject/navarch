@@ -1,8 +1,8 @@
-# Reframe Your Mental Model: What's Possible in a Week
+# Reframe Your Mental Model: What's Possible After Work
 
 I built a production-grade distributed system for managing GPU fleets across three cloud providers. Multi-cloud provisioning. Health monitoring with NVML integration. Pluggable autoscaling. A 5,000-node chaos testing framework.
 
-I did it in evenings and weekends over about six weeks. Working maybe 10-15 hours a week.
+I did it in evenings and weekends over six weeks. Maybe 10-15 hours a week.
 
 This isn't a brag. It's a calibration problem.
 
@@ -95,41 +95,35 @@ The "thinking" work is the same. The "typing" work largely disappeared.
 
 ---
 
-## The Hot Take: Stop Reading the Code
+## Rethinking Quality Assurance
 
-Here's where I'll lose some of you: **stop reviewing the code directly.**
+Here's where I'll lose some of you: **stop reviewing the code line by line.**
 
-The conventional wisdom says review every line. I don't. Here's what I do instead:
+Instead, deeply understand the system itself. The architecture. The critical user journeys. The data models. How information flows between components. What can fail and how.
 
-**Deeply understand the system itself.** The architecture. The critical user journeys. The data models. How information flows between components. The failure modes that matter.
+If I've clearly specified what a component should do—its inputs, outputs, invariants, error cases—Claude can implement it correctly. I don't need to verify the syntax. I need to verify the behavior.
 
-**Trust the implementation.** If I've clearly specified what a component should do—its inputs, outputs, invariants, error cases—Claude can implement it correctly. I don't need to verify the syntax. I need to verify the behavior.
+So instead of reading code, I ask: what tests or evaluations would give me confidence this works? Then I build those too.
 
-**Build systems for confidence.** Instead of reading code, I ask: what tests, simulators, or evaluations would give me confidence this works? Then I build those. The 5,000-node chaos simulator isn't just for finding bugs—it's my verification that the system behaves correctly under stress.
+**Here's the thing about tests**: unit tests only catch bugs you thought to write tests for. They verify the behavior you specified, not the behavior you forgot to specify.
 
-And here's the thing about tests: **your unit tests are only as good as the bugs you remembered to write tests for.** You're not going to catch bugs you didn't know to anticipate. Unit tests verify the behavior you specified. They don't verify the behavior you forgot to specify.
+That's why integration tests, load tests, and chaos tests matter. They find the bugs you didn't anticipate: the cascading failure that only happens under specific timing, the race condition that only appears at scale, the edge case in your cloud provider's SDK that nobody documented.
 
-That's why integration tests, load tests, and chaos tests matter—they find the bugs you didn't think to write unit tests for. The cascading failure that only happens under specific timing. The race condition that only appears at scale. The edge case in your cloud provider's SDK that nobody documented.
+Before AI, comprehensive testing was hard to justify. Weeks of engineering effort for something that *might* find bugs. It was never in the budget. Always "nice to have" that got cut.
 
-Before AI, these kinds of tests were hard to justify. Building a 5,000-node chaos simulator? That's weeks of engineering effort for something that *might* find bugs. It was never in the budget. It was always "nice to have" that got cut.
+Now I can ask Claude to build the chaos testing framework too. The comprehensive testing that was economically impossible is suddenly viable.
 
-Now I can ask Claude to build the chaos testing framework too. The comprehensive testing that was economically impossible is suddenly viable. Not because the tests are less important, but because the cost of building them collapsed.
+**And here's the meta point**: it was never sustainable to rely on "cracked developers writing perfect PRs."
 
-**Expect bugs anyway.** Here's the thing: bugs will reach production whether a human or AI wrote the code. Code review catches some bugs. Testing catches different bugs. Production catches the rest.
+We've been telling ourselves a story that if we just review carefully enough, we'll catch the bugs. But we don't. We never did. There are always cases where we fundamentally don't understand how something works until it breaks.
 
-And here's the meta point: **it was never sustainable to rely on "cracked developers writing perfect PRs."**
-
-We've been telling ourselves a story that if we just review carefully enough, if we just hire well enough, if we just have enough senior eyes on the code—we'll catch the bugs. But we don't. We never did. There are always cases where we fundamentally don't understand how something works until it breaks.
-
-Once you accept that, it's much easier to let go of reading every line. You were never going to read every line of every dependency. You were never going to understand every edge case in your cloud provider's SDK. You were already trusting code you didn't write and didn't review.
+You were never going to read every line of every dependency. You were never going to understand every edge case in your cloud provider's SDK. You were already trusting code you didn't write and didn't review.
 
 AI-generated code isn't a new category of risk. It's the same risk you've always had, with a different author.
 
 The question isn't "is this code bug-free?" It's "do I understand this system well enough to diagnose and fix issues when they appear?"
 
-When something breaks, my deep understanding of the architecture tells me where to look. Then I either fix it myself or describe the problem to Claude and have it fix it. Either way, the system knowledge matters more than having read every line.
-
-This is a different skill than code review. It's closer to being an architect than a proofreader.
+When something breaks, my understanding of the architecture tells me where to look. Then I either fix it myself or describe the problem to Claude. Either way, system knowledge matters more than having read every line.
 
 ---
 
@@ -137,7 +131,7 @@ This is a different skill than code review. It's closer to being an architect th
 
 Here's what I've realized: **the fun part of engineering isn't writing every line of code.**
 
-It's not debugging why a goroutine isn't being canceled properly. It's not wrestling with SDK authentication flows. It's not writing the fifteenth REST endpoint that looks like the last fourteen.
+It's not debugging why a goroutine isn't canceling properly. It's not wrestling with SDK authentication flows. It's not writing the fifteenth REST endpoint that looks like the last fourteen.
 
 The fun part is:
 - What are the data models?
