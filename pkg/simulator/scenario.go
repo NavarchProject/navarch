@@ -42,6 +42,9 @@ type StressConfig struct {
 
 	// HTML report output file (visual report with charts)
 	HTMLReportFile string `yaml:"html_report_file,omitempty"`
+
+	// Log file for verbose output (useful for debugging/LLM context)
+	LogFile string `yaml:"log_file,omitempty"`
 }
 
 // FleetGeneratorConfig defines how to generate a large fleet programmatically.

@@ -438,7 +438,7 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 				c.metrics.RecordFailure(event)
 			}
 
-			c.logger.Warn("cascading failure triggered",
+			c.logger.Debug("cascading failure triggered",
 				slog.String("source", sourceNodeID),
 				slog.String("target", target.ID()),
 				slog.Int("depth", d+1),
@@ -554,7 +554,7 @@ func (c *ChaosEngine) processRecoveries() {
 	for nodeID, failureType := range toRecover {
 		if node, ok := nodes[nodeID]; ok {
 			node.RecoverFailure(failureType)
-			c.logger.Info("node recovered from failure",
+			c.logger.Debug("node recovered from failure",
 				slog.String("node_id", nodeID),
 				slog.String("failure_type", failureType),
 			)

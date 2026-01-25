@@ -9,6 +9,7 @@ stress:
   seed: 123
   report_file: /tmp/high-failure-report.json
   html_report_file: /tmp/high-failure-report.html
+  log_file: /tmp/high-failure-report.log
 
   fleet_gen:
     total_nodes: 20

@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -176,10 +178,46 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		duration = 10 * time.Minute
 	}
 
-	r.logger.Info("starting stress test",
-		slog.String("name", r.scenario.Name),
-		slog.Duration("duration", duration),
-	)
+	// Set up file logging if configured
+	var logFile *os.File
+	if stress.LogFile != "" {
+		var err error
+		logFile, err = os.Create(stress.LogFile)
+		if err != nil {
+			return fmt.Errorf("failed to create log file: %w", err)
+		}
+		defer logFile.Close()
+
+		// Create a logger that writes to file at debug level
+		fileHandler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+		r.logger = slog.New(fileHandler)
+
+		// Write header to log file
+		fmt.Fprintf(logFile, "=== STRESS TEST LOG: %s ===\n", r.scenario.Name)
+		fmt.Fprintf(logFile, "Started: %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(logFile, "Duration: %s, Nodes: %d, Seed: %d\n\n",
+			duration, stress.FleetGen.TotalNodes, r.seed)
+	}
+
+	fmt.Println()
+	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
+	fmt.Printf("║  STRESS TEST: %-47s ║\n", r.scenario.Name)
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Printf("║  Duration: %-10s  Nodes: %-6d  Seed: %-15d ║\n",
+		duration.String(),
+		stress.FleetGen.TotalNodes,
+		r.seed)
+	if stress.Chaos != nil && stress.Chaos.Enabled {
+		fmt.Printf("║  Failure Rate: %.1f/min/1000   Cascading: %-16v ║\n",
+			stress.Chaos.FailureRate,
+			stress.Chaos.Cascading != nil && stress.Chaos.Cascading.Enabled)
+	}
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	r.logger.Info("initializing stress test")
 
 	// Initialize metrics collector
 	r.metrics = NewStressMetrics(r.logger)
@@ -264,15 +302,13 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 
 	// Run for the configured duration
-	r.logger.Info("stress test running",
-		slog.Duration("duration", duration),
-		slog.Int("nodes", len(r.nodes)),
-	)
+	fmt.Printf("\n⏱  Running stress test for %s...\n\n", duration)
 
 	// Progress logging
-	progressTicker := time.NewTicker(30 * time.Second)
+	progressTicker := time.NewTicker(10 * time.Second)
 	defer progressTicker.Stop()
 
+	startTime := time.Now()
 	testCtx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
@@ -281,18 +317,47 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		case <-testCtx.Done():
 			goto finished
 		case <-progressTicker.C:
+			elapsed := time.Since(startTime)
+			remaining := duration - elapsed
+			if remaining < 0 {
+				remaining = 0
+			}
+			pct := float64(elapsed) / float64(duration) * 100
 			stats := r.metrics.GetCurrentStats()
-			r.logger.Info("stress test progress",
-				slog.Any("stats", stats),
-			)
+
+			fmt.Printf("\r[%5.1f%%] %s elapsed, %s remaining | Nodes: %d healthy | Failures: %d (cascade: %d) | Recoveries: %d    ",
+				pct,
+				elapsed.Round(time.Second),
+				remaining.Round(time.Second),
+				stats["nodes_healthy"],
+				stats["total_failures"],
+				stats["cascading"],
+				stats["recoveries"])
 		}
 	}
 
 finished:
+	fmt.Printf("\r%s\n", strings.Repeat(" ", 120)) // Clear progress line
+	fmt.Println()
+
 	// Print summary
 	r.metrics.PrintSummary()
 
 	// Generate reports if configured
+	var reportFiles []string
+
+	// Add log file to report list if it was configured
+	if stress.LogFile != "" && logFile != nil {
+		// Write summary to log file before closing
+		fmt.Fprintf(logFile, "\n=== TEST COMPLETED ===\n")
+		fmt.Fprintf(logFile, "End time: %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(logFile, "Total failures: %d, Cascading: %d, Recoveries: %d\n",
+			r.metrics.GetCurrentStats()["total_failures"],
+			r.metrics.GetCurrentStats()["cascading"],
+			r.metrics.GetCurrentStats()["recoveries"])
+		reportFiles = append(reportFiles, stress.LogFile+" (Log)")
+	}
+
 	if stress.ReportFile != "" || stress.HTMLReportFile != "" {
 		report := r.metrics.GenerateReport(r.scenario.Name, stress)
 
@@ -300,6 +365,8 @@ finished:
 		if stress.ReportFile != "" {
 			if err := r.metrics.WriteReport(report, stress.ReportFile); err != nil {
 				r.logger.Error("failed to write JSON report", slog.String("error", err.Error()))
+			} else {
+				reportFiles = append(reportFiles, stress.ReportFile+" (JSON)")
 			}
 		}
 
@@ -307,7 +374,17 @@ finished:
 		if stress.HTMLReportFile != "" {
 			if err := r.metrics.WriteHTMLReport(report, stress, stress.HTMLReportFile); err != nil {
 				r.logger.Error("failed to write HTML report", slog.String("error", err.Error()))
+			} else {
+				reportFiles = append(reportFiles, stress.HTMLReportFile+" (HTML)")
 			}
+		}
+	}
+
+	// Print report locations
+	if len(reportFiles) > 0 {
+		fmt.Println("\n📄 Reports generated:")
+		for _, f := range reportFiles {
+			fmt.Printf("   • %s\n", f)
 		}
 	}
 
@@ -318,9 +395,7 @@ finished:
 		}
 	}
 
-	r.logger.Info("stress test completed",
-		slog.Duration("duration", duration),
-	)
+	fmt.Println("\n✅ Stress test completed successfully")
 
 	if r.waitForCancel {
 		<-ctx.Done()

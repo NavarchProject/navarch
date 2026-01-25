@@ -396,35 +396,52 @@ func (m *StressMetrics) WriteHTMLReport(report *StressReport, config *StressConf
 	return nil
 }
 
-// PrintSummary prints a summary to the logger.
+// PrintSummary prints a formatted summary to stdout.
 func (m *StressMetrics) PrintSummary() {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	m.logger.Info("=== STRESS TEST SUMMARY ===")
-	m.logger.Info("Duration", slog.Duration("duration", time.Since(m.startTime)))
-	m.logger.Info("Nodes",
-		slog.Int64("started", atomic.LoadInt64(&m.nodesStarted)),
-		slog.Int64("failed_start", atomic.LoadInt64(&m.nodesFailed)),
-		slog.Int64("healthy", atomic.LoadInt64(&m.nodesHealthy)),
-		slog.Int64("unhealthy", atomic.LoadInt64(&m.nodesUnhealthy)),
-		slog.Int64("degraded", atomic.LoadInt64(&m.nodesDegraded)),
-	)
-	m.logger.Info("Failures",
-		slog.Int64("total", atomic.LoadInt64(&m.totalFailures)),
-		slog.Int64("cascading", atomic.LoadInt64(&m.cascadingFailures)),
-		slog.Int64("recoveries", atomic.LoadInt64(&m.recoveries)),
-	)
+	duration := time.Since(m.startTime)
+	nodesStarted := atomic.LoadInt64(&m.nodesStarted)
+	nodesFailed := atomic.LoadInt64(&m.nodesFailed)
+	nodesHealthy := atomic.LoadInt64(&m.nodesHealthy)
+	nodesUnhealthy := atomic.LoadInt64(&m.nodesUnhealthy)
+	nodesDegraded := atomic.LoadInt64(&m.nodesDegraded)
+	totalFailures := atomic.LoadInt64(&m.totalFailures)
+	cascadingFailures := atomic.LoadInt64(&m.cascadingFailures)
+	recoveries := atomic.LoadInt64(&m.recoveries)
+
+	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                    STRESS TEST RESULTS                       ║")
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Printf("║  Duration: %-51s ║\n", duration.Round(time.Millisecond))
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Println("║  NODES                                                       ║")
+	fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
+	fmt.Printf("║    Started:    %-6d    Failed to Start: %-18d ║\n", nodesStarted, nodesFailed)
+	fmt.Printf("║    Healthy:    %-6d    Unhealthy:        %-18d ║\n", nodesHealthy, nodesUnhealthy)
+	fmt.Printf("║    Degraded:   %-47d ║\n", nodesDegraded)
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Println("║  FAILURES                                                    ║")
+	fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
+	fmt.Printf("║    Total:      %-6d    Cascading:        %-18d ║\n", totalFailures, cascadingFailures)
+	fmt.Printf("║    Recoveries: %-47d ║\n", recoveries)
 
 	// Top failure types
-	m.logger.Info("Failures by type:")
-	for ftype, count := range m.failuresByType {
-		m.logger.Info("  "+ftype, slog.Int64("count", count))
+	if len(m.failuresByType) > 0 {
+		fmt.Println("║                                                              ║")
+		fmt.Println("║  Failure Types:                                              ║")
+		for ftype, count := range m.failuresByType {
+			fmt.Printf("║    • %-20s %6d                              ║\n", ftype, count)
+		}
 	}
 
 	// Top XID codes
 	if len(m.failuresByXID) > 0 {
-		m.logger.Info("Top XID codes:")
+		fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+		fmt.Println("║  TOP XID ERRORS                                              ║")
+		fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
+
 		type xidEntry struct {
 			code  int
 			count int64
@@ -436,17 +453,26 @@ func (m *StressMetrics) PrintSummary() {
 		sort.Slice(entries, func(i, j int) bool {
 			return entries[i].count > entries[j].count
 		})
+
 		for i := 0; i < len(entries) && i < 5; i++ {
 			info, known := XIDCodes[entries[i].code]
 			name := "Unknown"
+			fatal := ""
 			if known {
 				name = info.Name
+				if info.Fatal {
+					fatal = " [FATAL]"
+				}
 			}
-			m.logger.Info(fmt.Sprintf("  XID %d: %s", entries[i].code, name),
-				slog.Int64("count", entries[i].count),
-			)
+			// Truncate name if too long
+			if len(name) > 30 {
+				name = name[:27] + "..."
+			}
+			fmt.Printf("║    XID %-3d: %-30s %4d%s\n", entries[i].code, name, entries[i].count, fatal)
 		}
 	}
+
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 }
 
 // GetCurrentStats returns current statistics as a map.

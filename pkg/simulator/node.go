@@ -238,7 +238,9 @@ func (n *SimulatedNode) sendHeartbeat(ctx context.Context) error {
 func (n *SimulatedNode) healthCheckLoop(ctx context.Context) {
 	// Run immediately on start
 	if err := n.runHealthChecks(ctx); err != nil {
-		n.logger.Error("failed to run health checks", slog.String("error", err.Error()))
+		if ctx.Err() == nil {
+			n.logger.Debug("failed to run health checks", slog.String("error", err.Error()))
+		}
 	}
 
 	ticker := time.NewTicker(n.healthCheckInterval)
@@ -250,7 +252,10 @@ func (n *SimulatedNode) healthCheckLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := n.runHealthChecks(ctx); err != nil {
-				n.logger.Error("failed to run health checks", slog.String("error", err.Error()))
+				// Don't log errors during shutdown
+				if ctx.Err() == nil {
+					n.logger.Debug("failed to run health checks", slog.String("error", err.Error()))
+				}
 			}
 		}
 	}
@@ -371,7 +376,10 @@ func (n *SimulatedNode) commandPollLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := n.pollCommands(ctx); err != nil {
-				n.logger.Error("failed to poll commands", slog.String("error", err.Error()))
+				// Don't log errors during shutdown
+				if ctx.Err() == nil {
+					n.logger.Debug("failed to poll commands", slog.String("error", err.Error()))
+				}
 			}
 		}
 	}
