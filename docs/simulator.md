@@ -372,6 +372,455 @@ Tips:
 - Use `log` actions to document what the scenario is doing.
 - Use `wait_for_status` instead of fixed delays when possible.
 
+## Stress testing
+
+The simulator includes a comprehensive stress testing framework for validating system behavior at scale with realistic failure patterns.
+
+### Overview
+
+Stress tests allow you to:
+
+- Simulate thousands of nodes simultaneously
+- Inject failures with realistic distributions based on production data
+- Test cascading failure scenarios
+- Simulate scheduled outages (zone, region, provider)
+- Measure system resilience and recovery
+- Generate detailed reports
+
+### Running a stress test
+
+```bash
+# Run a stress test scenario
+./bin/simulator run scenarios/stress/1000-node-chaos.yaml -v
+
+# Run with a specific seed for reproducibility
+./bin/simulator run scenarios/stress/1000-node-chaos.yaml --seed 12345 -v
+
+# Validate a stress test scenario
+./bin/simulator validate scenarios/stress/5000-node-extreme.yaml
+```
+
+### Stress test configuration
+
+Stress tests use an extended scenario format with a `stress` section:
+
+```yaml
+name: my-stress-test
+description: Large-scale chaos testing
+
+fleet: []  # Empty when using fleet_gen
+
+stress:
+  duration: 10m
+  metrics_interval: 5s
+  seed: 12345
+  report_file: stress-report.json
+
+  fleet_gen:
+    total_nodes: 1000
+    templates:
+      - name: h100-8gpu
+        weight: 60
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+      - name: a100-8gpu
+        weight: 40
+        gpu_count: 8
+        gpu_type: "NVIDIA A100 80GB"
+        instance_type: a2-ultragpu-8g
+
+    providers:
+      gcp: 50
+      aws: 35
+      lambda: 15
+
+    regions:
+      us-central1: 40
+      us-east1: 30
+      europe-west1: 30
+
+    startup:
+      pattern: exponential
+      duration: 2m
+      jitter_percent: 15
+
+  chaos:
+    enabled: true
+    failure_rate: 10.0
+    # ... chaos configuration
+```
+
+### Fleet generation
+
+Instead of defining individual nodes, stress tests can generate fleets from templates:
+
+| Field | Description |
+|-------|-------------|
+| `total_nodes` | Total number of nodes to generate |
+| `templates` | List of node templates with weights |
+| `providers` | Provider distribution (percentages) |
+| `regions` | Region distribution (percentages) |
+| `zones` | Zone lists per region |
+| `startup` | Node startup pattern configuration |
+
+#### Node templates
+
+Templates define node configurations with relative weights:
+
+```yaml
+templates:
+  - name: h100-8gpu
+    weight: 60        # 60% of nodes use this template
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+    instance_type: a3-highgpu-8g
+    labels:
+      tier: premium
+```
+
+#### Startup patterns
+
+Control how nodes join the cluster:
+
+| Pattern | Description |
+|---------|-------------|
+| `instant` | All nodes start immediately |
+| `linear` | Nodes start at a constant rate over the duration |
+| `exponential` | Start slow, accelerate (1, 2, 4, 8, ...) |
+| `wave` | Start in batches with pauses between |
+
+```yaml
+startup:
+  pattern: wave
+  duration: 5m
+  batch_size: 100
+  jitter_percent: 20
+```
+
+### Chaos engineering
+
+The chaos configuration controls failure injection:
+
+```yaml
+chaos:
+  enabled: true
+  failure_rate: 10.0  # Failures per minute per 1000 nodes
+
+  xid_distribution:
+    13: 15  # Graphics Engine Exception
+    31: 20  # GPU memory page fault
+    48: 12  # Double Bit ECC Error
+    79: 6   # GPU fallen off bus
+
+  failure_types:
+    - type: xid_error
+      weight: 70
+    - type: temperature
+      weight: 10
+    - type: nvml_failure
+      weight: 8
+    - type: network
+      weight: 10
+    - type: boot_failure
+      weight: 2
+
+  cascading:
+    enabled: true
+    probability: 0.15
+    max_depth: 3
+    min_delay: 1s
+    max_delay: 10s
+    scope: zone
+    max_affected_percent: 0.1
+
+  recovery:
+    enabled: true
+    probability: 0.7
+    mean_time: 5m
+    std_dev: 2m
+```
+
+#### Failure rate
+
+The `failure_rate` specifies failures per minute per 1000 nodes. For example:
+- 1000 nodes with rate 10.0 = ~10 failures per minute
+- 5000 nodes with rate 10.0 = ~50 failures per minute
+
+#### XID distribution
+
+Specify the relative weight of each XID code. The simulator includes all known XID codes with their fatal/recoverable classification:
+
+**Fatal XID codes** (require node replacement):
+- 43: GPU stopped processing
+- 48: Double Bit ECC Error
+- 63: ECC page retirement failure
+- 74: NVLink Error
+- 79: GPU has fallen off the bus
+- 95: Uncontained ECC error
+
+**Recoverable XID codes**:
+- 13: Graphics Engine Exception
+- 31: GPU memory page fault
+- 32: Invalid push buffer stream
+- 45: Preemptive cleanup
+- 64: ECC page retirement event
+- 92: High single-bit ECC rate
+- 94: Contained ECC error
+
+#### Failure types
+
+| Type | Description |
+|------|-------------|
+| `xid_error` | GPU XID error with specified code distribution |
+| `temperature` | Thermal throttling/shutdown |
+| `nvml_failure` | NVML communication failure |
+| `boot_failure` | GPU boot/detection failure |
+| `network` | Network connectivity loss |
+
+### Cascading failures
+
+Cascading failures simulate realistic failure propagation:
+
+```yaml
+cascading:
+  enabled: true
+  probability: 0.15      # 15% chance a failure cascades
+  max_depth: 3           # Maximum cascade chain length
+  min_delay: 1s          # Minimum delay before cascade
+  max_delay: 10s         # Maximum delay before cascade
+  scope: zone            # Cascade scope
+  max_affected_percent: 0.1  # Max 10% of scoped nodes affected
+```
+
+Cascade scopes:
+- `rack`: Same rack (first 3 node ID segments match)
+- `zone`: Same availability zone
+- `region`: Same region
+- `provider`: Same cloud provider
+- `random`: Any node in the cluster
+
+### Automatic recovery
+
+Configure automatic recovery for non-fatal failures:
+
+```yaml
+recovery:
+  enabled: true
+  probability: 0.7    # 70% of non-fatal errors recover
+  mean_time: 5m       # Average recovery time
+  std_dev: 2m         # Recovery time variation
+```
+
+Recovery only applies to non-fatal XID codes and other recoverable failure types.
+
+### Scheduled outages
+
+Simulate planned or unplanned outage events:
+
+```yaml
+scheduled_outages:
+  - name: zone-network-partition
+    start_time: 10m
+    duration: 5m
+    scope: zone
+    target: us-central1-a
+    failure_type: network
+
+  - name: provider-degradation
+    start_time: 20m
+    duration: 8m
+    scope: provider
+    target: lambda
+    failure_type: xid_error
+
+  - name: random-thermal-event
+    start_time: 15m
+    duration: 3m
+    scope: percentage
+    target: "10"        # 10% of nodes
+    failure_type: temperature
+```
+
+Outage scopes:
+- `zone`: All nodes in the specified zone
+- `region`: All nodes in the specified region
+- `provider`: All nodes from the specified provider
+- `percentage`: Random percentage of all nodes
+
+### Correlated failures
+
+Define failures that trigger related failures:
+
+```yaml
+correlated_failures:
+  - name: nvlink-gpu-cascade
+    trigger: "74"         # NVLink error triggers this
+    response: xid_error   # Inject XID error in response
+    probability: 0.6      # 60% chance
+    delay: 1s             # Wait before triggering
+    scope: same_node      # Affect same node
+
+  - name: thermal-propagation
+    trigger: temperature
+    response: temperature
+    probability: 0.4
+    delay: 3s
+    scope: same_rack
+```
+
+Correlation scopes:
+- `same_node`: Same node (multi-GPU failures)
+- `same_rack`: Nearby nodes in same rack
+- `same_zone`: Nodes in same availability zone
+- `random`: Random node in cluster
+
+### Stress test reports
+
+Stress tests generate JSON reports with comprehensive metrics:
+
+```yaml
+stress:
+  report_file: stress-report.json
+```
+
+Report contents:
+- Configuration summary
+- Test duration and timing
+- Node statistics (started, failed, healthy, unhealthy)
+- Failure breakdown by type and XID code
+- Cascading failure statistics
+- Recovery statistics
+- Timeline of metric samples
+
+Example report structure:
+
+```json
+{
+  "name": "1000-node-chaos-test",
+  "start_time": "2024-01-15T10:00:00Z",
+  "end_time": "2024-01-15T10:10:00Z",
+  "duration": "10m0s",
+  "configuration": {
+    "total_nodes": 1000,
+    "failure_rate_per_min": 10.0,
+    "cascading_enabled": true,
+    "recovery_enabled": true
+  },
+  "summary": {
+    "nodes_started": 1000,
+    "nodes_failed_to_start": 0,
+    "peak_healthy_nodes": 1000,
+    "min_healthy_nodes": 847,
+    "avg_healthy_nodes": 923.5,
+    "total_failures": 98,
+    "total_recoveries": 45,
+    "total_outages": 0
+  },
+  "failures": {
+    "by_type": {
+      "xid_error": 68,
+      "temperature": 12,
+      "network": 10,
+      "nvml_failure": 8
+    },
+    "by_xid": {
+      "31": 15,
+      "79": 8,
+      "48": 7
+    },
+    "cascading_failures": 12,
+    "top_xid_codes": [
+      {"code": 31, "name": "GPU memory page fault", "count": 15, "fatal": false},
+      {"code": 79, "name": "GPU has fallen off the bus", "count": 8, "fatal": true}
+    ]
+  },
+  "timeline": [...]
+}
+```
+
+### Example stress test scenarios
+
+The `scenarios/stress/` directory contains ready-to-use stress test scenarios:
+
+#### 1000-node-chaos.yaml
+
+Standard chaos test with 1000 nodes:
+- 10 minute duration
+- Mixed H100/A100 fleet across GCP, AWS, Lambda
+- Realistic XID distribution
+- Cascading failures enabled
+- Automatic recovery for non-fatal errors
+
+```bash
+./bin/simulator run scenarios/stress/1000-node-chaos.yaml -v
+```
+
+#### 5000-node-extreme.yaml
+
+Extreme stress test for maximum load:
+- 30 minute duration
+- 5000 nodes across 8 regions
+- Aggressive failure rate (50/min/1000 nodes)
+- Multiple scheduled outages
+- High cascade probability
+
+```bash
+./bin/simulator run scenarios/stress/5000-node-extreme.yaml -v
+```
+
+#### xid-comprehensive.yaml
+
+Comprehensive XID error testing:
+- All known XID codes tested equally
+- High recovery rate to verify recovery paths
+- No cascading (isolates XID behavior)
+
+```bash
+./bin/simulator run scenarios/stress/xid-comprehensive.yaml -v
+```
+
+#### cascading-failures.yaml
+
+Focused cascading failure testing:
+- High cascade probability (50%)
+- Deep cascade chains (depth 5)
+- Scheduled outages that trigger cascades
+- Tests blast radius containment
+
+```bash
+./bin/simulator run scenarios/stress/cascading-failures.yaml -v
+```
+
+### Writing custom stress tests
+
+1. Start from an existing stress test scenario
+2. Adjust `total_nodes` based on your test requirements
+3. Configure templates to match your production fleet
+4. Set `failure_rate` based on expected failure patterns
+5. Enable/disable features (cascading, recovery, outages) as needed
+6. Set a `seed` for reproducible tests
+7. Configure `report_file` to capture results
+
+Tips:
+- Start with smaller node counts (100-500) during development
+- Use `--seed` for debugging specific failure sequences
+- Monitor memory usage for very large fleets (5000+)
+- Allow adequate startup time for large fleets
+- Use the validate command to check scenario syntax
+
+### Performance considerations
+
+For large-scale stress tests:
+
+| Node Count | Recommended Startup | Memory Usage |
+|------------|---------------------|--------------|
+| 100-500 | linear, 30s | ~200MB |
+| 500-1000 | linear, 1m | ~500MB |
+| 1000-2000 | exponential, 2m | ~1GB |
+| 2000-5000 | wave, 5m | ~2-3GB |
+| 5000+ | wave, 10m+ | ~5GB+ |
+
 ## Makefile targets
 
 ```bash
@@ -383,5 +832,8 @@ make sim-run SCENARIO=scenarios/gpu-failure.yaml
 
 # Validate a scenario
 make sim-validate SCENARIO=scenarios/basic-fleet.yaml
+
+# Run stress tests
+make sim-run SCENARIO=scenarios/stress/1000-node-chaos.yaml
 ```
 

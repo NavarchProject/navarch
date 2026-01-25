@@ -30,6 +30,11 @@ type Runner struct {
 
 	server     *http.Server
 	serverDone chan struct{}
+
+	// Stress testing components
+	chaos   *ChaosEngine
+	metrics *StressMetrics
+	seed    int64
 }
 
 // RunnerOption configures a Runner.
@@ -57,6 +62,13 @@ func WithWaitForCancel() RunnerOption {
 	}
 }
 
+// WithSeed sets the random seed for reproducible stress tests.
+func WithSeed(seed int64) RunnerOption {
+	return func(r *Runner) {
+		r.seed = seed
+	}
+}
+
 // NewRunner creates a new scenario runner.
 func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 	r := &Runner{
@@ -73,6 +85,16 @@ func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 
 // Run executes the scenario.
 func (r *Runner) Run(ctx context.Context) error {
+	// Check if this is a stress test scenario
+	if r.scenario.IsStressTest() {
+		return r.runStressTest(ctx)
+	}
+
+	return r.runRegularScenario(ctx)
+}
+
+// runRegularScenario executes a standard scenario with explicit events.
+func (r *Runner) runRegularScenario(ctx context.Context) error {
 	r.logger.Info("starting scenario",
 		slog.String("name", r.scenario.Name),
 		slog.Int("fleet_size", len(r.scenario.Fleet)),
@@ -144,6 +166,184 @@ func (r *Runner) Run(ctx context.Context) error {
 		<-ctx.Done()
 	}
 	return nil
+}
+
+// runStressTest executes a stress test scenario.
+func (r *Runner) runStressTest(ctx context.Context) error {
+	stress := r.scenario.Stress
+	duration := stress.Duration.Duration()
+	if duration == 0 {
+		duration = 10 * time.Minute
+	}
+
+	r.logger.Info("starting stress test",
+		slog.String("name", r.scenario.Name),
+		slog.Duration("duration", duration),
+	)
+
+	// Initialize metrics collector
+	r.metrics = NewStressMetrics(r.logger)
+
+	// Start embedded control plane
+	if err := r.startControlPlane(ctx); err != nil {
+		return fmt.Errorf("failed to start control plane: %w", err)
+	}
+	defer r.stopControlPlane()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Create client
+	r.client = protoconnect.NewControlPlaneServiceClient(
+		http.DefaultClient,
+		r.controlPlaneAddr,
+	)
+
+	// Generate fleet if using fleet_gen
+	var fleet []NodeSpec
+	if stress.FleetGen != nil {
+		generator := NewFleetGenerator(stress.FleetGen, r.seed, r.logger)
+		fleet = generator.GenerateFleet()
+		r.logger.Info("generated fleet",
+			slog.Int("nodes", len(fleet)),
+		)
+	} else {
+		fleet = r.scenario.Fleet
+	}
+
+	// Start metrics sampling
+	metricsInterval := stress.MetricsInterval.Duration()
+	if metricsInterval == 0 {
+		metricsInterval = 5 * time.Second
+	}
+	go r.metrics.StartSampling(ctx, metricsInterval)
+
+	// Start fleet with configured pattern
+	startupConfig := StartupConfig{
+		Pattern:       "linear",
+		Duration:      Duration(30 * time.Second),
+		JitterPercent: 10,
+	}
+	if stress.FleetGen != nil && stress.FleetGen.Startup.Pattern != "" {
+		startupConfig = stress.FleetGen.Startup
+	}
+
+	starter := NewNodeStarter(startupConfig, r.controlPlaneAddr, r.seed, r.logger)
+
+	r.logger.Info("starting fleet",
+		slog.String("pattern", startupConfig.Pattern),
+		slog.Int("nodes", len(fleet)),
+	)
+
+	nodes, err := starter.StartFleet(ctx, fleet)
+	if err != nil {
+		return fmt.Errorf("failed to start fleet: %w", err)
+	}
+	r.nodes = nodes
+
+	// Record started nodes
+	for nodeID := range nodes {
+		r.metrics.RecordNodeStart(nodeID)
+	}
+
+	// Start chaos engine if configured
+	if stress.Chaos != nil && stress.Chaos.Enabled {
+		r.chaos = NewChaosEngine(
+			stress.Chaos,
+			func() map[string]*SimulatedNode { return r.nodes },
+			r.metrics,
+			r.seed,
+			r.logger,
+		)
+		r.chaos.Start(ctx)
+		defer r.chaos.Stop()
+	}
+
+	// Also run any explicit events
+	if len(r.scenario.Events) > 0 {
+		go r.runEventsInBackground(ctx)
+	}
+
+	// Run for the configured duration
+	r.logger.Info("stress test running",
+		slog.Duration("duration", duration),
+		slog.Int("nodes", len(r.nodes)),
+	)
+
+	// Progress logging
+	progressTicker := time.NewTicker(30 * time.Second)
+	defer progressTicker.Stop()
+
+	testCtx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	for {
+		select {
+		case <-testCtx.Done():
+			goto finished
+		case <-progressTicker.C:
+			stats := r.metrics.GetCurrentStats()
+			r.logger.Info("stress test progress",
+				slog.Any("stats", stats),
+			)
+		}
+	}
+
+finished:
+	// Print summary
+	r.metrics.PrintSummary()
+
+	// Generate report if configured
+	if stress.ReportFile != "" {
+		report := r.metrics.GenerateReport(r.scenario.Name, stress)
+		if err := r.metrics.WriteReport(report, stress.ReportFile); err != nil {
+			r.logger.Error("failed to write report", slog.String("error", err.Error()))
+		}
+	}
+
+	// Run assertions if any
+	for _, assertion := range r.scenario.Assertions {
+		if err := r.checkAssertion(ctx, assertion); err != nil {
+			return fmt.Errorf("assertion failed: %w", err)
+		}
+	}
+
+	r.logger.Info("stress test completed",
+		slog.Duration("duration", duration),
+	)
+
+	if r.waitForCancel {
+		<-ctx.Done()
+	}
+	return nil
+}
+
+func (r *Runner) runEventsInBackground(ctx context.Context) {
+	events := make([]Event, len(r.scenario.Events))
+	copy(events, r.scenario.Events)
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].At.Duration() < events[j].At.Duration()
+	})
+
+	startTime := time.Now()
+
+	for _, event := range events {
+		elapsed := time.Since(startTime)
+		waitTime := event.At.Duration() - elapsed
+		if waitTime > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(waitTime):
+			}
+		}
+
+		if err := r.executeEvent(ctx, event); err != nil {
+			r.logger.Error("event execution failed",
+				slog.String("action", event.Action),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
 }
 
 func (r *Runner) startControlPlane(ctx context.Context) error {
