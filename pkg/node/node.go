@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -54,6 +55,15 @@ type Node struct {
 	// Configuration received from control plane
 	healthCheckInterval time.Duration
 	heartbeatInterval   time.Duration
+
+	// Node state (protected by stateMu)
+	stateMu      sync.RWMutex
+	cordoned     bool
+	draining     bool
+	shuttingDown bool
+
+	// Shutdown coordination
+	shutdownCh chan struct{}
 }
 
 // New creates a new Node. If logger is nil, slog.Default() is used.
@@ -82,6 +92,7 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		metricsCollector:    metricsCollector,
 		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
+		shutdownCh:          make(chan struct{}),
 	}, nil
 }
 
@@ -468,8 +479,255 @@ func (n *Node) pollCommands(ctx context.Context) error {
 			slog.String("command_type", cmd.Type.String()),
 			slog.String("command_id", cmd.CommandId),
 		)
-		// TODO: Execute commands
+		if err := n.executeCommand(ctx, cmd); err != nil {
+			n.logger.ErrorContext(ctx, "failed to execute command",
+				slog.String("command_id", cmd.CommandId),
+				slog.String("command_type", cmd.Type.String()),
+				slog.String("error", err.Error()),
+			)
+		}
 	}
 
 	return nil
+}
+
+// executeCommand dispatches a command to the appropriate handler.
+func (n *Node) executeCommand(ctx context.Context, cmd *pb.NodeCommand) error {
+	switch cmd.Type {
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
+		return n.executeCordon(ctx, cmd)
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
+		return n.executeDrain(ctx, cmd)
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_RUN_DIAGNOSTIC:
+		return n.executeDiagnostic(ctx, cmd)
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE:
+		return n.executeTerminate(ctx, cmd)
+	default:
+		return fmt.Errorf("unknown command type: %s", cmd.Type.String())
+	}
+}
+
+// executeCordon marks the node as cordoned (not accepting new workloads).
+func (n *Node) executeCordon(ctx context.Context, cmd *pb.NodeCommand) error {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	if n.cordoned {
+		n.logger.InfoContext(ctx, "node already cordoned",
+			slog.String("command_id", cmd.CommandId),
+		)
+		return nil
+	}
+
+	n.cordoned = true
+	reason := cmd.Parameters["reason"]
+	n.logger.InfoContext(ctx, "node cordoned",
+		slog.String("command_id", cmd.CommandId),
+		slog.String("reason", reason),
+	)
+
+	return nil
+}
+
+// executeDrain initiates graceful draining of workloads.
+func (n *Node) executeDrain(ctx context.Context, cmd *pb.NodeCommand) error {
+	n.stateMu.Lock()
+	if n.draining {
+		n.stateMu.Unlock()
+		n.logger.InfoContext(ctx, "node already draining",
+			slog.String("command_id", cmd.CommandId),
+		)
+		return nil
+	}
+
+	// Draining implies cordoned
+	n.cordoned = true
+	n.draining = true
+	n.stateMu.Unlock()
+
+	n.logger.InfoContext(ctx, "node draining started",
+		slog.String("command_id", cmd.CommandId),
+	)
+
+	// In a real implementation, this would:
+	// 1. Signal running workloads to gracefully terminate
+	// 2. Wait for workloads to complete (with timeout)
+	// 3. Report drain completion
+	//
+	// For now, we simulate this with a brief delay and log completion.
+	// The actual workload management would be handled by an external
+	// scheduler or orchestrator that monitors the node's cordoned state.
+
+	go func() {
+		// Parse timeout from parameters, default to 5 minutes
+		timeout := 5 * time.Minute
+		if timeoutStr, ok := cmd.Parameters["timeout"]; ok {
+			if parsed, err := time.ParseDuration(timeoutStr); err == nil {
+				timeout = parsed
+			}
+		}
+
+		drainCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		// Simulate waiting for workloads to drain
+		// In production, this would poll for active workloads
+		select {
+		case <-drainCtx.Done():
+			n.logger.Warn("drain timeout exceeded",
+				slog.String("command_id", cmd.CommandId),
+			)
+		case <-time.After(1 * time.Second):
+			// Simulated drain completion
+		case <-n.shutdownCh:
+			n.logger.Info("drain interrupted by shutdown",
+				slog.String("command_id", cmd.CommandId),
+			)
+			return
+		}
+
+		n.logger.Info("node drain completed",
+			slog.String("command_id", cmd.CommandId),
+		)
+	}()
+
+	return nil
+}
+
+// executeDiagnostic runs GPU diagnostic tests.
+func (n *Node) executeDiagnostic(ctx context.Context, cmd *pb.NodeCommand) error {
+	testType := cmd.Parameters["test_type"]
+	if testType == "" {
+		testType = "quick"
+	}
+
+	n.logger.InfoContext(ctx, "starting diagnostic",
+		slog.String("command_id", cmd.CommandId),
+		slog.String("test_type", testType),
+	)
+
+	// Run diagnostics asynchronously to not block command polling
+	go func() {
+		diagCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		results, err := n.runDiagnostics(diagCtx, testType)
+		if err != nil {
+			n.logger.Error("diagnostic failed",
+				slog.String("command_id", cmd.CommandId),
+				slog.String("error", err.Error()),
+			)
+			return
+		}
+
+		n.logger.Info("diagnostic completed",
+			slog.String("command_id", cmd.CommandId),
+			slog.String("test_type", testType),
+			slog.String("result", results),
+		)
+	}()
+
+	return nil
+}
+
+// runDiagnostics executes GPU diagnostic tests.
+func (n *Node) runDiagnostics(ctx context.Context, testType string) (string, error) {
+	count, err := n.gpu.GetDeviceCount(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get device count: %w", err)
+	}
+
+	var results []string
+	for i := 0; i < count; i++ {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
+		health, err := n.gpu.GetDeviceHealth(ctx, i)
+		if err != nil {
+			results = append(results, fmt.Sprintf("GPU %d: ERROR - %v", i, err))
+			continue
+		}
+
+		// Basic health validation
+		status := "PASS"
+		var issues []string
+
+		if health.Temperature > 85 {
+			status = "WARN"
+			issues = append(issues, fmt.Sprintf("high temp %d°C", health.Temperature))
+		}
+		if health.Temperature > 95 {
+			status = "FAIL"
+		}
+
+		result := fmt.Sprintf("GPU %d: %s (temp=%d°C, power=%.0fW, util=%d%%)",
+			i, status, health.Temperature, health.PowerUsage, health.GPUUtilization)
+		if len(issues) > 0 {
+			result += fmt.Sprintf(" [%s]", issues[0])
+		}
+		results = append(results, result)
+	}
+
+	return fmt.Sprintf("Diagnostic complete: %d GPUs tested. %v", count, results), nil
+}
+
+// executeTerminate prepares the node for shutdown.
+func (n *Node) executeTerminate(ctx context.Context, cmd *pb.NodeCommand) error {
+	n.stateMu.Lock()
+	if n.shuttingDown {
+		n.stateMu.Unlock()
+		n.logger.InfoContext(ctx, "node already shutting down",
+			slog.String("command_id", cmd.CommandId),
+		)
+		return nil
+	}
+
+	n.cordoned = true
+	n.draining = true
+	n.shuttingDown = true
+	n.stateMu.Unlock()
+
+	n.logger.InfoContext(ctx, "node termination initiated",
+		slog.String("command_id", cmd.CommandId),
+	)
+
+	// Signal shutdown to drain goroutine and other components
+	close(n.shutdownCh)
+
+	// In production, this would:
+	// 1. Complete any in-flight requests
+	// 2. Flush metrics/logs
+	// 3. Deregister from service discovery
+	// 4. Signal the main process to exit
+
+	return nil
+}
+
+// IsCordoned returns whether the node is cordoned.
+func (n *Node) IsCordoned() bool {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.cordoned
+}
+
+// IsDraining returns whether the node is draining.
+func (n *Node) IsDraining() bool {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.draining
+}
+
+// IsShuttingDown returns whether the node is shutting down.
+func (n *Node) IsShuttingDown() bool {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.shuttingDown
+}
+
+// ShutdownCh returns a channel that is closed when the node begins termination.
+func (n *Node) ShutdownCh() <-chan struct{} {
+	return n.shutdownCh
 }

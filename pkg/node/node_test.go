@@ -3,8 +3,10 @@ package node
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 func TestNew(t *testing.T) {
@@ -170,5 +172,231 @@ func TestHealthChecks(t *testing.T) {
 
 		fakeGPU.ClearXIDErrors()
 	})
+}
+
+func TestCommandExecution(t *testing.T) {
+	ctx := context.Background()
+	fakeGPU := gpu.NewFake(2)
+
+	cfg := Config{
+		ControlPlaneAddr: "http://localhost:50051",
+		NodeID:           "test-node",
+		GPU:              fakeGPU,
+	}
+
+	t.Run("cordon_command", func(t *testing.T) {
+		n, err := New(cfg, nil)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		if n.IsCordoned() {
+			t.Error("Node should not be cordoned initially")
+		}
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-1",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			Parameters: map[string]string{
+				"reason": "maintenance",
+			},
+		}
+
+		err = n.executeCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("executeCommand failed: %v", err)
+		}
+
+		if !n.IsCordoned() {
+			t.Error("Node should be cordoned after cordon command")
+		}
+
+		// Executing cordon again should be idempotent
+		err = n.executeCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("second cordon command failed: %v", err)
+		}
+	})
+
+	t.Run("drain_command", func(t *testing.T) {
+		n, err := New(cfg, nil)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		if n.IsDraining() {
+			t.Error("Node should not be draining initially")
+		}
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-2",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+			Parameters: map[string]string{
+				"timeout": "1s",
+			},
+		}
+
+		err = n.executeCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("executeCommand failed: %v", err)
+		}
+
+		if !n.IsDraining() {
+			t.Error("Node should be draining after drain command")
+		}
+
+		if !n.IsCordoned() {
+			t.Error("Node should be cordoned when draining")
+		}
+
+		// Wait for drain to complete
+		time.Sleep(2 * time.Second)
+	})
+
+	t.Run("diagnostic_command", func(t *testing.T) {
+		n, err := New(cfg, nil)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		if err := fakeGPU.Initialize(ctx); err != nil {
+			t.Fatalf("GPU Initialize failed: %v", err)
+		}
+		n.gpu = fakeGPU
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-3",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_RUN_DIAGNOSTIC,
+			Parameters: map[string]string{
+				"test_type": "quick",
+			},
+		}
+
+		err = n.executeCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("executeCommand failed: %v", err)
+		}
+
+		// Diagnostic runs async, just verify it doesn't error
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	t.Run("terminate_command", func(t *testing.T) {
+		n, err := New(cfg, nil)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		if n.IsShuttingDown() {
+			t.Error("Node should not be shutting down initially")
+		}
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-4",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}
+
+		err = n.executeCommand(ctx, cmd)
+		if err != nil {
+			t.Fatalf("executeCommand failed: %v", err)
+		}
+
+		if !n.IsShuttingDown() {
+			t.Error("Node should be shutting down after terminate command")
+		}
+
+		if !n.IsCordoned() {
+			t.Error("Node should be cordoned when terminating")
+		}
+
+		if !n.IsDraining() {
+			t.Error("Node should be draining when terminating")
+		}
+
+		// Verify shutdown channel is closed
+		select {
+		case <-n.ShutdownCh():
+			// Expected
+		default:
+			t.Error("Shutdown channel should be closed")
+		}
+	})
+
+	t.Run("unknown_command", func(t *testing.T) {
+		n, err := New(cfg, nil)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		cmd := &pb.NodeCommand{
+			CommandId: "cmd-5",
+			Type:      pb.NodeCommandType_NODE_COMMAND_TYPE_UNKNOWN,
+		}
+
+		err = n.executeCommand(ctx, cmd)
+		if err == nil {
+			t.Error("Expected error for unknown command type")
+		}
+	})
+}
+
+func TestRunDiagnostics(t *testing.T) {
+	ctx := context.Background()
+	fakeGPU := gpu.NewFake(2)
+
+	cfg := Config{
+		ControlPlaneAddr: "http://localhost:50051",
+		NodeID:           "test-node",
+		GPU:              fakeGPU,
+	}
+
+	n, err := New(cfg, nil)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	if err := fakeGPU.Initialize(ctx); err != nil {
+		t.Fatalf("GPU Initialize failed: %v", err)
+	}
+	n.gpu = fakeGPU
+
+	t.Run("quick_diagnostic", func(t *testing.T) {
+		results, err := n.runDiagnostics(ctx, "quick")
+		if err != nil {
+			t.Fatalf("runDiagnostics failed: %v", err)
+		}
+
+		if results == "" {
+			t.Error("Expected non-empty diagnostic results")
+		}
+
+		// Should contain info about 2 GPUs
+		if !contains(results, "2 GPUs tested") {
+			t.Errorf("Expected results to mention 2 GPUs, got: %s", results)
+		}
+	})
+
+	t.Run("diagnostic_with_context_cancel", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel() // Cancel immediately
+
+		_, err := n.runDiagnostics(cancelCtx, "quick")
+		if err == nil {
+			t.Error("Expected error for cancelled context")
+		}
+	})
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
