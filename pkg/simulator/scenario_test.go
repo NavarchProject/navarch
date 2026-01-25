@@ -68,7 +68,7 @@ func TestScenario_Validate(t *testing.T) {
 		{
 			name:     "empty fleet",
 			scenario: Scenario{Name: "test"},
-			wantErr:  "fleet must have at least one node",
+			wantErr:  "fleet or stress.fleet_gen must be defined",
 		},
 		{
 			name: "missing node ID",

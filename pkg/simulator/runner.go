@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -178,6 +177,12 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		duration = 10 * time.Minute
 	}
 
+	// Determine node count from either fleet_gen or fleet
+	nodeCount := len(r.scenario.Fleet)
+	if stress.FleetGen != nil {
+		nodeCount = stress.FleetGen.TotalNodes
+	}
+
 	// Set up file logging if configured
 	var logFile *os.File
 	if stress.LogFile != "" {
@@ -198,24 +203,20 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		fmt.Fprintf(logFile, "=== STRESS TEST LOG: %s ===\n", r.scenario.Name)
 		fmt.Fprintf(logFile, "Started: %s\n", time.Now().Format(time.RFC3339))
 		fmt.Fprintf(logFile, "Duration: %s, Nodes: %d, Seed: %d\n\n",
-			duration, stress.FleetGen.TotalNodes, r.seed)
+			duration, nodeCount, r.seed)
 	}
 
-	fmt.Println()
-	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Printf("║  STRESS TEST: %-47s ║\n", r.scenario.Name)
-	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
-	fmt.Printf("║  Duration: %-10s  Nodes: %-6d  Seed: %-15d ║\n",
-		duration.String(),
-		stress.FleetGen.TotalNodes,
-		r.seed)
+	// Initialize console output
+	console := NewConsole()
+
+	// Print header
+	failureRate := 0.0
+	cascading := false
 	if stress.Chaos != nil && stress.Chaos.Enabled {
-		fmt.Printf("║  Failure Rate: %.1f/min/1000   Cascading: %-16v ║\n",
-			stress.Chaos.FailureRate,
-			stress.Chaos.Cascading != nil && stress.Chaos.Cascading.Enabled)
+		failureRate = stress.Chaos.FailureRate
+		cascading = stress.Chaos.Cascading != nil && stress.Chaos.Cascading.Enabled
 	}
-	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
-	fmt.Println()
+	console.PrintHeader(r.scenario.Name, duration, nodeCount, r.seed, failureRate, cascading)
 
 	r.logger.Info("initializing stress test")
 
@@ -302,7 +303,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 
 	// Run for the configured duration
-	fmt.Printf("\n⏱  Running stress test for %s...\n\n", duration)
+	console.PrintRunning(duration)
 
 	// Progress logging
 	progressTicker := time.NewTicker(10 * time.Second)
@@ -325,23 +326,20 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 			pct := float64(elapsed) / float64(duration) * 100
 			stats := r.metrics.GetCurrentStats()
 
-			fmt.Printf("\r[%5.1f%%] %s elapsed, %s remaining | Nodes: %d healthy | Failures: %d (cascade: %d) | Recoveries: %d    ",
-				pct,
-				elapsed.Round(time.Second),
-				remaining.Round(time.Second),
-				stats["nodes_healthy"],
-				stats["total_failures"],
-				stats["cascading"],
-				stats["recoveries"])
+			console.PrintProgress(pct, elapsed, remaining,
+				stats["nodes_healthy"].(int64),
+				stats["total_failures"].(int64),
+				stats["cascading"].(int64),
+				stats["recoveries"].(int64))
 		}
 	}
 
 finished:
-	fmt.Printf("\r%s\n", strings.Repeat(" ", 120)) // Clear progress line
-	fmt.Println()
+	console.ClearProgress()
 
-	// Print summary
-	r.metrics.PrintSummary()
+	// Print summary using pterm
+	results := r.metrics.GetStressResults()
+	console.PrintResults(results)
 
 	// Generate reports if configured
 	var reportFiles []string
@@ -381,12 +379,7 @@ finished:
 	}
 
 	// Print report locations
-	if len(reportFiles) > 0 {
-		fmt.Println("\n📄 Reports generated:")
-		for _, f := range reportFiles {
-			fmt.Printf("   • %s\n", f)
-		}
-	}
+	console.PrintReports(reportFiles)
 
 	// Run assertions if any
 	for _, assertion := range r.scenario.Assertions {
@@ -395,7 +388,7 @@ finished:
 		}
 	}
 
-	fmt.Println("\n✅ Stress test completed successfully")
+	console.PrintSuccess("Stress test completed successfully")
 
 	if r.waitForCancel {
 		<-ctx.Done()

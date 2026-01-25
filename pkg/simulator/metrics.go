@@ -465,10 +465,12 @@ func (m *StressMetrics) PrintSummary() {
 				}
 			}
 			// Truncate name if too long
-			if len(name) > 30 {
-				name = name[:27] + "..."
+			if len(name) > 28 {
+				name = name[:25] + "..."
 			}
-			fmt.Printf("║    XID %-3d: %-30s %4d%s\n", entries[i].code, name, entries[i].count, fatal)
+			// Format with proper right border
+			line := fmt.Sprintf("XID %-3d: %-28s %4d%s", entries[i].code, name, entries[i].count, fatal)
+			fmt.Printf("║    %-56s ║\n", line)
 		}
 	}
 
@@ -486,5 +488,35 @@ func (m *StressMetrics) GetCurrentStats() map[string]interface{} {
 		"total_failures":   atomic.LoadInt64(&m.totalFailures),
 		"cascading":        atomic.LoadInt64(&m.cascadingFailures),
 		"recoveries":       atomic.LoadInt64(&m.recoveries),
+	}
+}
+
+// GetStressResults returns current statistics in the StressResults format for console output.
+func (m *StressMetrics) GetStressResults() *StressResults {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Copy maps to avoid race conditions
+	failuresByType := make(map[string]int64)
+	for k, v := range m.failuresByType {
+		failuresByType[k] = v
+	}
+	failuresByXID := make(map[int]int64)
+	for k, v := range m.failuresByXID {
+		failuresByXID[k] = v
+	}
+
+	return &StressResults{
+		Duration:          time.Since(m.startTime),
+		NodesStarted:      atomic.LoadInt64(&m.nodesStarted),
+		NodesFailed:       atomic.LoadInt64(&m.nodesFailed),
+		NodesHealthy:      atomic.LoadInt64(&m.nodesHealthy),
+		NodesUnhealthy:    atomic.LoadInt64(&m.nodesUnhealthy),
+		NodesDegraded:     atomic.LoadInt64(&m.nodesDegraded),
+		TotalFailures:     atomic.LoadInt64(&m.totalFailures),
+		CascadingFailures: atomic.LoadInt64(&m.cascadingFailures),
+		Recoveries:        atomic.LoadInt64(&m.recoveries),
+		FailuresByType:    failuresByType,
+		FailuresByXID:     failuresByXID,
 	}
 }

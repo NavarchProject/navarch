@@ -451,11 +451,13 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 
 func (c *ChaosEngine) matchesScope(source, target *SimulatedNode, scope string) bool {
 	// Extract topology info from node ID patterns
-	// Format: provider-region-template-index
+	// Format: provider-region-template-index (e.g., gcp-us-central1-h100-8gpu-0001)
+	// Zone info is typically embedded in region (e.g., us-central1-a)
 	switch scope {
 	case "zone":
-		// Match by region prefix (first 2 segments)
-		return extractSegments(source.ID(), 2) == extractSegments(target.ID(), 2)
+		// Match by provider, region, and zone (first 3 segments for zone-level locality)
+		// This is more restrictive than region
+		return extractSegments(source.ID(), 3) == extractSegments(target.ID(), 3)
 	case "region":
 		// Match by provider and region (first 2 segments)
 		return extractSegments(source.ID(), 2) == extractSegments(target.ID(), 2)
@@ -463,8 +465,8 @@ func (c *ChaosEngine) matchesScope(source, target *SimulatedNode, scope string) 
 		// Match by provider (first segment)
 		return extractSegments(source.ID(), 1) == extractSegments(target.ID(), 1)
 	case "rack":
-		// Match first 3 segments for rack-level
-		return extractSegments(source.ID(), 3) == extractSegments(target.ID(), 3)
+		// Match first 4 segments for rack-level (most restrictive)
+		return extractSegments(source.ID(), 4) == extractSegments(target.ID(), 4)
 	case "random":
 		return true
 	default:
