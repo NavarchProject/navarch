@@ -263,6 +263,9 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		go r.runEventsInBackground(ctx)
 	}
 
+	// Start health status polling to keep metrics in sync with control plane
+	go r.healthStatusPollingLoop(ctx)
+
 	// Run for the configured duration
 	r.logger.Info("stress test running",
 		slog.Duration("duration", duration),
@@ -354,6 +357,56 @@ func (r *Runner) runEventsInBackground(ctx context.Context) {
 				slog.String("error", err.Error()),
 			)
 		}
+	}
+}
+
+// healthStatusPollingLoop periodically queries the control plane for node health
+// and updates the stress metrics. This keeps the metrics in sync with actual
+// node health status as reported by the control plane.
+func (r *Runner) healthStatusPollingLoop(ctx context.Context) {
+	if r.metrics == nil {
+		return
+	}
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.updateHealthMetrics(ctx)
+		}
+	}
+}
+
+// updateHealthMetrics queries the control plane for current node health status
+// and updates the stress metrics accordingly.
+func (r *Runner) updateHealthMetrics(ctx context.Context) {
+	if r.client == nil || r.metrics == nil {
+		return
+	}
+
+	req := connect.NewRequest(&pb.ListNodesRequest{})
+	resp, err := r.client.ListNodes(ctx, req)
+	if err != nil {
+		return // Silently ignore errors during polling
+	}
+
+	for _, node := range resp.Msg.Nodes {
+		var status string
+		switch node.HealthStatus {
+		case pb.HealthStatus_HEALTH_STATUS_HEALTHY:
+			status = "healthy"
+		case pb.HealthStatus_HEALTH_STATUS_DEGRADED:
+			status = "degraded"
+		case pb.HealthStatus_HEALTH_STATUS_UNHEALTHY:
+			status = "unhealthy"
+		default:
+			status = "healthy"
+		}
+		r.metrics.RecordNodeHealth(node.NodeId, status)
 	}
 }
 

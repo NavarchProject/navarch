@@ -296,21 +296,37 @@ func (m *StressMetrics) computeSummary() ReportSummary {
 	}
 
 	// Compute min/max/avg healthy nodes from samples
+	// Only consider samples where nodes have actually started (TotalNodes > 0)
+	// to avoid skewing min_healthy_nodes during the startup phase
 	if len(m.samples) > 0 {
-		summary.PeakHealthyNodes = m.samples[0].HealthyNodes
-		summary.MinHealthyNodes = m.samples[0].HealthyNodes
+		initialized := false
 		totalHealthy := 0
+		validSamples := 0
 
 		for _, s := range m.samples {
-			if s.HealthyNodes > summary.PeakHealthyNodes {
-				summary.PeakHealthyNodes = s.HealthyNodes
+			// Skip samples from before fleet startup completed
+			if s.TotalNodes == 0 {
+				continue
 			}
-			if s.HealthyNodes < summary.MinHealthyNodes {
-				summary.MinHealthyNodes = s.HealthyNodes
-			}
+			validSamples++
 			totalHealthy += s.HealthyNodes
+
+			if !initialized {
+				summary.PeakHealthyNodes = s.HealthyNodes
+				summary.MinHealthyNodes = s.HealthyNodes
+				initialized = true
+			} else {
+				if s.HealthyNodes > summary.PeakHealthyNodes {
+					summary.PeakHealthyNodes = s.HealthyNodes
+				}
+				if s.HealthyNodes < summary.MinHealthyNodes {
+					summary.MinHealthyNodes = s.HealthyNodes
+				}
+			}
 		}
-		summary.AvgHealthyNodes = float64(totalHealthy) / float64(len(m.samples))
+		if validSamples > 0 {
+			summary.AvgHealthyNodes = float64(totalHealthy) / float64(validSamples)
+		}
 	}
 
 	// Latency stats
