@@ -3,6 +3,7 @@ package pool
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -319,30 +320,45 @@ func (p *Pool) getProvider(name string) provider.Provider {
 	return nil
 }
 
-// selectForRemoval picks nodes to remove, preferring cordoned nodes.
+// selectForRemoval picks nodes to remove, preferring cordoned nodes first,
+// then oldest healthy nodes (by provision time) for deterministic behavior.
 func (p *Pool) selectForRemoval(count int) []string {
-	var cordoned, healthy []string
+	// Collect all nodes into slices
+	var cordoned, healthy []*ManagedNode
 
-	for id, mn := range p.nodes {
+	for _, mn := range p.nodes {
 		if mn.Cordoned {
-			cordoned = append(cordoned, id)
+			cordoned = append(cordoned, mn)
 		} else {
-			healthy = append(healthy, id)
+			healthy = append(healthy, mn)
 		}
 	}
+
+	// Sort by provision time (oldest first) for deterministic ordering
+	sortByProvisionTime := func(nodes []*ManagedNode) {
+		sort.Slice(nodes, func(i, j int) bool {
+			return nodes[i].ProvisionedAt.Before(nodes[j].ProvisionedAt)
+		})
+	}
+	sortByProvisionTime(cordoned)
+	sortByProvisionTime(healthy)
 
 	var result []string
-	for _, id := range cordoned {
+
+	// First, select cordoned nodes (oldest first)
+	for _, mn := range cordoned {
 		if len(result) >= count {
 			break
 		}
-		result = append(result, id)
+		result = append(result, mn.Node.ID)
 	}
-	for _, id := range healthy {
+
+	// Then, select healthy nodes (oldest first) if more nodes needed
+	for _, mn := range healthy {
 		if len(result) >= count {
 			break
 		}
-		result = append(result, id)
+		result = append(result, mn.Node.ID)
 	}
 
 	return result

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -169,42 +168,12 @@ func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*
 	}
 
 	for poolName, poolCfg := range cfg.Pools {
-		var poolProviders []pool.ProviderConfig
-
-		if poolCfg.Provider != "" {
-			prov, err := getOrCreateProvider(poolCfg.Provider, cfg, providers, controlPlaneAddr, logger)
-			if err != nil {
-				return nil, fmt.Errorf("pool %s: %w", poolName, err)
-			}
-			poolProviders = append(poolProviders, pool.ProviderConfig{
-				Name:     poolCfg.Provider,
-				Provider: prov,
-			})
-		} else {
-			for _, pe := range poolCfg.Providers {
-				prov, err := getOrCreateProvider(pe.Name, cfg, providers, controlPlaneAddr, logger)
-				if err != nil {
-					return nil, fmt.Errorf("pool %s: %w", poolName, err)
-				}
-				poolProviders = append(poolProviders, pool.ProviderConfig{
-					Name:         pe.Name,
-					Provider:     prov,
-					Priority:     pe.Priority,
-					Weight:       pe.Weight,
-					Regions:      pe.Regions,
-					InstanceType: pe.InstanceType,
-				})
-			}
+		poolProviders, err := buildPoolProviders(poolName, poolCfg, cfg, providers, controlPlaneAddr, logger)
+		if err != nil {
+			return nil, err
 		}
 
-		labels := make(map[string]string)
-		if poolCfg.Labels != nil {
-			for k, v := range poolCfg.Labels {
-				labels[k] = v
-			}
-		}
-		// Ensure pool name is always in labels for metrics aggregation
-		labels["pool"] = poolName
+		labels := buildPoolLabels(poolName, poolCfg.Labels)
 
 		p, err := pool.NewWithOptions(pool.NewPoolOptions{
 			Config: pool.Config{
@@ -216,8 +185,8 @@ func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*
 				MinNodes:           poolCfg.MinNodes,
 				MaxNodes:           poolCfg.MaxNodes,
 				CooldownPeriod:     poolCfg.Cooldown,
-				UnhealthyThreshold: getUnhealthyThreshold(poolCfg.Health),
-				AutoReplace:        getAutoReplace(poolCfg.Health),
+				UnhealthyThreshold: config.GetUnhealthyThreshold(poolCfg.Health),
+				AutoReplace:        config.GetAutoReplace(poolCfg.Health),
 				Labels:             labels,
 			},
 			Providers:        poolProviders,
@@ -227,12 +196,9 @@ func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*
 			return nil, fmt.Errorf("failed to create pool %s: %w", poolName, err)
 		}
 
-		var autoscaler pool.Autoscaler
-		if poolCfg.Autoscaling != nil {
-			autoscaler, err = buildAutoscaler(poolCfg.Autoscaling)
-			if err != nil {
-				return nil, fmt.Errorf("pool %s: %w", poolName, err)
-			}
+		autoscaler, err := config.BuildAutoscaler(poolCfg.Autoscaling)
+		if err != nil {
+			return nil, fmt.Errorf("pool %s: %w", poolName, err)
 		}
 
 		if err := pm.AddPool(p, autoscaler); err != nil {
@@ -248,6 +214,48 @@ func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*
 	}
 
 	return pm, nil
+}
+
+func buildPoolProviders(poolName string, poolCfg config.PoolCfg, cfg *config.Config, cache map[string]provider.Provider, controlPlaneAddr string, logger *slog.Logger) ([]pool.ProviderConfig, error) {
+	var poolProviders []pool.ProviderConfig
+
+	if poolCfg.Provider != "" {
+		prov, err := getOrCreateProvider(poolCfg.Provider, cfg, cache, controlPlaneAddr, logger)
+		if err != nil {
+			return nil, fmt.Errorf("pool %s: %w", poolName, err)
+		}
+		poolProviders = append(poolProviders, pool.ProviderConfig{
+			Name:     poolCfg.Provider,
+			Provider: prov,
+		})
+	} else {
+		for _, pe := range poolCfg.Providers {
+			prov, err := getOrCreateProvider(pe.Name, cfg, cache, controlPlaneAddr, logger)
+			if err != nil {
+				return nil, fmt.Errorf("pool %s: %w", poolName, err)
+			}
+			poolProviders = append(poolProviders, pool.ProviderConfig{
+				Name:         pe.Name,
+				Provider:     prov,
+				Priority:     pe.Priority,
+				Weight:       pe.Weight,
+				Regions:      pe.Regions,
+				InstanceType: pe.InstanceType,
+			})
+		}
+	}
+
+	return poolProviders, nil
+}
+
+func buildPoolLabels(poolName string, labels map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range labels {
+		result[k] = v
+	}
+	// Ensure pool name is always in labels for metrics aggregation
+	result["pool"] = poolName
+	return result
 }
 
 func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provider.Provider, controlPlaneAddr string, logger *slog.Logger) (provider.Provider, error) {
@@ -300,117 +308,3 @@ func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provi
 	return prov, nil
 }
 
-func getUnhealthyThreshold(h *config.HealthCfg) int {
-	if h == nil || h.UnhealthyAfter == 0 {
-		return 2
-	}
-	return h.UnhealthyAfter
-}
-
-func getAutoReplace(h *config.HealthCfg) bool {
-	if h == nil {
-		return true
-	}
-	return h.AutoReplace
-}
-
-func buildAutoscaler(cfg *config.AutoscalingCfg) (pool.Autoscaler, error) {
-	switch cfg.Type {
-	case "reactive":
-		scaleUp := 80.0
-		scaleDown := 20.0
-		if cfg.ScaleUpAt != nil {
-			scaleUp = float64(*cfg.ScaleUpAt)
-		}
-		if cfg.ScaleDownAt != nil {
-			scaleDown = float64(*cfg.ScaleDownAt)
-		}
-		return pool.NewReactiveAutoscaler(scaleUp, scaleDown), nil
-
-	case "queue":
-		jobsPerNode := 10
-		if cfg.JobsPerNode != nil {
-			jobsPerNode = *cfg.JobsPerNode
-		}
-		return pool.NewQueueBasedAutoscaler(jobsPerNode), nil
-
-	case "scheduled":
-		var entries []pool.ScheduleEntry
-		for _, s := range cfg.Schedule {
-			entries = append(entries, pool.ScheduleEntry{
-				DaysOfWeek: parseDaysOfWeek(s.Days),
-				StartHour:  s.Start,
-				EndHour:    s.End,
-				MinNodes:   s.MinNodes,
-				MaxNodes:   s.MaxNodes,
-			})
-		}
-		var fallback pool.Autoscaler
-		if cfg.Fallback != nil {
-			var err error
-			fallback, err = buildAutoscaler(cfg.Fallback)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return pool.NewScheduledAutoscaler(entries, fallback), nil
-
-	case "predictive":
-		lookback := 10
-		growth := 1.2
-		if cfg.LookbackWindow != nil {
-			lookback = *cfg.LookbackWindow
-		}
-		if cfg.GrowthFactor != nil {
-			growth = *cfg.GrowthFactor
-		}
-		var fallback pool.Autoscaler
-		if cfg.Fallback != nil {
-			var err error
-			fallback, err = buildAutoscaler(cfg.Fallback)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return pool.NewPredictiveAutoscaler(lookback, growth, fallback), nil
-
-	case "composite":
-		var autoscalers []pool.Autoscaler
-		for _, a := range cfg.Autoscalers {
-			as, err := buildAutoscaler(&a)
-			if err != nil {
-				return nil, err
-			}
-			autoscalers = append(autoscalers, as)
-		}
-		mode := pool.ModeMax
-		if cfg.Mode == "min" {
-			mode = pool.ModeMin
-		} else if cfg.Mode == "avg" {
-			mode = pool.ModeAvg
-		}
-		return pool.NewCompositeAutoscaler(mode, autoscalers...), nil
-
-	default:
-		return nil, fmt.Errorf("unknown autoscaler type: %s", cfg.Type)
-	}
-}
-
-func parseDaysOfWeek(days []string) []time.Weekday {
-	dayMap := map[string]time.Weekday{
-		"sunday":    time.Sunday,
-		"monday":    time.Monday,
-		"tuesday":   time.Tuesday,
-		"wednesday": time.Wednesday,
-		"thursday":  time.Thursday,
-		"friday":    time.Friday,
-		"saturday":  time.Saturday,
-	}
-	var result []time.Weekday
-	for _, d := range days {
-		if wd, ok := dayMap[strings.ToLower(d)]; ok {
-			result = append(result, wd)
-		}
-	}
-	return result
-}
