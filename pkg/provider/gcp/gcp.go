@@ -566,12 +566,14 @@ func parseGPUMachineType(name string) (int, string) {
 
 	case strings.HasPrefix(name, "g2-standard-"):
 		// G2 instances have L4 GPUs
-		// g2-standard-4, g2-standard-8, g2-standard-12 = 1 L4
-		// g2-standard-16, g2-standard-24, g2-standard-32 = 1 L4
+		// g2-standard-4, g2-standard-8, g2-standard-12, g2-standard-16, g2-standard-32 = 1 L4
+		// g2-standard-24 = 2 L4
 		// g2-standard-48 = 4 L4
 		// g2-standard-96 = 8 L4
 		suffix := strings.TrimPrefix(name, "g2-standard-")
 		switch suffix {
+		case "24":
+			return 2, "NVIDIA L4"
 		case "48":
 			return 4, "NVIDIA L4"
 		case "96":

@@ -521,6 +521,7 @@ func TestParseGPUMachineType(t *testing.T) {
 		{"a3-highgpu-8g", 8, "NVIDIA H100 80GB"},
 		{"g2-standard-4", 1, "NVIDIA L4"},
 		{"g2-standard-8", 1, "NVIDIA L4"},
+		{"g2-standard-24", 2, "NVIDIA L4"},
 		{"g2-standard-48", 4, "NVIDIA L4"},
 		{"g2-standard-96", 8, "NVIDIA L4"},
 		{"n1-standard-4", 0, ""},
