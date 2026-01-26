@@ -988,61 +988,6 @@ For large-scale stress tests:
 | 2000-5000 | wave, 5m | ~2-3GB |
 | 5000+ | wave, 10m+ | ~5GB+ |
 
-## Injectable GPU manager
-
-The `pkg/gpu` package includes an `Injectable` GPU manager for integration testing with the real node binary. Unlike the fully simulated nodes in stress tests, this allows you to run the actual node daemon with a fake GPU backend that supports failure injection.
-
-This is useful for:
-
-- Integration testing the node binary without real GPUs
-- Testing GPU driver interactions and error handling paths
-- Validating health check logic with controlled failures
-- CI/CD pipelines on machines without GPUs
-
-### Usage
-
-```go
-import "github.com/NavarchProject/navarch/pkg/gpu"
-
-// Create an injectable GPU manager with 8 simulated H100 GPUs
-gpuMgr := gpu.NewInjectable(8, "NVIDIA H100 80GB HBM3")
-
-// Initialize (simulates NVML initialization)
-gpuMgr.Initialize(ctx)
-
-// Inject failures
-gpuMgr.InjectXIDError(0, 79, "GPU has fallen off the bus")
-gpuMgr.InjectTemperatureSpike(2, 95)  // 95°C on GPU 2
-gpuMgr.InjectNVMLError(errors.New("NVML unavailable"))
-gpuMgr.InjectBootError(errors.New("GPU initialization failed"))
-gpuMgr.InjectDeviceError(3, errors.New("device not responding"))
-
-// Clear specific failures
-gpuMgr.ClearXIDErrors()
-gpuMgr.ClearTemperatureSpike(2)
-gpuMgr.ClearNVMLError()
-gpuMgr.ClearBootError()
-gpuMgr.ClearDeviceError(3)
-
-// Or clear all failures at once
-gpuMgr.ClearAllErrors()
-
-// Check if any failures are active
-if gpuMgr.HasActiveFailures() {
-    // ...
-}
-```
-
-### Available injection methods
-
-| Method | Description |
-|--------|-------------|
-| `InjectXIDError(gpuIndex, xidCode, message)` | Add an XID error to the error list |
-| `InjectTemperatureSpike(gpuIndex, temperature)` | Set high temperature on a GPU |
-| `InjectNVMLError(err)` | Make all NVML operations return an error |
-| `InjectBootError(err)` | Make initialization fail |
-| `InjectDeviceError(gpuIndex, err)` | Make a specific device return errors |
-
 ## Makefile targets
 
 ```bash
