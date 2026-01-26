@@ -1,0 +1,160 @@
+name: 1000-node-chaos-test
+description: |
+  Large-scale stress test with 1000 nodes and realistic chaos injection.
+  Tests the control plane's ability to handle:
+  - High node count registration and heartbeating
+  - Random GPU failures across all XID codes
+  - Cascading failures within zones
+  - Automatic recovery of non-fatal failures
+
+fleet: []  # Empty because we use fleet_gen
+
+stress:
+  duration: 10m
+  metrics_interval: 5s
+  seed: 12345  # Reproducible randomness
+  report_file: stress-report-1000-nodes.json
+
+  fleet_gen:
+    total_nodes: 1000
+
+    templates:
+      - name: h100-8gpu
+        weight: 50
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+        labels:
+          tier: premium
+          workload: training
+
+      - name: a100-8gpu
+        weight: 30
+        gpu_count: 8
+        gpu_type: "NVIDIA A100 80GB"
+        instance_type: a2-ultragpu-8g
+        labels:
+          tier: standard
+          workload: training
+
+      - name: h100-4gpu
+        weight: 15
+        gpu_count: 4
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-4g
+        labels:
+          tier: standard
+          workload: inference
+
+      - name: a100-4gpu
+        weight: 5
+        gpu_count: 4
+        gpu_type: "NVIDIA A100 40GB"
+        instance_type: a2-highgpu-4g
+        labels:
+          tier: economy
+          workload: inference
+
+    providers:
+      gcp: 50
+      aws: 35
+      lambda: 15
+
+    regions:
+      us-central1: 30
+      us-east1: 25
+      us-west1: 20
+      europe-west1: 15
+      asia-east1: 10
+
+    zones:
+      us-central1: [us-central1-a, us-central1-b, us-central1-c, us-central1-f]
+      us-east1: [us-east1-b, us-east1-c, us-east1-d]
+      us-west1: [us-west1-a, us-west1-b]
+      europe-west1: [europe-west1-b, europe-west1-c, europe-west1-d]
+      asia-east1: [asia-east1-a, asia-east1-b, asia-east1-c]
+
+    startup:
+      pattern: exponential
+      duration: 2m
+      jitter_percent: 15
+
+  chaos:
+    enabled: true
+    failure_rate: 10.0  # 10 failures per minute per 1000 nodes
+
+    # Realistic XID error distribution based on production data
+    xid_distribution:
+      13: 15  # Graphics Engine Exception - common, recoverable
+      31: 20  # GPU memory page fault - very common, usually recoverable
+      32: 5   # Invalid push buffer - rare
+      43: 8   # GPU stopped processing - medium, fatal
+      45: 10  # Preemptive cleanup - common after other errors
+      48: 12  # Double Bit ECC - serious, fatal
+      63: 8   # ECC page retirement failure - medium, fatal
+      64: 5   # ECC recording event - informational
+      68: 3   # NVDEC0 Exception - rare
+      74: 5   # NVLink Error - multi-GPU setups
+      79: 6   # GPU fallen off bus - fatal hardware failure
+      92: 3   # High single-bit ECC rate - warning
+      94: 5   # Contained ECC error - recoverable
+      95: 3   # Uncontained ECC error - fatal
+
+    failure_types:
+      - type: xid_error
+        weight: 70
+      - type: temperature
+        weight: 10
+      - type: nvml_failure
+        weight: 8
+      - type: boot_failure
+        weight: 2
+      - type: network
+        weight: 10
+
+    cascading:
+      enabled: true
+      probability: 0.15  # 15% chance a failure cascades
+      max_depth: 3
+      min_delay: 1s
+      max_delay: 10s
+      scope: zone  # Cascade within same zone
+      max_affected_percent: 0.1  # Max 10% of zone nodes
+
+    recovery:
+      enabled: true
+      probability: 0.7  # 70% of non-fatal errors recover
+      mean_time: 5m
+      std_dev: 2m
+
+events:
+  - at: 0s
+    action: log
+    params:
+      log_message: "Starting 1000-node chaos stress test"
+
+  - at: 30s
+    action: log
+    params:
+      log_message: "Fleet startup in progress..."
+
+  - at: 3m
+    action: log
+    params:
+      log_message: "Fleet fully started, chaos injection active"
+
+  - at: 5m
+    action: log
+    params:
+      log_message: "Midpoint check - analyzing failure patterns"
+
+  - at: 9m
+    action: log
+    params:
+      log_message: "Final minute - collecting metrics"
+
+assertions:
+  # At least 80% of nodes should still be responsive
+  - type: node_count
+    target: all
+    expected: "800"

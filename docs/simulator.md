@@ -1,18 +1,18 @@
 # Fleet simulator
 
-The Navarch fleet simulator creates a simulated GPU fleet and control plane for testing, development, and demonstration purposes.
+The fleet simulator runs the real Navarch control plane and node code with simulated GPUs, allowing you to test the full system without cloud resources or GPU hardware.
 
 ## Overview
 
-The simulator runs an embedded control plane and spawns simulated nodes that behave like real GPU instances. You can inject failures, issue commands, and observe how the system responds—all without provisioning actual cloud resources.
+The simulator uses the actual production control plane and node daemon implementations. Only the GPU layer is simulated, using an injectable fake that supports failure injection. This means you're testing real node behavior, real health checks, and real command handling—the same code that runs in production.
 
 Use the simulator to:
 
-- Test health check logic and failure detection.
-- Verify command flows (cordon, drain, terminate).
-- Develop and debug new features locally.
-- Run automated integration tests.
-- Demo Navarch to others.
+- Test the actual control plane and node code locally
+- Validate failure detection and recovery logic
+- Verify command flows (cordon, drain, terminate)
+- Run integration tests without GPU hardware
+- Demo Navarch behavior
 
 ## Building the simulator
 
@@ -42,8 +42,8 @@ To validate a scenario without running it:
 
 | Flag | Description |
 |------|-------------|
-| `-v, --verbose` | Enable verbose output (INFO level). |
-| `--debug` | Enable debug output (DEBUG level). |
+| `-v, --verbose` | Enable verbose output (INFO level) |
+| `--debug` | Enable debug output (DEBUG level) |
 
 ## Interactive mode
 
@@ -110,14 +110,14 @@ Each node in the fleet requires:
 
 | Field | Description |
 |-------|-------------|
-| `id` | Unique identifier for the node. |
-| `provider` | Cloud provider name (gcp, aws, azure). |
-| `region` | Cloud region. |
-| `zone` | Availability zone. |
-| `instance_type` | Instance type (a3-highgpu-8g, p5.48xlarge). |
-| `gpu_count` | Number of GPUs on the node. |
-| `gpu_type` | GPU model name. |
-| `labels` | Optional key-value labels. |
+| `id` | Unique identifier for the node |
+| `provider` | Cloud provider (`gcp`, `aws`, `lambda`) |
+| `region` | Cloud region |
+| `zone` | Availability zone |
+| `instance_type` | Instance type (`a3-highgpu-8g`, `p5.48xlarge`) |
+| `gpu_count` | Number of GPUs on the node |
+| `gpu_type` | GPU model name |
+| `labels` | Optional key-value labels |
 
 ### Events
 
@@ -164,10 +164,10 @@ Parameters:
 
 | Parameter | Description |
 |-----------|-------------|
-| `failure_type` | Type of failure: `xid_error`, `nvml_failure`, `boot_failure`, `temperature`. |
-| `xid_code` | XID error code (for xid_error type). |
-| `gpu_index` | Affected GPU index (0-based). |
-| `message` | Custom error message. |
+| `failure_type` | Type of failure: `xid_error`, `nvml_failure`, `boot_failure`, `temperature` |
+| `xid_code` | XID error code (for `xid_error` type) |
+| `gpu_index` | Affected GPU index (0-based) |
+| `message` | Custom error message |
 
 ### recover_failure
 
@@ -199,10 +199,10 @@ Command types:
 
 | Type | Description |
 |------|-------------|
-| `cordon` | Stop accepting new workloads. |
-| `drain` | Gracefully drain existing workloads. |
-| `terminate` | Prepare for shutdown. |
-| `run_diagnostic` | Run a diagnostic test. |
+| `cordon` | Stop accepting new workloads |
+| `drain` | Gracefully drain existing workloads |
+| `terminate` | Prepare for shutdown |
+| `run_diagnostic` | Run a diagnostic test |
 
 ### wait_for_status
 
@@ -270,8 +270,8 @@ Assertion types:
 
 | Type | Description |
 |------|-------------|
-| `node_status` | Check node status (active, cordoned, draining, unhealthy, terminated). |
-| `health_status` | Check health status (healthy, degraded, unhealthy). |
+| `node_status` | Check node status (`active`, `cordoned`, `draining`, `unhealthy`, `terminated`) |
+| `health_status` | Check health status (`healthy`, `degraded`, `unhealthy`) |
 
 ## XID error codes
 
@@ -303,58 +303,14 @@ Recoverable XID codes (may resolve without replacement):
 
 ## Example scenarios
 
-The `scenarios/` directory contains example scenarios that validate core Navarch functionality. Each scenario is designed to test a specific aspect of the system.
+The `scenarios/` directory contains example scenarios:
 
-### basic-fleet.yaml
-
-Tests that nodes can register with the control plane and reach a healthy state.
-
-This scenario validates:
-
-- Node registration with the control plane works correctly.
-- Health reporting establishes an active status.
-- Multi-cloud fleets (GCP and AWS nodes together) function properly.
-
-The scenario starts a three-node fleet spanning GCP and AWS, waits for all nodes to register and report healthy, then asserts that each node reaches the `active` status.
-
-### gpu-failure.yaml
-
-Tests detection and handling of a fatal GPU failure.
-
-This scenario validates:
-
-- Fatal XID errors are detected by the health monitoring system.
-- Affected nodes transition to an unhealthy status.
-- Commands (cordon) can be issued to unhealthy nodes.
-- Unaffected nodes remain healthy and active.
-
-The scenario starts a two-node fleet, injects XID 79 (GPU has fallen off the bus) on one node, waits for the node to become unhealthy, then issues a cordon command. It asserts that the affected node is unhealthy while the other node remains active.
-
-### xid-classification.yaml
-
-Tests that XID error codes are correctly classified as fatal or recoverable.
-
-This scenario validates:
-
-- Fatal XID codes (like XID 48 - Double Bit ECC Error) mark a node as unhealthy.
-- Recoverable XID codes (like XID 31 - GPU memory page fault) allow the node to recover.
-- The `recover_failure` action clears transient failures.
-- Nodes return to healthy status after recovering from a recoverable error.
-
-The scenario starts two nodes, injects a fatal XID on one and a recoverable XID on the other, recovers the recoverable node, then asserts that the fatal node is unhealthy while the recovered node is healthy.
-
-### cordon-drain.yaml
-
-Tests the cordon and drain command flow for graceful node removal.
-
-This scenario validates:
-
-- The cordon command is accepted and processed by nodes.
-- The drain command is accepted and processed by nodes.
-- Commands can be issued in sequence.
-- Other nodes in the fleet are not affected by commands targeting a specific node.
-
-The scenario starts a two-node fleet, issues cordon then drain commands to one node, and asserts that the other node remains active throughout the process.
+| Scenario | Purpose |
+|----------|---------|
+| `basic-fleet.yaml` | Node registration and multi-cloud fleet health |
+| `gpu-failure.yaml` | Fatal XID error detection and node status transitions |
+| `xid-classification.yaml` | Fatal vs recoverable XID code handling |
+| `cordon-drain.yaml` | Cordon and drain command flow |
 
 ## Writing custom scenarios
 
@@ -372,16 +328,344 @@ Tips:
 - Use `log` actions to document what the scenario is doing.
 - Use `wait_for_status` instead of fixed delays when possible.
 
-## Makefile targets
+## Stress testing
+
+The simulator includes a comprehensive stress testing framework for validating system behavior at scale with realistic failure patterns.
+
+### Overview
+
+Stress tests allow you to:
+
+- Simulate thousands of nodes simultaneously
+- Inject failures with realistic distributions based on production data
+- Test cascading failure scenarios
+- Simulate scheduled outages (zone, region, provider)
+- Measure system resilience and recovery
+- Generate detailed reports
+
+### Running a stress test
 
 ```bash
-# Run interactive mode
-make sim
+# Run a stress test scenario
+./bin/simulator run scenarios/stress/1000-node-chaos.yaml -v
 
-# Run a specific scenario
-make sim-run SCENARIO=scenarios/gpu-failure.yaml
+# Run with a specific seed for reproducibility
+./bin/simulator run scenarios/stress/1000-node-chaos.yaml --seed 12345 -v
 
-# Validate a scenario
-make sim-validate SCENARIO=scenarios/basic-fleet.yaml
+# Validate a stress test scenario
+./bin/simulator validate scenarios/stress/5000-node-extreme.yaml
 ```
+
+### Console output
+
+Stress tests display real-time progress during execution:
+
+```
+[ 50.0%] 5m0s elapsed, 5m0s remaining | Nodes: 947 healthy | Failures: 48 (cascade: 7) | Recoveries: 21
+```
+
+When complete, the simulator prints a summary with node statistics, failure counts, and XID error breakdown. It also displays the run directory path with a clickable link to the HTML report.
+
+### Stress test configuration
+
+Stress tests use an extended scenario format with a `stress` section:
+
+```yaml
+name: my-stress-test
+description: Large-scale chaos testing
+
+fleet: []  # Empty when using fleet_gen
+
+stress:
+  duration: 10m
+  metrics_interval: 5s
+  seed: 12345
+
+  fleet_gen:
+    total_nodes: 1000
+    templates:
+      - name: h100-8gpu
+        weight: 60
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+      - name: a100-8gpu
+        weight: 40
+        gpu_count: 8
+        gpu_type: "NVIDIA A100 80GB"
+        instance_type: a2-ultragpu-8g
+
+    providers:
+      gcp: 50
+      aws: 35
+      lambda: 15
+
+    regions:
+      us-central1: 40
+      us-east1: 30
+      europe-west1: 30
+
+    startup:
+      pattern: exponential
+      duration: 2m
+      jitter_percent: 15
+
+  chaos:
+    enabled: true
+    failure_rate: 10.0
+    # ... chaos configuration
+```
+
+### Fleet generation
+
+Instead of defining individual nodes, stress tests can generate fleets from templates:
+
+| Field | Description |
+|-------|-------------|
+| `total_nodes` | Total number of nodes to generate |
+| `templates` | List of node templates with weights |
+| `providers` | Provider distribution (percentages) |
+| `regions` | Region distribution (percentages) |
+| `zones` | Zone lists per region |
+| `startup` | Node startup pattern configuration |
+
+#### Node templates
+
+Templates define node configurations with relative weights:
+
+```yaml
+templates:
+  - name: h100-8gpu
+    weight: 60        # 60% of nodes use this template
+    gpu_count: 8
+    gpu_type: "NVIDIA H100 80GB HBM3"
+    instance_type: a3-highgpu-8g
+    labels:
+      tier: premium
+```
+
+#### Startup patterns
+
+Control how nodes join the cluster:
+
+| Pattern | Description |
+|---------|-------------|
+| `instant` | All nodes start immediately |
+| `linear` | Nodes start at a constant rate over the duration |
+| `exponential` | Start slow, accelerate (1, 2, 4, 8, ...) |
+| `wave` | Start in batches with pauses between |
+
+```yaml
+startup:
+  pattern: wave
+  duration: 5m
+  batch_size: 100
+  jitter_percent: 20
+```
+
+### Chaos engineering
+
+The `chaos` section controls failure injection:
+
+```yaml
+chaos:
+  enabled: true
+  failure_rate: 10.0  # Failures per minute per 1000 nodes
+
+  xid_distribution:
+    79: 30   # GPU fallen off bus (fatal)
+    48: 20   # Double Bit ECC Error (fatal)
+    31: 50   # GPU memory page fault (recoverable)
+
+  failure_types:
+    - type: xid_error
+      weight: 70
+    - type: temperature
+      weight: 15
+    - type: network
+      weight: 15
+```
+
+#### Failure rate
+
+The `failure_rate` specifies failures per minute per 1000 nodes. For example:
+- 1000 nodes with rate 10.0 = ~10 failures per minute
+- 5000 nodes with rate 10.0 = ~50 failures per minute
+
+#### XID distribution
+
+Specify the relative weight of each XID code. See [XID error codes](#xid-error-codes) for the full list of supported codes and their severity classification.
+
+#### Failure types
+
+| Type | Description |
+|------|-------------|
+| `xid_error` | GPU XID error with specified code distribution |
+| `temperature` | Thermal throttling/shutdown |
+| `nvml_failure` | NVML communication failure |
+| `boot_failure` | GPU boot/detection failure |
+| `network` | Network connectivity loss |
+
+### Cascading failures
+
+Cascading failures simulate realistic failure propagation:
+
+```yaml
+cascading:
+  enabled: true
+  probability: 0.15      # 15% chance a failure cascades
+  max_depth: 3           # Maximum cascade chain length
+  min_delay: 1s          # Minimum delay before cascade
+  max_delay: 10s         # Maximum delay before cascade
+  scope: zone            # Cascade scope
+  max_affected_percent: 0.1  # Max 10% of scoped nodes affected
+```
+
+Cascade scopes:
+- `rack`: Same rack (first 3 node ID segments match)
+- `zone`: Same availability zone
+- `region`: Same region
+- `provider`: Same cloud provider
+- `random`: Any node in the cluster
+
+### Automatic recovery
+
+Configure automatic recovery for non-fatal failures:
+
+```yaml
+recovery:
+  enabled: true
+  probability: 0.7    # 70% of non-fatal errors recover
+  mean_time: 5m       # Average recovery time
+  std_dev: 2m         # Recovery time variation
+```
+
+Recovery only applies to non-fatal XID codes and other recoverable failure types.
+
+### Scheduled outages
+
+Simulate planned or unplanned outage events:
+
+```yaml
+scheduled_outages:
+  - name: zone-network-partition
+    start_time: 10m
+    duration: 5m
+    scope: zone
+    target: us-central1-a
+    failure_type: network
+
+  - name: provider-degradation
+    start_time: 20m
+    duration: 8m
+    scope: provider
+    target: lambda
+    failure_type: xid_error
+
+  - name: random-thermal-event
+    start_time: 15m
+    duration: 3m
+    scope: percentage
+    target: "10"        # 10% of nodes
+    failure_type: temperature
+```
+
+Outage scopes:
+- `zone`: All nodes in the specified zone
+- `region`: All nodes in the specified region
+- `provider`: All nodes from the specified provider
+- `percentage`: Random percentage of all nodes
+
+### Correlated failures
+
+Define failures that trigger related failures:
+
+```yaml
+correlated_failures:
+  - name: nvlink-gpu-cascade
+    trigger: "74"         # NVLink error triggers this
+    response: xid_error   # Inject XID error in response
+    probability: 0.6      # 60% chance
+    delay: 1s             # Wait before triggering
+    scope: same_node      # Affect same node
+
+  - name: thermal-propagation
+    trigger: temperature
+    response: temperature
+    probability: 0.4
+    delay: 3s
+    scope: same_rack
+```
+
+Correlation scopes:
+- `same_node`: Same node (multi-GPU failures)
+- `same_rack`: Nearby nodes in same rack
+- `same_zone`: Nodes in same availability zone
+- `random`: Random node in cluster
+
+### Run directory
+
+Stress tests organize all artifacts in a timestamped run directory under `./sim-runs/`:
+
+```
+sim-runs/
+└── 2024-01-15_10-30-45.123456789/
+    ├── logs/              # Per-node and control plane logs
+    ├── scenario.yaml      # Copy of input scenario
+    ├── report.json        # JSON report
+    └── report.html        # HTML report
+```
+
+### Per-node logs
+
+Each simulated node writes detailed logs to its own file in the `logs/` subdirectory. Logs capture node registration, health checks, GPU status changes, failure events, and command execution.
+
+The control plane also maintains its own log file (`control-plane.log`) with cluster-wide events. Log file paths appear as clickable links in the HTML report.
+
+### Reports
+
+Stress tests generate reports in the run directory:
+
+- **HTML report** (`report.html`): Interactive visualization with summary statistics, failure breakdowns, and charts. Open in any browser.
+- **JSON report** (`report.json`): Structured data for programmatic analysis, including configuration, node statistics, failure breakdowns, and a timeline of metrics.
+
+### Example stress test scenarios
+
+The `scenarios/stress/` directory contains ready-to-use scenarios:
+
+| Scenario | Nodes | Duration | Purpose |
+|----------|-------|----------|---------|
+| `1000-node-chaos.yaml` | 1000 | 10m | Standard chaos test with realistic failure distribution |
+| `5000-node-extreme.yaml` | 5000 | 30m | Maximum load with aggressive failures and outages |
+| `xid-comprehensive.yaml` | 500 | 15m | All XID codes tested equally, no cascading |
+| `cascading-failures.yaml` | 1000 | 20m | High cascade probability with deep chains |
+
+### Writing custom stress tests
+
+1. Start from an existing stress test scenario.
+2. Adjust `total_nodes` based on your requirements.
+3. Configure templates to match your production fleet.
+4. Set `failure_rate` based on expected failure patterns.
+5. Enable or disable features (cascading, recovery, outages) as needed.
+6. Set a `seed` for reproducible tests.
+
+Tips:
+
+- Start with smaller node counts (100-500) during development.
+- Use `--seed` to reproduce specific failure sequences.
+- Monitor memory usage for large fleets (5000+ nodes).
+- Allow adequate startup time for large fleets.
+- Use `validate` to check scenario syntax before running.
+
+### Performance considerations
+
+For large-scale stress tests:
+
+| Node Count | Recommended Startup | Memory Usage |
+|------------|---------------------|--------------|
+| 100-500 | linear, 30s | ~200MB |
+| 500-1000 | linear, 1m | ~500MB |
+| 1000-2000 | exponential, 2m | ~1GB |
+| 2000-5000 | wave, 5m | ~2-3GB |
+| 5000+ | wave, 10m+ | ~5GB+ |
 

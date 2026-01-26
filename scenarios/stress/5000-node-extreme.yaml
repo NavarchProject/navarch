@@ -1,0 +1,259 @@
+name: 5000-node-extreme-stress
+description: |
+  Extreme stress test with 5000 nodes simulating worst-case scenarios:
+  - Maximum scale fleet deployment
+  - Aggressive failure injection
+  - Scheduled zone and provider outages
+  - High cascade probability
+  - Multi-region failures
+
+  This test validates system behavior under extreme load and failure conditions.
+
+fleet: []
+
+stress:
+  duration: 30m
+  metrics_interval: 10s
+  seed: 54321
+  report_file: stress-report-5000-extreme.json
+
+  fleet_gen:
+    total_nodes: 5000
+
+    templates:
+      - name: h100-8gpu-nvlink
+        weight: 40
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3 NVLink"
+        instance_type: a3-megagpu-8g
+        labels:
+          tier: premium
+          interconnect: nvlink
+          workload: large-training
+
+      - name: h100-8gpu
+        weight: 25
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+        labels:
+          tier: premium
+          workload: training
+
+      - name: a100-8gpu
+        weight: 20
+        gpu_count: 8
+        gpu_type: "NVIDIA A100 80GB"
+        instance_type: a2-ultragpu-8g
+        labels:
+          tier: standard
+          workload: training
+
+      - name: h100-4gpu
+        weight: 10
+        gpu_count: 4
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-4g
+        labels:
+          tier: standard
+          workload: inference
+
+      - name: a100-4gpu
+        weight: 5
+        gpu_count: 4
+        gpu_type: "NVIDIA A100 40GB"
+        instance_type: a2-highgpu-4g
+        labels:
+          tier: economy
+          workload: batch
+
+    providers:
+      gcp: 45
+      aws: 40
+      lambda: 15
+
+    regions:
+      us-central1: 25
+      us-east1: 20
+      us-west1: 15
+      us-west4: 10
+      europe-west1: 10
+      europe-west4: 8
+      asia-east1: 7
+      asia-southeast1: 5
+
+    zones:
+      us-central1: [us-central1-a, us-central1-b, us-central1-c, us-central1-f]
+      us-east1: [us-east1-b, us-east1-c, us-east1-d]
+      us-west1: [us-west1-a, us-west1-b]
+      us-west4: [us-west4-a, us-west4-b, us-west4-c]
+      europe-west1: [europe-west1-b, europe-west1-c, europe-west1-d]
+      europe-west4: [europe-west4-a, europe-west4-b, europe-west4-c]
+      asia-east1: [asia-east1-a, asia-east1-b, asia-east1-c]
+      asia-southeast1: [asia-southeast1-a, asia-southeast1-b]
+
+    startup:
+      pattern: wave
+      duration: 5m
+      batch_size: 100
+      jitter_percent: 20
+
+  chaos:
+    enabled: true
+    failure_rate: 50.0  # Aggressive: 50 failures per minute per 1000 nodes
+
+    xid_distribution:
+      13: 10  # Graphics Engine Exception
+      31: 15  # GPU memory page fault
+      32: 8   # Invalid push buffer
+      43: 12  # GPU stopped processing
+      45: 8   # Preemptive cleanup
+      48: 15  # Double Bit ECC - higher rate in extreme test
+      63: 10  # ECC page retirement failure
+      64: 5   # ECC recording event
+      68: 4   # NVDEC0 Exception
+      74: 10  # NVLink Error - higher for NVLink nodes
+      79: 10  # GPU fallen off bus
+      92: 5   # High single-bit ECC rate
+      94: 5   # Contained ECC error
+      95: 8   # Uncontained ECC error
+
+    failure_types:
+      - type: xid_error
+        weight: 65
+      - type: temperature
+        weight: 12
+      - type: nvml_failure
+        weight: 10
+      - type: boot_failure
+        weight: 3
+      - type: network
+        weight: 10
+
+    cascading:
+      enabled: true
+      probability: 0.3  # 30% cascade probability - aggressive
+      max_depth: 4
+      min_delay: 500ms
+      max_delay: 15s
+      scope: zone
+      max_affected_percent: 0.2  # Up to 20% of zone
+
+    recovery:
+      enabled: true
+      probability: 0.5  # Lower recovery probability
+      mean_time: 8m
+      std_dev: 3m
+
+    # Scheduled major outages to simulate real-world incidents
+    scheduled_outages:
+      - name: us-central1-a-network-partition
+        start_time: 8m
+        duration: 3m
+        scope: zone
+        target: us-central1-a
+        failure_type: network
+
+      - name: lambda-provider-degradation
+        start_time: 12m
+        duration: 5m
+        scope: provider
+        target: lambda
+        failure_type: xid_error
+
+      - name: europe-west1-power-event
+        start_time: 18m
+        duration: 4m
+        scope: region
+        target: europe-west1
+        failure_type: boot_failure
+
+      - name: random-10percent-thermal
+        start_time: 22m
+        duration: 2m
+        scope: percentage
+        target: "10"
+        failure_type: temperature
+
+    # Correlated failures (when one thing fails, related things may fail)
+    correlated_failures:
+      - name: nvlink-cascade
+        trigger: "74"  # NVLink error
+        response: xid_error
+        probability: 0.4
+        delay: 2s
+        scope: same_node
+
+      - name: power-thermal-cascade
+        trigger: temperature
+        response: xid_error
+        probability: 0.3
+        delay: 5s
+        scope: same_rack
+
+events:
+  - at: 0s
+    action: log
+    params:
+      log_message: "=== EXTREME STRESS TEST STARTING ==="
+
+  - at: 1m
+    action: log
+    params:
+      log_message: "Wave 1 of fleet deployment in progress..."
+
+  - at: 3m
+    action: log
+    params:
+      log_message: "Wave 3 complete, chaos injection ramping up"
+
+  - at: 6m
+    action: log
+    params:
+      log_message: "Fleet fully deployed, entering steady state chaos"
+
+  - at: 8m
+    action: log
+    params:
+      log_message: ">>> SCHEDULED OUTAGE: us-central1-a network partition"
+
+  - at: 11m
+    action: log
+    params:
+      log_message: ">>> us-central1-a recovered"
+
+  - at: 12m
+    action: log
+    params:
+      log_message: ">>> SCHEDULED OUTAGE: Lambda provider degradation"
+
+  - at: 17m
+    action: log
+    params:
+      log_message: ">>> Lambda provider recovered"
+
+  - at: 18m
+    action: log
+    params:
+      log_message: ">>> SCHEDULED OUTAGE: Europe-west1 power event"
+
+  - at: 22m
+    action: log
+    params:
+      log_message: ">>> SCHEDULED OUTAGE: Random 10% thermal event"
+
+  - at: 25m
+    action: log
+    params:
+      log_message: "Entering final phase, all outages should be resolved"
+
+  - at: 29m
+    action: log
+    params:
+      log_message: "=== COLLECTING FINAL METRICS ==="
+
+assertions:
+  # Even under extreme conditions, expect 60% availability
+  - type: node_count
+    target: all
+    expected: "3000"

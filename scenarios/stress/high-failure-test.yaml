@@ -1,0 +1,55 @@
+name: high-failure-test
+description: Quick test with high failure rate to validate failure injection
+
+fleet: []
+
+stress:
+  duration: 30s
+  metrics_interval: 5s
+  seed: 123
+  report_file: /tmp/high-failure-report.json
+  html_report_file: /tmp/high-failure-report.html
+  log_file: /tmp/high-failure-report.log
+
+  fleet_gen:
+    total_nodes: 20
+    templates:
+      - name: h100-8gpu
+        weight: 100
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+    providers:
+      gcp: 100
+    regions:
+      us-central1: 100
+    startup:
+      pattern: instant
+
+  chaos:
+    enabled: true
+    failure_rate: 500.0  # Very high rate for testing
+
+    xid_distribution:
+      31: 40
+      79: 30
+      48: 30
+
+    failure_types:
+      - type: xid_error
+        weight: 100
+
+    cascading:
+      enabled: true
+      probability: 0.5
+      max_depth: 2
+      min_delay: 100ms
+      max_delay: 500ms
+      scope: zone
+      max_affected_percent: 0.3
+
+    recovery:
+      enabled: true
+      probability: 0.8
+      mean_time: 10s
+      std_dev: 3s

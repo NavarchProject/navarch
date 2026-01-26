@@ -15,18 +15,154 @@ type Scenario struct {
 	Fleet       []NodeSpec   `yaml:"fleet"`
 	Events      []Event      `yaml:"events"`
 	Assertions  []Assertion  `yaml:"assertions,omitempty"`
+
+	// Stress test configuration (optional - enables stress testing mode)
+	Stress *StressConfig `yaml:"stress,omitempty"`
+}
+
+// StressConfig defines stress test parameters for large-scale simulation.
+type StressConfig struct {
+	// Fleet generation (alternative to defining individual nodes)
+	FleetGen *FleetGeneratorConfig `yaml:"fleet_gen,omitempty"`
+
+	// Chaos engineering settings
+	Chaos *ChaosConfig `yaml:"chaos,omitempty"`
+
+	// Test duration (overrides event-based timing)
+	Duration Duration `yaml:"duration,omitempty"`
+
+	// Metrics collection interval
+	MetricsInterval Duration `yaml:"metrics_interval,omitempty"`
+
+	// Random seed for reproducibility (0 = random)
+	Seed int64 `yaml:"seed,omitempty"`
+
+	// Report output file (JSON format)
+	ReportFile string `yaml:"report_file,omitempty"`
+
+	// HTML report output file (visual report with charts)
+	HTMLReportFile string `yaml:"html_report_file,omitempty"`
+
+	// Log file for verbose output (useful for debugging/LLM context)
+	LogFile string `yaml:"log_file,omitempty"`
+}
+
+// FleetGeneratorConfig defines how to generate a large fleet programmatically.
+type FleetGeneratorConfig struct {
+	// Total number of nodes to generate
+	TotalNodes int `yaml:"total_nodes"`
+
+	// Node templates with weighted distribution
+	Templates []NodeTemplate `yaml:"templates"`
+
+	// Provider distribution (provider -> percentage)
+	Providers map[string]int `yaml:"providers,omitempty"`
+
+	// Region distribution (region -> percentage)
+	Regions map[string]int `yaml:"regions,omitempty"`
+
+	// Zones per region (region -> []zones)
+	Zones map[string][]string `yaml:"zones,omitempty"`
+
+	// Startup configuration
+	Startup StartupConfig `yaml:"startup,omitempty"`
+}
+
+// NodeTemplate defines a template for generating nodes.
+type NodeTemplate struct {
+	Name         string            `yaml:"name"`
+	Weight       int               `yaml:"weight"` // Relative frequency
+	GPUCount     int               `yaml:"gpu_count"`
+	GPUType      string            `yaml:"gpu_type"`
+	InstanceType string            `yaml:"instance_type"`
+	Labels       map[string]string `yaml:"labels,omitempty"`
+}
+
+// StartupConfig controls how nodes join the cluster.
+type StartupConfig struct {
+	// Pattern: "instant", "linear", "exponential", "wave"
+	Pattern string `yaml:"pattern,omitempty"`
+
+	// Duration over which nodes start up
+	Duration Duration `yaml:"duration,omitempty"`
+
+	// Batch size for wave pattern
+	BatchSize int `yaml:"batch_size,omitempty"`
+
+	// Jitter percentage (0-100)
+	JitterPercent int `yaml:"jitter_percent,omitempty"`
+}
+
+// ChaosConfig defines chaos engineering parameters.
+type ChaosConfig struct {
+	// Enable chaos engineering
+	Enabled bool `yaml:"enabled"`
+
+	// Failure injection rate (failures per minute per 1000 nodes)
+	FailureRate float64 `yaml:"failure_rate"`
+
+	// XID error distribution (code -> weight)
+	XIDDistribution map[int]int `yaml:"xid_distribution,omitempty"`
+
+	// Failure type distribution
+	FailureTypes []FailureTypeWeight `yaml:"failure_types,omitempty"`
+
+	// Cascading failure settings
+	Cascading *CascadingConfig `yaml:"cascading,omitempty"`
+
+	// Recovery settings
+	Recovery *RecoveryConfig `yaml:"recovery,omitempty"`
+
+	// Scheduled outages
+	ScheduledOutages []ScheduledOutage `yaml:"scheduled_outages,omitempty"`
+}
+
+// FailureTypeWeight defines a failure type and its probability weight.
+type FailureTypeWeight struct {
+	Type   string `yaml:"type"` // xid_error, temperature, nvml_failure, boot_failure, network
+	Weight int    `yaml:"weight"`
+}
+
+// CascadingConfig controls cascading failure behavior.
+type CascadingConfig struct {
+	Enabled            bool     `yaml:"enabled"`
+	Probability        float64  `yaml:"probability"`         // 0.0-1.0
+	MaxDepth           int      `yaml:"max_depth"`           // Maximum cascade depth
+	MinDelay           Duration `yaml:"min_delay"`           // Minimum delay before cascade
+	MaxDelay           Duration `yaml:"max_delay"`           // Maximum delay before cascade
+	Scope              string   `yaml:"scope"`               // rack, zone, region, provider, random
+	MaxAffectedPercent float64  `yaml:"max_affected_percent"` // Max % of scoped nodes affected
+}
+
+// RecoveryConfig controls automatic recovery behavior.
+type RecoveryConfig struct {
+	Enabled            bool     `yaml:"enabled"`
+	Probability        float64  `yaml:"probability"`           // Probability of recovery for non-fatal errors
+	MeanTime           Duration `yaml:"mean_time"`             // Mean time to recovery
+	StdDev             Duration `yaml:"std_dev"`               // Standard deviation of recovery time
+}
+
+// ScheduledOutage defines a planned outage event.
+type ScheduledOutage struct {
+	Name        string   `yaml:"name"`
+	StartTime   Duration `yaml:"start_time"`
+	Duration    Duration `yaml:"duration"`
+	Scope       string   `yaml:"scope"`        // zone, region, provider, percentage
+	Target      string   `yaml:"target"`       // Specific target or percentage
+	FailureType string   `yaml:"failure_type"` // Type of failure to inject
 }
 
 // NodeSpec defines a simulated node in the fleet.
 type NodeSpec struct {
-	ID           string            `yaml:"id"`
-	Provider     string            `yaml:"provider"`
-	Region       string            `yaml:"region"`
-	Zone         string            `yaml:"zone"`
-	InstanceType string            `yaml:"instance_type"`
-	GPUCount     int               `yaml:"gpu_count"`
-	GPUType      string            `yaml:"gpu_type"`
-	Labels       map[string]string `yaml:"labels,omitempty"`
+	ID               string            `yaml:"id"`
+	Provider         string            `yaml:"provider"`
+	Region           string            `yaml:"region"`
+	Zone             string            `yaml:"zone"`
+	InstanceType     string            `yaml:"instance_type"`
+	GPUCount         int               `yaml:"gpu_count"`
+	GPUType          string            `yaml:"gpu_type"`
+	Labels           map[string]string `yaml:"labels,omitempty"`
+	ControlPlaneAddr string            `yaml:"-"` // Set at runtime, not from YAML
 }
 
 // Event represents something that happens during a scenario.
@@ -115,19 +251,32 @@ func (s *Scenario) Validate() error {
 	if s.Name == "" {
 		return fmt.Errorf("scenario name is required")
 	}
-	if len(s.Fleet) == 0 {
-		return fmt.Errorf("fleet must have at least one node")
+
+	// Either fleet or stress.fleet_gen must be defined
+	hasFleet := len(s.Fleet) > 0
+	hasFleetGen := s.Stress != nil && s.Stress.FleetGen != nil && s.Stress.FleetGen.TotalNodes > 0
+
+	if !hasFleet && !hasFleetGen {
+		return fmt.Errorf("fleet or stress.fleet_gen must be defined")
 	}
 
-	nodeIDs := make(map[string]bool)
-	for _, node := range s.Fleet {
-		if node.ID == "" {
-			return fmt.Errorf("node ID is required")
+	if hasFleet {
+		nodeIDs := make(map[string]bool)
+		for _, node := range s.Fleet {
+			if node.ID == "" {
+				return fmt.Errorf("node ID is required")
+			}
+			if nodeIDs[node.ID] {
+				return fmt.Errorf("duplicate node ID: %s", node.ID)
+			}
+			nodeIDs[node.ID] = true
 		}
-		if nodeIDs[node.ID] {
-			return fmt.Errorf("duplicate node ID: %s", node.ID)
+	}
+
+	if hasFleetGen {
+		if err := s.Stress.FleetGen.Validate(); err != nil {
+			return fmt.Errorf("invalid fleet_gen: %w", err)
 		}
-		nodeIDs[node.ID] = true
 	}
 
 	validActions := map[string]bool{
@@ -148,7 +297,66 @@ func (s *Scenario) Validate() error {
 		}
 	}
 
+	if s.Stress != nil {
+		if err := s.Stress.Validate(); err != nil {
+			return fmt.Errorf("invalid stress config: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// Validate validates the fleet generator configuration.
+func (f *FleetGeneratorConfig) Validate() error {
+	if f.TotalNodes <= 0 {
+		return fmt.Errorf("total_nodes must be positive")
+	}
+	if len(f.Templates) == 0 {
+		return fmt.Errorf("at least one template is required")
+	}
+	for i, t := range f.Templates {
+		if t.Name == "" {
+			return fmt.Errorf("template %d: name is required", i)
+		}
+		if t.Weight <= 0 {
+			return fmt.Errorf("template %s: weight must be positive", t.Name)
+		}
+		if t.GPUCount <= 0 {
+			return fmt.Errorf("template %s: gpu_count must be positive", t.Name)
+		}
+	}
+	return nil
+}
+
+// Validate validates the stress configuration.
+func (s *StressConfig) Validate() error {
+	if s.Chaos != nil && s.Chaos.Enabled {
+		if s.Chaos.FailureRate < 0 {
+			return fmt.Errorf("chaos.failure_rate must be non-negative")
+		}
+		if s.Chaos.Cascading != nil && s.Chaos.Cascading.Enabled {
+			if s.Chaos.Cascading.Probability < 0 || s.Chaos.Cascading.Probability > 1 {
+				return fmt.Errorf("cascading.probability must be between 0 and 1")
+			}
+			if s.Chaos.Cascading.MaxDepth <= 0 {
+				s.Chaos.Cascading.MaxDepth = 3 // Default
+			}
+		}
+	}
+	return nil
+}
+
+// IsStressTest returns true if this scenario is configured for stress testing.
+func (s *Scenario) IsStressTest() bool {
+	return s.Stress != nil
+}
+
+// GetEffectiveDuration returns the duration for stress tests or 0 for regular scenarios.
+func (s *Scenario) GetEffectiveDuration() time.Duration {
+	if s.Stress != nil && s.Stress.Duration.Duration() > 0 {
+		return s.Stress.Duration.Duration()
+	}
+	return 0
 }
 
 // Known XID error codes and their meanings.
