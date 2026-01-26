@@ -18,7 +18,8 @@ import (
 
 func startTestControlPlane(t *testing.T) (string, func()) {
 	database := db.NewInMemDB()
-	srv := controlplane.NewServer(database, controlplane.DefaultConfig(), nil, nil)
+	im := controlplane.NewInstanceManager(database, controlplane.DefaultInstanceManagerConfig(), nil)
+	srv := controlplane.NewServer(database, controlplane.DefaultConfig(), im, nil)
 
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)

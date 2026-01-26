@@ -153,8 +153,8 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	cfg.HealthCheckIntervalSeconds = 5
 	cfg.HeartbeatIntervalSeconds = 3
 
-	// Pass nil for instance manager in simulator (not needed for basic simulation)
-	server := controlplane.NewServer(database, cfg, nil, r.logger.With(slog.String("component", "control-plane")))
+	im := controlplane.NewInstanceManager(database, controlplane.DefaultInstanceManagerConfig(), r.logger.With(slog.String("component", "instance-manager")))
+	server := controlplane.NewServer(database, cfg, im, r.logger.With(slog.String("component", "control-plane")))
 
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(server)

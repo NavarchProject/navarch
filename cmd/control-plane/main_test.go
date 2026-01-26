@@ -15,7 +15,8 @@ func TestHealthEndpoints(t *testing.T) {
 	defer database.Close()
 
 	cfg := controlplane.DefaultConfig()
-	srv := controlplane.NewServer(database, cfg, nil, nil)
+	im := controlplane.NewInstanceManager(database, controlplane.DefaultInstanceManagerConfig(), nil)
+	srv := controlplane.NewServer(database, cfg, im, nil)
 
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)

@@ -40,9 +40,10 @@ func DefaultConfig() Config {
 }
 
 // NewServer creates a new Server. If logger is nil, slog.Default() is used.
-// The instanceManager parameter is optional; if nil, instance lifecycle tracking
-// on node registration is disabled.
 func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, logger *slog.Logger) *Server {
+	if instanceManager == nil {
+		panic("instanceManager is required")
+	}
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -93,16 +94,14 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("registration failed: %w", err))
 	}
 
-	// Update instance tracking if enabled
+	// Update instance tracking
 	// The node_id is the same as the instance_id from the cloud provider
-	if s.instanceManager != nil {
-		if err := s.instanceManager.TrackNodeRegistered(ctx, req.Msg.NodeId, req.Msg.NodeId); err != nil {
-			// Log but don't fail - the node is still registered successfully
-			s.logger.WarnContext(ctx, "failed to update instance tracking",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
-		}
+	if err := s.instanceManager.TrackNodeRegistered(ctx, req.Msg.NodeId, req.Msg.NodeId); err != nil {
+		// Log but don't fail - the node is still registered successfully
+		s.logger.WarnContext(ctx, "failed to update instance tracking",
+			slog.String("node_id", req.Msg.NodeId),
+			slog.String("error", err.Error()),
+		)
 	}
 
 	s.logger.InfoContext(ctx, "node registered successfully", slog.String("node_id", req.Msg.NodeId))

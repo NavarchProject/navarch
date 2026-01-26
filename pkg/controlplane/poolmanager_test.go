@@ -5,9 +5,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
+
+// newTestInstanceManager creates an InstanceManager for testing.
+func newTestInstanceManager() (*InstanceManager, func()) {
+	database := db.NewInMemDB()
+	im := NewInstanceManager(database, DefaultInstanceManagerConfig(), nil)
+	return im, func() { database.Close() }
+}
 
 type mockProvider struct {
 	provisions int
@@ -45,7 +53,9 @@ func (m *mockMetrics) GetPoolMetrics(ctx context.Context, name string) (*PoolMet
 }
 
 func TestPoolManager_AddRemovePool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
+	pm := NewPoolManager(PoolManagerConfig{}, nil, im, nil)
 
 	prov := &mockProvider{}
 	p, err := pool.NewSimple(pool.Config{
@@ -85,7 +95,9 @@ func TestPoolManager_AddRemovePool(t *testing.T) {
 }
 
 func TestPoolManager_GetPool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
+	pm := NewPoolManager(PoolManagerConfig{}, nil, im, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -107,7 +119,9 @@ func TestPoolManager_GetPool(t *testing.T) {
 }
 
 func TestPoolManager_GetPoolStatus(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
+	pm := NewPoolManager(PoolManagerConfig{}, nil, im, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -132,7 +146,9 @@ func TestPoolManager_GetPoolStatus(t *testing.T) {
 }
 
 func TestPoolManager_ScalePool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
+	pm := NewPoolManager(PoolManagerConfig{}, nil, im, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -162,9 +178,11 @@ func TestPoolManager_ScalePool(t *testing.T) {
 }
 
 func TestPoolManager_StartStop(t *testing.T) {
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 100 * time.Millisecond,
-	}, nil, nil, nil)
+	}, nil, im, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -184,10 +202,12 @@ func TestPoolManager_StartStop(t *testing.T) {
 }
 
 func TestPoolManager_AutoscalerLoop(t *testing.T) {
+	im, cleanup := newTestInstanceManager()
+	defer cleanup()
 	metrics := &mockMetrics{utilization: 90}
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 50 * time.Millisecond,
-	}, metrics, nil, nil)
+	}, metrics, im, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{

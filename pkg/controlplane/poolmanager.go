@@ -50,8 +50,10 @@ type PoolManagerConfig struct {
 }
 
 // NewPoolManager creates a new pool manager.
-// The instanceManager parameter is optional; if nil, instance lifecycle tracking is disabled.
 func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, instanceManager *InstanceManager, logger *slog.Logger) *PoolManager {
+	if instanceManager == nil {
+		panic("instanceManager is required")
+	}
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -307,10 +309,6 @@ func (pm *PoolManager) actOnRecommendation(ctx context.Context, name string, mp 
 
 // trackProvisionedInstances creates instance records for newly provisioned nodes.
 func (pm *PoolManager) trackProvisionedInstances(ctx context.Context, poolName string, mp *managedPool, nodes []*provider.Node) {
-	if pm.instanceManager == nil {
-		return
-	}
-
 	cfg := mp.pool.Config()
 	for _, node := range nodes {
 		// Create instance record in PENDING_REGISTRATION state
@@ -335,10 +333,6 @@ func (pm *PoolManager) trackProvisionedInstances(ctx context.Context, poolName s
 
 // trackTerminatedInstances marks instances as terminated that were removed during scale down.
 func (pm *PoolManager) trackTerminatedInstances(ctx context.Context, before, after []*pool.ManagedNode) {
-	if pm.instanceManager == nil {
-		return
-	}
-
 	// Build a set of nodes that still exist
 	remaining := make(map[string]bool)
 	for _, node := range after {

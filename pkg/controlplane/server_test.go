@@ -14,15 +14,22 @@ import (
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
+// newTestServer creates a Server with an InstanceManager for testing.
+// Returns the server, database, instance manager, and a cleanup function.
+func newTestServer(cfg Config) (*Server, db.DB, *InstanceManager, func()) {
+	database := db.NewInMemDB()
+	im := NewInstanceManager(database, DefaultInstanceManagerConfig(), nil)
+	srv := NewServer(database, cfg, im, nil)
+	return srv, database, im, func() { database.Close() }
+}
+
 // TestRegisterNode tests the complete node registration flow
 func TestRegisterNode(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		// Setup
-		database := db.NewInMemDB()
-		defer database.Close()
-
 		cfg := DefaultConfig()
-		srv := NewServer(database, cfg, nil, nil)
+		srv, database, _, cleanup := newTestServer(cfg)
+		defer cleanup()
 		ctx := context.Background()
 
 		// Node sends registration request
@@ -78,9 +85,8 @@ func TestRegisterNode(t *testing.T) {
 	})
 
 	t.Run("missing_node_id", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		req := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -101,9 +107,8 @@ func TestRegisterNode(t *testing.T) {
 	})
 
 	t.Run("duplicate_registration", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		req := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -134,9 +139,8 @@ func TestRegisterNode(t *testing.T) {
 // TestSendHeartbeat tests the heartbeat flow
 func TestSendHeartbeat(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node first
@@ -173,9 +177,8 @@ func TestSendHeartbeat(t *testing.T) {
 	})
 
 	t.Run("unregistered_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		hbReq := connect.NewRequest(&pb.HeartbeatRequest{
@@ -199,9 +202,8 @@ func TestSendHeartbeat(t *testing.T) {
 // TestReportHealth tests health reporting and status updates
 func TestReportHealth(t *testing.T) {
 	t.Run("healthy_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -249,9 +251,8 @@ func TestReportHealth(t *testing.T) {
 	})
 
 	t.Run("unhealthy_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -293,9 +294,8 @@ func TestReportHealth(t *testing.T) {
 	})
 
 	t.Run("degraded_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -337,9 +337,8 @@ func TestReportHealth(t *testing.T) {
 // TestGetNodeCommands tests command issuance and execution
 func TestGetNodeCommands(t *testing.T) {
 	t.Run("cordon_command", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -392,9 +391,8 @@ func TestGetNodeCommands(t *testing.T) {
 	})
 
 	t.Run("multiple_commands", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
@@ -427,9 +425,8 @@ func TestGetNodeCommands(t *testing.T) {
 
 // TestNodeLifecycle tests the complete node lifecycle
 func TestNodeLifecycle(t *testing.T) {
-	database := db.NewInMemDB()
-	defer database.Close()
-	srv := NewServer(database, DefaultConfig(), nil, nil)
+	srv, database, _, cleanup := newTestServer(DefaultConfig())
+	defer cleanup()
 	ctx := context.Background()
 
 	// 1. Registration
@@ -506,9 +503,8 @@ func TestNodeLifecycle(t *testing.T) {
 // TestMultiNodeManagement tests multi-node fleet scenarios
 func TestMultiNodeManagement(t *testing.T) {
 	t.Run("concurrent_registration", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register multiple nodes concurrently
@@ -538,9 +534,8 @@ func TestMultiNodeManagement(t *testing.T) {
 	})
 
 	t.Run("independent_node_states", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register two nodes
@@ -578,9 +573,8 @@ func TestMultiNodeManagement(t *testing.T) {
 	})
 
 	t.Run("targeted_commands", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register two nodes
@@ -618,9 +612,8 @@ func TestMultiNodeManagement(t *testing.T) {
 // TestListNodes tests the ListNodes admin API
 func TestListNodes(t *testing.T) {
 	t.Run("empty_list", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		resp, err := srv.ListNodes(ctx, connect.NewRequest(&pb.ListNodesRequest{}))
@@ -633,9 +626,8 @@ func TestListNodes(t *testing.T) {
 	})
 
 	t.Run("list_all_nodes", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register 3 nodes
@@ -659,9 +651,8 @@ func TestListNodes(t *testing.T) {
 	})
 
 	t.Run("filter_by_provider", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register nodes from different providers
@@ -695,9 +686,8 @@ func TestListNodes(t *testing.T) {
 	})
 
 	t.Run("filter_by_region", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register nodes in different regions
@@ -727,9 +717,8 @@ func TestListNodes(t *testing.T) {
 	})
 
 	t.Run("filter_by_status", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register nodes
@@ -758,9 +747,8 @@ func TestListNodes(t *testing.T) {
 	})
 
 	t.Run("combined_filters", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register nodes with various attributes
@@ -799,9 +787,8 @@ func TestListNodes(t *testing.T) {
 // TestGetNode tests the GetNode admin API
 func TestGetNode(t *testing.T) {
 	t.Run("get_existing_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register a node with full details
@@ -861,9 +848,8 @@ func TestGetNode(t *testing.T) {
 	})
 
 	t.Run("node_not_found", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		getReq := connect.NewRequest(&pb.GetNodeRequest{
@@ -884,9 +870,8 @@ func TestGetNode(t *testing.T) {
 	})
 
 	t.Run("missing_node_id", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		getReq := connect.NewRequest(&pb.GetNodeRequest{
@@ -907,9 +892,8 @@ func TestGetNode(t *testing.T) {
 	})
 
 	t.Run("node_with_updated_status", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -938,9 +922,8 @@ func TestGetNode(t *testing.T) {
 // TestIssueCommand tests the IssueCommand admin API
 func TestIssueCommand(t *testing.T) {
 	t.Run("issue_cordon_command", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -984,9 +967,8 @@ func TestIssueCommand(t *testing.T) {
 	})
 
 	t.Run("issue_to_nonexistent_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
@@ -1008,9 +990,8 @@ func TestIssueCommand(t *testing.T) {
 	})
 
 	t.Run("missing_node_id", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
@@ -1032,9 +1013,8 @@ func TestIssueCommand(t *testing.T) {
 	})
 
 	t.Run("missing_command_type", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -1062,9 +1042,8 @@ func TestIssueCommand(t *testing.T) {
 	})
 
 	t.Run("multiple_commands_to_same_node", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, database, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
@@ -1102,9 +1081,8 @@ func TestIssueCommand(t *testing.T) {
 	})
 
 	t.Run("command_with_no_parameters", func(t *testing.T) {
-		database := db.NewInMemDB()
-		defer database.Close()
-		srv := NewServer(database, DefaultConfig(), nil, nil)
+		srv, _, _, cleanup := newTestServer(DefaultConfig())
+		defer cleanup()
 		ctx := context.Background()
 
 		// Register node
