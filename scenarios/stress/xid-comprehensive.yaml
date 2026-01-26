@@ -1,0 +1,102 @@
+name: xid-comprehensive-test
+description: |
+  Comprehensive XID error testing across all known error codes.
+  Tests the system's ability to:
+  - Correctly classify fatal vs. non-fatal XID errors
+  - Handle all known XID codes appropriately
+  - Recover from recoverable errors
+  - Properly cordon/drain nodes with fatal errors
+
+fleet: []
+
+stress:
+  duration: 15m
+  metrics_interval: 3s
+  seed: 99999
+  report_file: stress-report-xid-comprehensive.json
+  html_report_file: stress-report-xid-comprehensive.html
+
+  fleet_gen:
+    total_nodes: 500
+
+    templates:
+      - name: h100-8gpu
+        weight: 100
+        gpu_count: 8
+        gpu_type: "NVIDIA H100 80GB HBM3"
+        instance_type: a3-highgpu-8g
+        price_per_hour: 28.00  # ~$3.50/GPU/hr for H100
+
+    providers:
+      gcp: 100
+
+    regions:
+      us-central1: 100
+
+    startup:
+      pattern: linear
+      duration: 1m
+      jitter_percent: 5
+
+  chaos:
+    enabled: true
+    failure_rate: 30.0  # High rate to see all XID types quickly
+
+    # Comprehensive XID distribution - all codes tested equally
+    xid_distribution:
+      # Recoverable XID codes
+      13: 10  # Graphics Engine Exception
+      31: 10  # GPU memory page fault
+      32: 10  # Invalid push buffer stream
+      45: 10  # Preemptive cleanup
+      64: 10  # ECC page retirement recording
+      68: 10  # NVDEC0 Exception
+      92: 10  # High single-bit ECC rate
+      94: 10  # Contained ECC error
+
+      # Fatal XID codes
+      43: 10  # GPU stopped processing
+      48: 10  # Double Bit ECC Error
+      63: 10  # ECC page retirement failure
+      74: 10  # NVLink Error
+      79: 10  # GPU fallen off bus
+      95: 10  # Uncontained ECC error
+
+    failure_types:
+      - type: xid_error
+        weight: 100  # XID errors only for this test
+
+    cascading:
+      enabled: false  # Disable cascading to focus on individual XID behavior
+
+    recovery:
+      enabled: true
+      probability: 0.9  # High recovery rate to test recovery path
+      mean_time: 2m
+      std_dev: 30s
+
+events:
+  - at: 0s
+    action: log
+    params:
+      log_message: "Starting comprehensive XID error testing"
+
+  - at: 2m
+    action: log
+    params:
+      log_message: "Phase 1: All XID codes being injected randomly"
+
+  - at: 5m
+    action: log
+    params:
+      log_message: "Phase 2: Observing recovery patterns"
+
+  - at: 8m
+    action: log
+    params:
+      log_message: "Phase 3: Continued injection and recovery"
+
+  - at: 12m
+    action: log
+    params:
+      log_message: "Phase 4: Final observation period"
