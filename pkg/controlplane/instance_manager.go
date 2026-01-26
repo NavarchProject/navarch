@@ -26,6 +26,7 @@ type InstanceManager struct {
 	config InstanceManagerConfig
 
 	mu         sync.Mutex
+	started    bool
 	cancel     context.CancelFunc
 	wg         sync.WaitGroup
 	onStale    func(instance *db.InstanceRecord) // callback for stale instance detection
@@ -79,12 +80,19 @@ func NewInstanceManager(database db.DB, config InstanceManagerConfig, logger *sl
 }
 
 // Start begins the background stale instance detection loop.
+// Calling Start multiple times has no effect - subsequent calls are ignored.
 func (t *InstanceManager) Start(ctx context.Context) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if t.started {
+		t.logger.Debug("instance manager already started, ignoring Start() call")
+		return
+	}
+
 	loopCtx, cancel := context.WithCancel(ctx)
 	t.cancel = cancel
+	t.started = true
 
 	t.wg.Add(1)
 	go t.staleCheckLoop(loopCtx)
@@ -96,11 +104,17 @@ func (t *InstanceManager) Start(ctx context.Context) {
 }
 
 // Stop halts the background stale instance detection loop.
+// After Stop returns, Start can be called again to restart the manager.
 func (t *InstanceManager) Stop() {
 	t.mu.Lock()
+	if !t.started {
+		t.mu.Unlock()
+		return
+	}
 	if t.cancel != nil {
 		t.cancel()
 	}
+	t.started = false
 	t.mu.Unlock()
 
 	t.wg.Wait()

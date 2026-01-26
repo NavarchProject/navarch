@@ -663,3 +663,106 @@ func TestInstanceLifecycle_ProvisioningFailure(t *testing.T) {
 		t.Errorf("Expected error message, got %s", instance.StatusMessage)
 	}
 }
+
+// TestInstanceManager_MultipleStartCalls tests that calling Start() multiple times is safe
+func TestInstanceManager_MultipleStartCalls(t *testing.T) {
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	config := InstanceManagerConfig{
+		RegistrationTimeout:      100 * time.Millisecond,
+		StaleCheckInterval:       50 * time.Millisecond,
+		RetainTerminatedDuration: time.Hour,
+	}
+
+	im := NewInstanceManager(database, config, nil)
+	ctx := context.Background()
+
+	// Track if callback is called exactly once per stale instance
+	staleCount := 0
+	im.OnStaleInstance(func(instance *db.InstanceRecord) {
+		staleCount++
+	})
+
+	// Create an instance that will become stale
+	im.TrackProvisioning(ctx, "i-stale", "gcp", "us-central1", "us-central1-a", "a3-highgpu-8g", "pool", nil)
+	im.TrackProvisioningComplete(ctx, "i-stale")
+
+	// Start the manager multiple times - should not cause issues
+	im.Start(ctx)
+	im.Start(ctx) // Second call should be no-op
+	im.Start(ctx) // Third call should be no-op
+
+	// Wait for stale detection
+	time.Sleep(200 * time.Millisecond)
+
+	// Stop should work correctly even after multiple Start() calls
+	im.Stop()
+
+	// Verify instance was marked as failed exactly once
+	instance, err := im.GetInstance(ctx, "i-stale")
+	if err != nil {
+		t.Fatalf("GetInstance failed: %v", err)
+	}
+	if instance.State != pb.InstanceState_INSTANCE_STATE_FAILED {
+		t.Errorf("Expected FAILED state, got %v", instance.State)
+	}
+	if staleCount != 1 {
+		t.Errorf("Expected stale callback to be called exactly once, got %d", staleCount)
+	}
+}
+
+// TestInstanceManager_StopBeforeStart tests that Stop() is safe to call before Start()
+func TestInstanceManager_StopBeforeStart(t *testing.T) {
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	im := NewInstanceManager(database, DefaultInstanceManagerConfig(), nil)
+
+	// Stop before Start should not panic or block
+	im.Stop()
+}
+
+// TestInstanceManager_Restart tests that the manager can be restarted after Stop()
+func TestInstanceManager_Restart(t *testing.T) {
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	config := InstanceManagerConfig{
+		RegistrationTimeout:      100 * time.Millisecond,
+		StaleCheckInterval:       50 * time.Millisecond,
+		RetainTerminatedDuration: time.Hour,
+	}
+
+	im := NewInstanceManager(database, config, nil)
+	ctx := context.Background()
+
+	// First cycle
+	staleCount := 0
+	im.OnStaleInstance(func(instance *db.InstanceRecord) {
+		staleCount++
+	})
+
+	im.TrackProvisioning(ctx, "i-1", "gcp", "us-central1", "us-central1-a", "a3-highgpu-8g", "pool", nil)
+	im.TrackProvisioningComplete(ctx, "i-1")
+
+	im.Start(ctx)
+	time.Sleep(200 * time.Millisecond)
+	im.Stop()
+
+	if staleCount != 1 {
+		t.Errorf("First cycle: expected 1 stale callback, got %d", staleCount)
+	}
+
+	// Second cycle - manager should be able to restart
+	im.TrackProvisioning(ctx, "i-2", "gcp", "us-central1", "us-central1-a", "a3-highgpu-8g", "pool", nil)
+	im.TrackProvisioningComplete(ctx, "i-2")
+
+	im.Start(ctx)
+	time.Sleep(200 * time.Millisecond)
+	im.Stop()
+
+	if staleCount != 2 {
+		t.Errorf("Second cycle: expected 2 total stale callbacks, got %d", staleCount)
+	}
+}
