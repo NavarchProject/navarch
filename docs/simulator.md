@@ -400,6 +400,71 @@ Stress tests allow you to:
 ./bin/simulator validate scenarios/stress/5000-node-extreme.yaml
 ```
 
+### Console output
+
+Stress tests display styled console output with real-time progress and a summary at completion:
+
+```
+ STRESS TEST: 1000-node-chaos-test
+
+┌──────────────── Configuration ────────────────┐
+│ Duration: 10m0s                               │
+│ Nodes: 1000                                   │
+│ Seed: 12345                                   │
+│ Failure Rate: 10.0/min/1000                   │
+│ Cascading: true                               │
+└───────────────────────────────────────────────┘
+
+ℹ Running stress test for 10m0s...
+
+[ 50.0%] 5m0s elapsed, 5m0s remaining | Nodes: 947 healthy | Failures: 48 (cascade: 7) | Recoveries: 21
+```
+
+When complete, results are displayed in styled tables:
+
+```
+ STRESS TEST RESULTS
+
+ℹ Duration: 10m0.123s
+
+# Nodes
+┌─────────────────┬───────┐
+│ Metric          │ Value │
+├─────────────────┼───────┤
+│ Started         │ 1000  │
+│ Failed to Start │ 0     │
+│ Healthy         │ 912   │
+│ Unhealthy       │ 88    │
+│ Degraded        │ 0     │
+└─────────────────┴───────┘
+
+# Failures
+┌───────────────────┬───────┐
+│ Metric            │ Value │
+├───────────────────┼───────┤
+│ Total Failures    │ 98    │
+│ Cascading         │ 12    │
+│ Recoveries        │ 45    │
+└───────────────────┴───────┘
+
+# Top XID Errors
+┌──────────┬──────────────────────────────┬───────┬─────────────┐
+│ XID Code │ Name                         │ Count │ Severity    │
+├──────────┼──────────────────────────────┼───────┼─────────────┤
+│ 31       │ GPU memory page fault        │ 15    │ Recoverable │
+│ 79       │ GPU has fallen off the bus   │ 8     │ FATAL       │
+│ 48       │ Double Bit ECC Error         │ 7     │ FATAL       │
+└──────────┴──────────────────────────────┴───────┴─────────────┘
+
+# Reports Generated
+ ✓ ./sim-runs/2024-01-15_10-30-45.123456789
+
+ℹ View HTML report in browser:
+  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
+
+ ✓ Stress test completed successfully
+```
+
 ### Stress test configuration
 
 Stress tests use an extended scenario format with a `stress` section:
@@ -677,16 +742,71 @@ Correlation scopes:
 - `same_zone`: Nodes in same availability zone
 - `random`: Random node in cluster
 
+### Run directory
+
+Stress tests automatically organize all artifacts in a timestamped run directory. This keeps outputs organized and makes it easy to compare results across multiple runs.
+
+By default, the run directory is created under `./sim-runs/`:
+
+```
+sim-runs/
+└── 2024-01-15_10-30-45.123456789/
+    ├── logs/                    # Per-node and control plane logs
+    │   ├── control-plane.log
+    │   ├── node-gcp-001.log
+    │   ├── node-gcp-002.log
+    │   └── ...
+    ├── scenario.yaml            # Copy of the input scenario
+    ├── report.json              # JSON report
+    └── report.html              # Interactive HTML report
+```
+
+The directory name includes nanosecond precision to avoid collisions when starting multiple runs in quick succession.
+
+When the stress test completes, the console displays the run directory path and a clickable `file://` link for the HTML report:
+
+```
+# Reports Generated
+ ✓ ./sim-runs/2024-01-15_10-30-45.123456789
+
+ℹ View HTML report in browser:
+  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
+```
+
+### Per-node logging
+
+Each simulated node writes detailed logs to its own file in the `logs/` subdirectory. Logs are written using Go's structured logging (`slog`) at DEBUG level, capturing:
+
+- Node registration and heartbeat events
+- Health check reports
+- GPU status changes
+- Failure injection and recovery events
+- Command execution (cordon, drain, terminate)
+
+Per-node logs are useful for:
+
+- Debugging specific failure sequences
+- Tracing the timeline of events for a single node
+- Post-mortem analysis of cascading failures
+- Providing context to LLMs for automated analysis
+
+The control plane also maintains its own log file (`control-plane.log`) with cluster-wide events.
+
+Log file paths are included as relative links in the HTML report, making them clickable when viewing the report locally.
+
 ### Stress test reports
 
-Stress tests can generate multiple report formats:
+Stress tests generate multiple report formats, all stored in the run directory:
 
 ```yaml
 stress:
+  # These paths are now relative to the run directory when using default settings
   report_file: stress-report.json       # JSON report with raw data
   html_report_file: stress-report.html  # Interactive HTML report (web UI)
-  log_file: stress-report.log           # Detailed debug log
+  log_file: stress-report.log           # Detailed debug log (deprecated, use per-node logs)
 ```
+
+Note: The `log_file` option is deprecated in favor of the automatic per-node logging in the run directory. Existing scenarios that specify `log_file` will continue to work for backwards compatibility.
 
 #### HTML report (web UI)
 
@@ -703,15 +823,16 @@ To generate an HTML report:
 
 ```bash
 ./bin/simulator run scenarios/stress/high-failure-test.yaml -v
-# Reports generated at paths specified in the scenario
+# Reports generated in run directory
 ```
 
 Example output:
 ```
-📄 Reports generated:
-   • /tmp/stress-report.log (Log)
-   • /tmp/stress-report.json (JSON)
-   • /tmp/stress-report.html (HTML)
+# Reports Generated
+ ✓ ./sim-runs/2024-01-15_10-30-45.123456789
+
+ℹ View HTML report in browser:
+  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
 ```
 
 #### Log file
@@ -866,6 +987,61 @@ For large-scale stress tests:
 | 1000-2000 | exponential, 2m | ~1GB |
 | 2000-5000 | wave, 5m | ~2-3GB |
 | 5000+ | wave, 10m+ | ~5GB+ |
+
+## Injectable GPU manager
+
+The `pkg/gpu` package includes an `Injectable` GPU manager for integration testing with the real node binary. Unlike the fully simulated nodes in stress tests, this allows you to run the actual node daemon with a fake GPU backend that supports failure injection.
+
+This is useful for:
+
+- Integration testing the node binary without real GPUs
+- Testing GPU driver interactions and error handling paths
+- Validating health check logic with controlled failures
+- CI/CD pipelines on machines without GPUs
+
+### Usage
+
+```go
+import "github.com/NavarchProject/navarch/pkg/gpu"
+
+// Create an injectable GPU manager with 8 simulated H100 GPUs
+gpuMgr := gpu.NewInjectable(8, "NVIDIA H100 80GB HBM3")
+
+// Initialize (simulates NVML initialization)
+gpuMgr.Initialize(ctx)
+
+// Inject failures
+gpuMgr.InjectXIDError(0, 79, "GPU has fallen off the bus")
+gpuMgr.InjectTemperatureSpike(2, 95)  // 95°C on GPU 2
+gpuMgr.InjectNVMLError(errors.New("NVML unavailable"))
+gpuMgr.InjectBootError(errors.New("GPU initialization failed"))
+gpuMgr.InjectDeviceError(3, errors.New("device not responding"))
+
+// Clear specific failures
+gpuMgr.ClearXIDErrors()
+gpuMgr.ClearTemperatureSpike(2)
+gpuMgr.ClearNVMLError()
+gpuMgr.ClearBootError()
+gpuMgr.ClearDeviceError(3)
+
+// Or clear all failures at once
+gpuMgr.ClearAllErrors()
+
+// Check if any failures are active
+if gpuMgr.HasActiveFailures() {
+    // ...
+}
+```
+
+### Available injection methods
+
+| Method | Description |
+|--------|-------------|
+| `InjectXIDError(gpuIndex, xidCode, message)` | Add an XID error to the error list |
+| `InjectTemperatureSpike(gpuIndex, temperature)` | Set high temperature on a GPU |
+| `InjectNVMLError(err)` | Make all NVML operations return an error |
+| `InjectBootError(err)` | Make initialization fail |
+| `InjectDeviceError(gpuIndex, err)` | Make a specific device return errors |
 
 ## Makefile targets
 
