@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -165,18 +166,28 @@ func (c *Console) PrintReports(files []string) {
 	}
 
 	// Find HTML report and print clickable link
+	var htmlPath string
 	for _, f := range files {
 		if strings.Contains(f, "(HTML)") {
-			// Extract the file path (remove the " (HTML)" suffix)
-			htmlPath := strings.TrimSuffix(f, " (HTML)")
-			absPath, err := filepath.Abs(htmlPath)
-			if err == nil {
-				fmt.Println()
-				pterm.Info.Println("View HTML report in browser:")
-				// Print file:// URL that's clickable in most terminals
-				fmt.Printf("  file://%s\n", absPath)
-			}
+			htmlPath = strings.TrimSuffix(f, " (HTML)")
 			break
+		}
+		// Check if this is a run directory (contains report.html)
+		if !strings.Contains(f, "(") {
+			possibleHTML := filepath.Join(f, "report.html")
+			if _, err := os.Stat(possibleHTML); err == nil {
+				htmlPath = possibleHTML
+				break
+			}
+		}
+	}
+
+	if htmlPath != "" {
+		absPath, err := filepath.Abs(htmlPath)
+		if err == nil {
+			fmt.Println()
+			pterm.Info.Println("View HTML report in browser:")
+			fmt.Printf("  file://%s\n", absPath)
 		}
 	}
 }

@@ -41,31 +41,24 @@ func NewFleetGenerator(config *FleetGeneratorConfig, seed int64, logger *slog.Lo
 }
 
 func (g *FleetGenerator) computeDistributions() {
-	// Compute template weights
 	g.templateWeights = make([]int, len(g.config.Templates))
 	for i, t := range g.config.Templates {
 		g.templateWeights[i] = t.Weight
 	}
 
-	// Compute provider distribution
 	for provider, weight := range g.config.Providers {
 		g.providerList = append(g.providerList, provider)
 		g.providerWeights = append(g.providerWeights, weight)
 	}
-
-	// Default providers if not specified
 	if len(g.providerList) == 0 {
 		g.providerList = []string{"gcp", "aws", "lambda"}
 		g.providerWeights = []int{50, 35, 15}
 	}
 
-	// Compute region distribution
 	for region, weight := range g.config.Regions {
 		g.regionList = append(g.regionList, region)
 		g.regionWeights = append(g.regionWeights, weight)
 	}
-
-	// Default regions if not specified
 	if len(g.regionList) == 0 {
 		g.regionList = []string{"us-central1", "us-east1", "us-west1", "europe-west1", "asia-east1"}
 		g.regionWeights = []int{30, 25, 20, 15, 10}
@@ -163,7 +156,6 @@ func (g *FleetGenerator) getInstanceType(template NodeTemplate, provider string)
 		return template.InstanceType
 	}
 
-	// Default instance types by provider and GPU count
 	switch provider {
 	case "gcp":
 		if template.GPUCount == 8 {
@@ -184,13 +176,14 @@ func (g *FleetGenerator) getInstanceType(template NodeTemplate, provider string)
 
 // NodeStarter handles starting nodes with various patterns.
 type NodeStarter struct {
-	config         StartupConfig
+	config           StartupConfig
 	controlPlaneAddr string
-	logger         *slog.Logger
-	rng            *rand.Rand
+	logger           *slog.Logger
+	rng              *rand.Rand
+	runDir           *RunDir
 
-	mu     sync.Mutex
-	nodes  map[string]*SimulatedNode
+	mu      sync.Mutex
+	nodes   map[string]*SimulatedNode
 	started int64
 	failed  int64
 }
@@ -201,12 +194,17 @@ func NewNodeStarter(config StartupConfig, controlPlaneAddr string, seed int64, l
 		seed = time.Now().UnixNano()
 	}
 	return &NodeStarter{
-		config:         config,
+		config:           config,
 		controlPlaneAddr: controlPlaneAddr,
-		logger:         logger,
-		rng:            rand.New(rand.NewSource(seed)),
-		nodes:          make(map[string]*SimulatedNode),
+		logger:           logger,
+		rng:              rand.New(rand.NewSource(seed)),
+		nodes:            make(map[string]*SimulatedNode),
 	}
+}
+
+// SetRunDir configures file-based logging for each node.
+func (s *NodeStarter) SetRunDir(rd *RunDir) {
+	s.runDir = rd
 }
 
 // StartFleet starts all nodes according to the configured pattern.
@@ -230,9 +228,7 @@ func (s *NodeStarter) startInstant(ctx context.Context, specs []NodeSpec) (map[s
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(specs))
-
-	// Start nodes concurrently with bounded parallelism
-	semaphore := make(chan struct{}, 100) // Max 100 concurrent starts
+	semaphore := make(chan struct{}, 100)
 
 	for _, spec := range specs {
 		wg.Add(1)
@@ -250,7 +246,6 @@ func (s *NodeStarter) startInstant(ctx context.Context, specs []NodeSpec) (map[s
 	wg.Wait()
 	close(errCh)
 
-	// Collect errors
 	var errs []error
 	for err := range errCh {
 		errs = append(errs, err)
@@ -291,7 +286,6 @@ func (s *NodeStarter) startLinear(ctx context.Context, specs []NodeSpec) (map[st
 		default:
 		}
 
-		// Add jitter
 		jitteredInterval := s.addJitter(interval)
 		if i > 0 {
 			time.Sleep(jitteredInterval)
@@ -432,7 +426,17 @@ func (s *NodeStarter) startWave(ctx context.Context, specs []NodeSpec) (map[stri
 }
 
 func (s *NodeStarter) startNode(ctx context.Context, spec NodeSpec) error {
-	node := NewSimulatedNode(spec, s.controlPlaneAddr, s.logger)
+	logger := s.logger
+	if s.runDir != nil {
+		var err error
+		logger, err = s.runDir.CreateNodeLogger(spec.ID)
+		if err != nil {
+			s.logger.Warn("failed to create node logger, using default", slog.String("node", spec.ID), slog.String("error", err.Error()))
+			logger = s.logger
+		}
+	}
+
+	node := NewSimulatedNode(spec, s.controlPlaneAddr, logger)
 	if err := node.Start(ctx); err != nil {
 		atomic.AddInt64(&s.failed, 1)
 		return err

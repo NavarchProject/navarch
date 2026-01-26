@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 )
@@ -140,8 +141,6 @@ func (c *ChaosEngine) failureInjectionLoop(ctx context.Context) {
 		return
 	}
 
-	// Calculate base interval: failures per minute per 1000 nodes
-	// Adjust check interval to every second and use probability
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -162,7 +161,6 @@ func (c *ChaosEngine) maybeInjectFailure() {
 		return
 	}
 
-	// Calculate probability of failure this second
 	// FailureRate is failures per minute per 1000 nodes
 	failuresPerSecond := c.config.FailureRate / 60.0
 	adjustedRate := failuresPerSecond * float64(nodeCount) / 1000.0
@@ -180,14 +178,11 @@ func (c *ChaosEngine) injectRandomFailure() {
 		return
 	}
 
-	// Select random node
 	nodeList := make([]*SimulatedNode, 0, len(nodes))
 	for _, n := range nodes {
 		nodeList = append(nodeList, n)
 	}
 	node := nodeList[c.rng.Intn(len(nodeList))]
-
-	// Select failure type
 	failureType := c.selectFailureType()
 
 	var failure InjectedFailure
@@ -393,22 +388,18 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 		return
 	}
 
-	// Calculate how many nodes to affect
 	maxAffected := int(float64(len(candidates)) * c.config.Cascading.MaxAffectedPercent)
 	if maxAffected < 1 {
 		maxAffected = 1
 	}
 	numAffected := 1 + c.rng.Intn(maxAffected)
 
-	// Shuffle and select
 	c.rng.Shuffle(len(candidates), func(i, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
 
 	for i := 0; i < numAffected && i < len(candidates); i++ {
 		targetNode := candidates[i]
-
-		// Calculate delay
 		minDelay := c.config.Cascading.MinDelay.Duration()
 		maxDelay := c.config.Cascading.MaxDelay.Duration()
 		if maxDelay <= minDelay {
@@ -541,7 +532,6 @@ func (c *ChaosEngine) processRecoveries() {
 	toRecover := make(map[string]string)
 	for key, recoveryTime := range c.pendingRecoveries {
 		if now.After(recoveryTime) {
-			// Parse nodeID:failureType
 			for i := len(key) - 1; i >= 0; i-- {
 				if key[i] == ':' {
 					toRecover[key[:i]] = key[i+1:]
@@ -576,7 +566,6 @@ func (c *ChaosEngine) scheduledOutageLoop(ctx context.Context) {
 
 	for _, outage := range c.config.ScheduledOutages {
 		go func(o ScheduledOutage) {
-			// Wait until outage start time
 			waitTime := o.StartTime.Duration() - time.Since(startTime)
 			if waitTime > 0 {
 				select {
@@ -602,14 +591,12 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 	nodes := c.nodes()
 	var affected []*SimulatedNode
 
-	// Find affected nodes based on scope
 	for _, node := range nodes {
 		if c.nodeMatchesOutageScope(node, outage) {
 			affected = append(affected, node)
 		}
 	}
 
-	// Inject failures
 	for _, node := range affected {
 		failure := InjectedFailure{
 			Type:    outage.FailureType,
@@ -638,14 +625,12 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 		slog.Int("affected_nodes", len(affected)),
 	)
 
-	// Wait for outage duration
 	select {
 	case <-ctx.Done():
 		return
 	case <-time.After(outage.Duration.Duration()):
 	}
 
-	// Recover from outage
 	c.logger.Info("outage ended, recovering nodes",
 		slog.String("name", outage.Name),
 		slog.Int("affected_count", len(affected)),
@@ -662,10 +647,10 @@ func (c *ChaosEngine) nodeMatchesOutageScope(node *SimulatedNode, outage Schedul
 	switch outage.Scope {
 	case "zone":
 		return extractSegments(nodeID, 2) == outage.Target ||
-			containsSubstring(nodeID, outage.Target)
+			strings.Contains(nodeID, outage.Target)
 	case "region":
 		return extractSegments(nodeID, 2) == outage.Target ||
-			containsSubstring(nodeID, outage.Target)
+			strings.Contains(nodeID, outage.Target)
 	case "provider":
 		return extractSegments(nodeID, 1) == outage.Target
 	case "percentage":
@@ -674,15 +659,6 @@ func (c *ChaosEngine) nodeMatchesOutageScope(node *SimulatedNode, outage Schedul
 	default:
 		return false
 	}
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func parsePercentage(s string) float64 {

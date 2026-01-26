@@ -86,35 +86,35 @@ type templateData struct {
 	TopXIDCodes       []XIDCount
 
 	// Full configuration details
-	HasConfig           bool
-	TestDuration        string
-	MetricsInterval     string
-	Seed                int64
+	HasConfig       bool
+	TestDuration    string
+	MetricsInterval string
+	Seed            int64
 
 	// Fleet generation config
-	HasFleetGen         bool
-	FleetTemplates      []fleetTemplateData
-	FleetProviders      []kvPair
-	FleetRegions        []kvPair
-	StartupPattern      string
-	StartupDuration     string
-	StartupBatchSize    int
-	StartupJitter       int
+	HasFleetGen      bool
+	FleetTemplates   []fleetTemplateData
+	FleetProviders   []kvPair
+	FleetRegions     []kvPair
+	StartupPattern   string
+	StartupDuration  string
+	StartupBatchSize int
+	StartupJitter    int
 
 	// Chaos config
-	HasChaos            bool
-	ChaosEnabled        bool
-	XIDDistribution     []xidDistData
-	FailureTypeWeights  []kvPair
+	HasChaos           bool
+	ChaosEnabled       bool
+	XIDDistribution    []xidDistData
+	FailureTypeWeights []kvPair
 
 	// Cascading config
-	HasCascading        bool
-	CascadeProbability  float64
-	CascadeMaxDepth     int
-	CascadeMinDelay     string
-	CascadeMaxDelay     string
-	CascadeScope        string
-	CascadeMaxAffected  float64
+	HasCascading       bool
+	CascadeProbability float64
+	CascadeMaxDepth    int
+	CascadeMinDelay    string
+	CascadeMaxDelay    string
+	CascadeScope       string
+	CascadeMaxAffected float64
 
 	// Recovery config
 	HasRecovery         bool
@@ -123,13 +123,18 @@ type templateData struct {
 	RecoveryStdDev      string
 
 	// Scheduled outages
-	ScheduledOutages    []outageData
+	ScheduledOutages []outageData
 
 	// Chart data for config visualization
-	XIDDistLabels       template.JS
-	XIDDistData         template.JS
-	ProviderLabels      template.JS
-	ProviderData        template.JS
+	XIDDistLabels  template.JS
+	XIDDistData    template.JS
+	ProviderLabels template.JS
+	ProviderData   template.JS
+
+	// Node data
+	NodeReports   []NodeReport
+	NodesJSON     template.JS
+	LogsDirectory string
 }
 
 type fleetTemplateData struct {
@@ -343,6 +348,11 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 		}
 	}
 
+	// Populate node reports
+	data.NodeReports = r.Nodes
+	data.NodesJSON = toJSArray(r.Nodes)
+	data.LogsDirectory = r.LogsDirectory
+
 	return data
 }
 
@@ -532,6 +542,353 @@ const htmlReportTemplate = `<!DOCTYPE html>
             color: #484f58;
             font-size: 0.85em;
         }
+
+        /* Timeline Track View - Compact */
+        .timeline-container {
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            overflow: hidden;
+        }
+        .timeline-header {
+            display: flex;
+            background: #21262d;
+            border-bottom: 1px solid #30363d;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .timeline-labels {
+            min-width: 140px;
+            max-width: 140px;
+            padding: 6px 10px;
+            font-weight: 500;
+            color: #8b949e;
+            font-size: 0.75em;
+            border-right: 1px solid #30363d;
+        }
+        .timeline-ruler {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            overflow-x: auto;
+        }
+        .timeline-tick {
+            flex: 1;
+            text-align: center;
+            font-size: 0.7em;
+            color: #8b949e;
+            border-left: 1px solid #30363d;
+            padding: 0 2px;
+            min-width: 50px;
+        }
+        .timeline-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .timeline-row {
+            display: flex;
+            border-bottom: 1px solid #21262d;
+            min-height: 20px;
+        }
+        .timeline-row:hover {
+            background: #21262d66;
+        }
+        .timeline-row.has-failures {
+            background: #f8514908;
+        }
+        .timeline-node-label {
+            min-width: 140px;
+            max-width: 140px;
+            padding: 2px 8px;
+            font-size: 0.7em;
+            font-family: monospace;
+            color: #8b949e;
+            border-right: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .timeline-node-label:hover {
+            color: #c9d1d9;
+            background: #21262d;
+        }
+        .timeline-track {
+            flex: 1;
+            position: relative;
+            height: 20px;
+        }
+        .timeline-segment {
+            position: absolute;
+            top: 3px;
+            height: 14px;
+            border-radius: 2px;
+        }
+        .timeline-segment.healthy { background: #238636; }
+        .timeline-segment.degraded { background: #9e6a03; }
+        .timeline-segment.unhealthy { background: #da3633; }
+        .timeline-segment.pending { background: #484f58; }
+        .timeline-event {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1px solid #0d1117;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .timeline-event.failure { background: #f85149; }
+        .timeline-event.recovery { background: #3fb950; }
+        .timeline-event.status_change { background: #58a6ff; }
+        .timeline-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: 0.85em;
+        }
+        .timeline-legend {
+            display: flex;
+            gap: 15px;
+            padding: 8px 12px;
+            background: #161b22;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75em;
+            color: #8b949e;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        .legend-color.healthy { background: #238636; }
+        .legend-color.degraded { background: #9e6a03; }
+        .legend-color.unhealthy { background: #da3633; }
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .legend-dot.failure { background: #f85149; }
+        .legend-dot.recovery { background: #3fb950; }
+        .timeline-tooltip {
+            position: absolute;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 0.8em;
+            color: #c9d1d9;
+            z-index: 100;
+            pointer-events: none;
+            max-width: 280px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .zoom-controls {
+            display: flex;
+            gap: 3px;
+        }
+        .zoom-btn {
+            padding: 4px 10px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .zoom-btn:hover { background: #30363d; }
+
+        /* Node List - Compact Split View */
+        .nodes-container {
+            display: flex;
+            gap: 15px;
+            height: 75vh;
+        }
+        .nodes-sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+        .nodes-sidebar-header {
+            padding: 10px;
+            border-bottom: 1px solid #30363d;
+            background: #21262d;
+        }
+        .nodes-sidebar-header input {
+            width: 100%;
+            padding: 6px 10px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #c9d1d9;
+            font-size: 0.8em;
+        }
+        .nodes-sidebar-filters {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+        .nodes-sidebar-filters select {
+            flex: 1;
+            padding: 4px 6px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #c9d1d9;
+            font-size: 0.75em;
+        }
+        .nodes-sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .node-list-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.8em;
+            gap: 8px;
+        }
+        .node-list-item:hover {
+            background: #21262d;
+        }
+        .node-list-item.selected {
+            background: #388bfd22;
+            border-left: 2px solid #58a6ff;
+        }
+        .node-list-item .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .node-list-item .status-dot.healthy { background: #3fb950; }
+        .node-list-item .status-dot.degraded { background: #d29922; }
+        .node-list-item .status-dot.unhealthy { background: #f85149; }
+        .node-list-item .node-id {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: monospace;
+            color: #8b949e;
+        }
+        .node-list-item .failure-badge {
+            background: #f8514922;
+            color: #f85149;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+        .nodes-detail {
+            flex: 1;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .nodes-detail-header {
+            padding: 15px;
+            background: #21262d;
+            border-bottom: 1px solid #30363d;
+        }
+        .nodes-detail-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .nodes-detail-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #8b949e;
+            font-size: 0.9em;
+        }
+        .node-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .node-info-item {
+            background: #21262d;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .node-info-item label {
+            display: block;
+            font-size: 0.7em;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .node-info-item span {
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #c9d1d9;
+        }
+        .node-events-list {
+            background: #0d1117;
+            border-radius: 6px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .node-event-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 8px 10px;
+            border-bottom: 1px solid #21262d;
+            font-size: 0.8em;
+            gap: 10px;
+        }
+        .node-event-item:last-child { border-bottom: none; }
+        .node-event-time {
+            color: #8b949e;
+            font-size: 0.75em;
+            white-space: nowrap;
+            min-width: 75px;
+        }
+        .node-event-icon {
+            width: 16px;
+            text-align: center;
+        }
+        .node-event-msg {
+            flex: 1;
+            color: #c9d1d9;
+        }
+        .nodes-sidebar-stats {
+            padding: 8px 10px;
+            background: #21262d;
+            border-top: 1px solid #30363d;
+            font-size: 0.75em;
+            color: #8b949e;
+        }
     </style>
 </head>
 <body>
@@ -548,6 +905,8 @@ const htmlReportTemplate = `<!DOCTYPE html>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('results')">Results</button>
+            <button class="tab" onclick="showTab('timeline')">Timeline</button>
+            <button class="tab" onclick="showTab('nodes')">Nodes</button>
             <button class="tab" onclick="showTab('config')">Configuration</button>
         </div>
 
@@ -651,6 +1010,77 @@ const htmlReportTemplate = `<!DOCTYPE html>
             {{end}}
         </div>
 
+        <!-- Timeline Tab -->
+        <div id="timeline" class="tab-content">
+            <div class="timeline-controls">
+                <div class="timeline-legend">
+                    <div class="legend-item"><div class="legend-color healthy"></div><span>Healthy</span></div>
+                    <div class="legend-item"><div class="legend-color degraded"></div><span>Degraded</span></div>
+                    <div class="legend-item"><div class="legend-color unhealthy"></div><span>Unhealthy</span></div>
+                    <div class="legend-item"><div class="legend-dot failure"></div><span>Failure</span></div>
+                    <div class="legend-item"><div class="legend-dot recovery"></div><span>Recovery</span></div>
+                </div>
+                <input type="text" id="timelineSearch" placeholder="Filter nodes..." 
+                       style="padding: 5px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; width: 150px; font-size: 0.8em;">
+                <select id="timelineFilter" style="padding: 5px 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 0.8em;">
+                    <option value="">All</option>
+                    <option value="has_events">With Events</option>
+                    <option value="unhealthy">Unhealthy</option>
+                    <option value="degraded">Degraded</option>
+                </select>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomTimeline(-1)">−</button>
+                    <span style="padding: 0 8px; color: #8b949e; font-size: 0.8em;" id="zoomLevel">100%</span>
+                    <button class="zoom-btn" onclick="zoomTimeline(1)">+</button>
+                </div>
+                <span style="color: #8b949e; font-size: 0.75em;"><span id="timelineVisibleNodes">0</span> nodes</span>
+            </div>
+            
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <div class="timeline-labels">Node ID</div>
+                    <div class="timeline-ruler" id="timelineRuler"></div>
+                </div>
+                <div class="timeline-body" id="timelineBody"></div>
+            </div>
+            
+            <div id="timelineTooltip" class="timeline-tooltip" style="display: none;"></div>
+        </div>
+
+        <!-- Nodes Tab -->
+        <div id="nodes" class="tab-content">
+            <div class="nodes-container">
+                <div class="nodes-sidebar">
+                    <div class="nodes-sidebar-header">
+                        <input type="text" id="nodeSearch" placeholder="Search nodes...">
+                        <div class="nodes-sidebar-filters">
+                            <select id="statusFilter">
+                                <option value="">All</option>
+                                <option value="healthy">Healthy</option>
+                                <option value="degraded">Degraded</option>
+                                <option value="unhealthy">Unhealthy</option>
+                            </select>
+                            <select id="sortBy">
+                                <option value="node_id">By ID</option>
+                                <option value="failures">By Failures</option>
+                                <option value="status">By Status</option>
+                                <option value="provider">By Provider</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="nodes-sidebar-list" id="nodeList"></div>
+                    <div class="nodes-sidebar-stats">
+                        <span id="visibleNodes">0</span> / <span id="totalNodes">0</span> nodes
+                    </div>
+                </div>
+                <div class="nodes-detail">
+                    <div id="nodeDetailContent" class="nodes-detail-empty">
+                        Select a node to view details
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Configuration Tab -->
         <div id="config" class="tab-content">
             <h2>Test Configuration</h2>
@@ -685,6 +1115,12 @@ const htmlReportTemplate = `<!DOCTYPE html>
                             <span class="config-label">Actual Duration</span>
                             <span class="config-value">{{.Duration}}</span>
                         </div>
+                        {{if .LogsDirectory}}
+                        <div class="config-item">
+                            <span class="config-label">Logs Directory</span>
+                            <a href="{{.LogsDirectory}}" target="_blank" class="config-value" style="font-family: monospace; font-size: 0.85em; color: #58a6ff; text-decoration: none;">{{.LogsDirectory}} ↗</a>
+                        </div>
+                        {{end}}
                     </div>
                 </div>
             </div>
@@ -1001,6 +1437,337 @@ const htmlReportTemplate = `<!DOCTYPE html>
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
         });
         {{end}}
+        
+        // Timeline management
+        const timelineNodes = {{.NodesJSON}};
+        const testDuration = "{{.Duration}}";
+        let timelineZoom = 1;
+        let timelineFilteredNodes = [...timelineNodes];
+        
+        function parseGoDuration(durationStr) {
+            // Parse Go duration string like "1m0s" or "5m30s" to milliseconds
+            const matches = durationStr.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/);
+            if (!matches) return 60000; // Default 1 minute
+            const hours = parseInt(matches[1]) || 0;
+            const minutes = parseInt(matches[2]) || 0;
+            const seconds = parseFloat(matches[3]) || 0;
+            return (hours * 3600 + minutes * 60 + seconds) * 1000;
+        }
+        
+        const durationMs = parseGoDuration(testDuration);
+        
+        function renderTimeline() {
+            const ruler = document.getElementById('timelineRuler');
+            const body = document.getElementById('timelineBody');
+            
+            // Calculate tick intervals based on duration
+            const numTicks = Math.min(20, Math.max(6, Math.floor(durationMs / 10000)));
+            const tickInterval = durationMs / numTicks;
+            
+            // Render ruler
+            let rulerHtml = '';
+            for (let i = 0; i <= numTicks; i++) {
+                const time = (i * tickInterval) / 1000;
+                let label;
+                if (time >= 60) {
+                    label = Math.floor(time / 60) + 'm' + (time % 60 > 0 ? Math.floor(time % 60) + 's' : '');
+                } else {
+                    label = Math.floor(time) + 's';
+                }
+                rulerHtml += '<div class="timeline-tick">' + label + '</div>';
+            }
+            ruler.innerHTML = rulerHtml;
+            
+            // Find the earliest timestamp across all nodes
+            let minTime = Infinity;
+            timelineFilteredNodes.forEach(node => {
+                if (node.events && node.events.length > 0) {
+                    const firstEvent = new Date(node.events[0].timestamp).getTime();
+                    if (firstEvent < minTime) minTime = firstEvent;
+                }
+            });
+            if (minTime === Infinity) minTime = Date.now() - durationMs;
+            
+            // Render node tracks
+            let bodyHtml = '';
+            timelineFilteredNodes.forEach(node => {
+                const statusColor = node.status === 'healthy' ? '#238636' : 
+                                  node.status === 'degraded' ? '#9e6a03' : '#da3633';
+                const hasFailures = node.events && node.events.some(e => e.type === 'failure');
+                
+                bodyHtml += '<div class="timeline-row' + (hasFailures ? ' has-failures' : '') + '">';
+                bodyHtml += '<div class="timeline-node-label" title="' + node.node_id + '" onclick="selectNodeFromTimeline(\'' + node.node_id + '\')">';
+                bodyHtml += '<span style="width: 6px; height: 6px; border-radius: 50%; background: ' + statusColor + '; flex-shrink: 0;"></span>';
+                bodyHtml += '<span style="overflow: hidden; text-overflow: ellipsis;">' + node.node_id + '</span>';
+                bodyHtml += '</div>';
+                bodyHtml += '<div class="timeline-track" data-node="' + node.node_id + '">';
+                
+                // Build status segments from events
+                if (node.events && node.events.length > 0) {
+                    let currentStatus = 'pending';
+                    let segmentStart = 0;
+                    
+                    node.events.forEach((event, idx) => {
+                        const eventTime = new Date(event.timestamp).getTime();
+                        const eventPos = ((eventTime - minTime) / durationMs) * 100 * timelineZoom;
+                        
+                        // Close previous segment
+                        if (idx > 0 || event.type === 'started') {
+                            const segmentEnd = eventPos;
+                            const segmentWidth = segmentEnd - segmentStart;
+                            if (segmentWidth > 0.1) {
+                                bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + segmentWidth + '%;"></div>';
+                            }
+                        }
+                        
+                        // Update status based on event
+                        if (event.type === 'started' || event.type === 'recovery') {
+                            currentStatus = 'healthy';
+                        } else if (event.type === 'failure') {
+                            currentStatus = 'unhealthy';
+                        } else if (event.type === 'status_change' && event.status) {
+                            currentStatus = event.status;
+                        }
+                        segmentStart = eventPos;
+                        
+                        // Render event marker (except for 'started')
+                        if (event.type !== 'started') {
+                            const eventClass = event.type === 'failure' ? 'failure' : 
+                                             event.type === 'recovery' ? 'recovery' : 'status_change';
+                            bodyHtml += '<div class="timeline-event ' + eventClass + '" style="left: ' + eventPos + '%;" ';
+                            bodyHtml += 'data-event="' + encodeURIComponent(JSON.stringify(event)) + '" ';
+                            bodyHtml += 'data-node="' + node.node_id + '" ';
+                            bodyHtml += 'onmouseenter="showEventTooltip(event, this)" ';
+                            bodyHtml += 'onmouseleave="hideEventTooltip()"></div>';
+                        }
+                    });
+                    
+                    // Final segment to end
+                    const finalWidth = (100 * timelineZoom) - segmentStart;
+                    if (finalWidth > 0.1) {
+                        bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + finalWidth + '%;"></div>';
+                    }
+                } else {
+                    // No events - show as healthy for full duration
+                    bodyHtml += '<div class="timeline-segment healthy" style="left: 0; width: ' + (100 * timelineZoom) + '%;"></div>';
+                }
+                
+                bodyHtml += '</div></div>';
+            });
+            
+            body.innerHTML = bodyHtml;
+            document.getElementById('timelineVisibleNodes').textContent = timelineFilteredNodes.length;
+        }
+        
+        function showEventTooltip(e, element) {
+            const event = JSON.parse(decodeURIComponent(element.dataset.event));
+            const nodeId = element.dataset.node;
+            const tooltip = document.getElementById('timelineTooltip');
+            
+            const time = new Date(event.timestamp).toLocaleString();
+            let typeLabel = event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            let color = event.type === 'failure' ? '#f85149' : 
+                       event.type === 'recovery' ? '#3fb950' : '#58a6ff';
+            
+            tooltip.innerHTML = '<div style="margin-bottom: 8px; font-weight: 500; color: ' + color + ';">' + typeLabel + '</div>';
+            tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Node:</strong> ' + nodeId + '</div>';
+            tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Time:</strong> ' + time + '</div>';
+            if (event.message) {
+                tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Details:</strong> ' + event.message + '</div>';
+            }
+            if (event.xid_code) {
+                tooltip.innerHTML += '<div><strong>XID Code:</strong> ' + event.xid_code + '</div>';
+            }
+            
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.pageX + 15) + 'px';
+            tooltip.style.top = (e.pageY - 10) + 'px';
+        }
+        
+        function hideEventTooltip() {
+            document.getElementById('timelineTooltip').style.display = 'none';
+        }
+        
+        function zoomTimeline(direction) {
+            if (direction > 0 && timelineZoom < 5) {
+                timelineZoom *= 1.5;
+            } else if (direction < 0 && timelineZoom > 0.5) {
+                timelineZoom /= 1.5;
+            }
+            document.getElementById('zoomLevel').textContent = Math.round(timelineZoom * 100) + '%';
+            renderTimeline();
+        }
+        
+        function resetZoom() {
+            timelineZoom = 1;
+            document.getElementById('zoomLevel').textContent = '100%';
+            renderTimeline();
+        }
+        
+        function filterTimeline() {
+            const search = document.getElementById('timelineSearch').value.toLowerCase();
+            const filter = document.getElementById('timelineFilter').value;
+            
+            timelineFilteredNodes = timelineNodes.filter(node => {
+                const matchesSearch = !search || node.node_id.toLowerCase().includes(search);
+                
+                let matchesFilter = true;
+                if (filter === 'has_events') {
+                    matchesFilter = node.events && node.events.length > 1;
+                } else if (filter === 'unhealthy') {
+                    matchesFilter = node.status === 'unhealthy';
+                } else if (filter === 'degraded') {
+                    matchesFilter = node.status === 'degraded';
+                }
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            renderTimeline();
+        }
+        
+        // Initialize timeline
+        if (timelineNodes && timelineNodes.length > 0) {
+            renderTimeline();
+            document.getElementById('timelineSearch').addEventListener('input', filterTimeline);
+            document.getElementById('timelineFilter').addEventListener('change', filterTimeline);
+        }
+        
+        // Node management - Compact split-panel view
+        const allNodes = {{.NodesJSON}};
+        let filteredNodes = [...allNodes];
+        let selectedNodeId = null;
+        
+        function renderNodes() {
+            const container = document.getElementById('nodeList');
+            let html = '';
+            
+            filteredNodes.forEach(node => {
+                const failureCount = node.events ? node.events.filter(e => e.type === 'failure').length : 0;
+                const isSelected = node.node_id === selectedNodeId;
+                
+                html += '<div class="node-list-item' + (isSelected ? ' selected' : '') + '" onclick="selectNode(\'' + node.node_id + '\')">';
+                html += '<div class="status-dot ' + node.status + '"></div>';
+                html += '<span class="node-id">' + node.node_id + '</span>';
+                if (failureCount > 0) {
+                    html += '<span class="failure-badge">' + failureCount + '</span>';
+                }
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+            document.getElementById('visibleNodes').textContent = filteredNodes.length;
+            document.getElementById('totalNodes').textContent = allNodes.length;
+        }
+        
+        function selectNode(nodeId) {
+            selectedNodeId = nodeId;
+            renderNodes();
+            showNodeDetail(nodeId);
+        }
+        
+        function showNodeDetail(nodeId) {
+            const node = allNodes.find(n => n.node_id === nodeId);
+            if (!node) return;
+            
+            const detailContainer = document.getElementById('nodeDetailContent');
+            const statusColor = node.status === 'healthy' ? '#3fb950' : 
+                              node.status === 'degraded' ? '#d29922' : '#f85149';
+            
+            let html = '<div class="nodes-detail-header">';
+            html += '<div style="display: flex; align-items: center; gap: 10px;">';
+            html += '<span style="width: 12px; height: 12px; border-radius: 50%; background: ' + statusColor + ';"></span>';
+            html += '<h3 style="margin: 0; color: #c9d1d9; font-size: 1.1em; font-family: monospace;">' + node.node_id + '</h3>';
+            html += '<span class="badge ' + (node.status === 'healthy' ? 'enabled' : node.status === 'degraded' ? 'recoverable' : 'fatal') + '">' + node.status + '</span>';
+            html += '</div></div>';
+            
+            html += '<div class="nodes-detail-content">';
+            html += '<div class="node-info-grid">';
+            html += '<div class="node-info-item"><label>Provider</label><span>' + node.provider + '</span></div>';
+            html += '<div class="node-info-item"><label>Region</label><span>' + node.region + '</span></div>';
+            html += '<div class="node-info-item"><label>Zone</label><span>' + node.zone + '</span></div>';
+            html += '<div class="node-info-item"><label>Instance</label><span>' + node.instance_type + '</span></div>';
+            html += '<div class="node-info-item"><label>GPUs</label><span>' + node.gpu_count + 'x ' + node.gpu_type + '</span></div>';
+            html += '<div class="node-info-item"><label>Failures</label><span style="color: #f85149;">' + node.failure_count + '</span></div>';
+            html += '</div>';
+            
+            // Log file path
+            if (node.log_file) {
+                html += '<div style="margin-bottom: 12px;"><label style="color: #8b949e; font-size: 0.75em; text-transform: uppercase;">Log File</label>';
+                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 0.85em; color: #58a6ff; word-break: break-all; background: #161b22; padding: 6px; border-radius: 4px; margin-top: 4px; text-decoration: none; font-family: monospace;">' + node.log_file + ' ↗</a></div>';
+            }
+            
+            // Events list
+            html += '<h4 style="color: #8b949e; font-size: 0.8em; margin-bottom: 10px; text-transform: uppercase;">Event Log (' + (node.events ? node.events.length : 0) + ')</h4>';
+            html += '<div class="node-events-list">';
+            
+            if (node.events && node.events.length > 0) {
+                node.events.forEach(event => {
+                    const time = new Date(event.timestamp).toLocaleTimeString();
+                    let icon = '•';
+                    let color = '#8b949e';
+                    
+                    if (event.type === 'started') { icon = '▶'; color = '#3fb950'; }
+                    else if (event.type === 'failure') { icon = '✗'; color = '#f85149'; }
+                    else if (event.type === 'recovery') { icon = '↻'; color = '#3fb950'; }
+                    else if (event.type === 'status_change') { icon = '◆'; color = '#58a6ff'; }
+                    
+                    html += '<div class="node-event-item">';
+                    html += '<span class="node-event-time">' + time + '</span>';
+                    html += '<span class="node-event-icon" style="color: ' + color + ';">' + icon + '</span>';
+                    html += '<span class="node-event-msg">' + event.message;
+                    if (event.xid_code) html += ' <span style="color: #f85149; font-family: monospace; font-size: 0.9em;">[XID ' + event.xid_code + ']</span>';
+                    html += '</span></div>';
+                });
+            } else {
+                html += '<div style="padding: 15px; color: #8b949e; text-align: center;">No events</div>';
+            }
+            
+            html += '</div></div>';
+            
+            detailContainer.innerHTML = html;
+            detailContainer.className = '';
+        }
+        
+        function filterNodes() {
+            const search = document.getElementById('nodeSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            filteredNodes = allNodes.filter(node => {
+                const matchesSearch = !search || 
+                    node.node_id.toLowerCase().includes(search) ||
+                    node.provider.toLowerCase().includes(search) ||
+                    node.region.toLowerCase().includes(search);
+                const matchesStatus = !statusFilter || node.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            filteredNodes.sort((a, b) => {
+                switch(sortBy) {
+                    case 'failures': return b.failure_count - a.failure_count;
+                    case 'status': return a.status.localeCompare(b.status);
+                    case 'provider': return a.provider.localeCompare(b.provider);
+                    default: return a.node_id.localeCompare(b.node_id);
+                }
+            });
+            
+            renderNodes();
+        }
+        
+        // Public function to select node from timeline
+        window.selectNodeFromTimeline = function(nodeId) {
+            showTab('nodes');
+            setTimeout(() => selectNode(nodeId), 100);
+        };
+        
+        // Initialize
+        if (allNodes && allNodes.length > 0) {
+            filterNodes();
+            document.getElementById('nodeSearch').addEventListener('input', filterNodes);
+            document.getElementById('statusFilter').addEventListener('change', filterNodes);
+            document.getElementById('sortBy').addEventListener('change', filterNodes);
+        }
     </script>
 </body>
 </html>`

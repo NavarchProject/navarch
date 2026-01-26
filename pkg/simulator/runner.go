@@ -36,6 +36,7 @@ type Runner struct {
 	chaos   *ChaosEngine
 	metrics *StressMetrics
 	seed    int64
+	runDir  *RunDir
 }
 
 // RunnerOption configures a Runner.
@@ -86,7 +87,6 @@ func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 
 // Run executes the scenario.
 func (r *Runner) Run(ctx context.Context) error {
-	// Check if this is a stress test scenario
 	if r.scenario.IsStressTest() {
 		return r.runStressTest(ctx)
 	}
@@ -102,22 +102,18 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 		slog.Int("event_count", len(r.scenario.Events)),
 	)
 
-	// Start embedded control plane
 	if err := r.startControlPlane(ctx); err != nil {
 		return fmt.Errorf("failed to start control plane: %w", err)
 	}
 	defer r.stopControlPlane()
 
-	// Give control plane time to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Create client for admin operations
 	r.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
 		r.controlPlaneAddr,
 	)
 
-	// Sort events by time
 	events := make([]Event, len(r.scenario.Events))
 	copy(events, r.scenario.Events)
 	sort.Slice(events, func(i, j int) bool {
@@ -127,7 +123,6 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 	startTime := time.Now()
 
 	for i, event := range events {
-		// Wait until the event time
 		elapsed := time.Since(startTime)
 		waitTime := event.At.Duration() - elapsed
 		if waitTime > 0 {
@@ -154,7 +149,6 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 		}
 	}
 
-	// Run final assertions
 	for _, assertion := range r.scenario.Assertions {
 		if err := r.checkAssertion(ctx, assertion); err != nil {
 			return fmt.Errorf("assertion failed: %w", err)
@@ -177,13 +171,11 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		duration = 10 * time.Minute
 	}
 
-	// Determine node count from either fleet_gen or fleet
 	nodeCount := len(r.scenario.Fleet)
 	if stress.FleetGen != nil {
 		nodeCount = stress.FleetGen.TotalNodes
 	}
 
-	// Set up file logging if configured
 	var logFile *os.File
 	if stress.LogFile != "" {
 		var err error
@@ -193,23 +185,18 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		}
 		defer logFile.Close()
 
-		// Create a logger that writes to file at debug level
 		fileHandler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})
 		r.logger = slog.New(fileHandler)
 
-		// Write header to log file
 		fmt.Fprintf(logFile, "=== STRESS TEST LOG: %s ===\n", r.scenario.Name)
 		fmt.Fprintf(logFile, "Started: %s\n", time.Now().Format(time.RFC3339))
 		fmt.Fprintf(logFile, "Duration: %s, Nodes: %d, Seed: %d\n\n",
 			duration, nodeCount, r.seed)
 	}
 
-	// Initialize console output
 	console := NewConsole()
-
-	// Print header
 	failureRate := 0.0
 	cascading := false
 	if stress.Chaos != nil && stress.Chaos.Enabled {
@@ -218,26 +205,31 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 	console.PrintHeader(r.scenario.Name, duration, nodeCount, r.seed, failureRate, cascading)
 
+	// Create run directory for all artifacts
+	runDir, err := NewRunDir("", r.scenario)
+	if err != nil {
+		r.logger.Warn("failed to create run directory", slog.String("error", err.Error()))
+	} else {
+		r.runDir = runDir
+		defer runDir.Close()
+		r.logger.Info("run directory", slog.String("path", runDir.Dir()))
+	}
+
 	r.logger.Info("initializing stress test")
 
-	// Initialize metrics collector
 	r.metrics = NewStressMetrics(r.logger)
 
-	// Start embedded control plane
 	if err := r.startControlPlane(ctx); err != nil {
 		return fmt.Errorf("failed to start control plane: %w", err)
 	}
 	defer r.stopControlPlane()
-
 	time.Sleep(100 * time.Millisecond)
 
-	// Create client
 	r.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
 		r.controlPlaneAddr,
 	)
 
-	// Generate fleet if using fleet_gen
 	var fleet []NodeSpec
 	if stress.FleetGen != nil {
 		generator := NewFleetGenerator(stress.FleetGen, r.seed, r.logger)
@@ -249,14 +241,12 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		fleet = r.scenario.Fleet
 	}
 
-	// Start metrics sampling
 	metricsInterval := stress.MetricsInterval.Duration()
 	if metricsInterval == 0 {
 		metricsInterval = 5 * time.Second
 	}
 	go r.metrics.StartSampling(ctx, metricsInterval)
 
-	// Start fleet with configured pattern
 	startupConfig := StartupConfig{
 		Pattern:       "linear",
 		Duration:      Duration(30 * time.Second),
@@ -267,6 +257,9 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 
 	starter := NewNodeStarter(startupConfig, r.controlPlaneAddr, r.seed, r.logger)
+	if r.runDir != nil {
+		starter.SetRunDir(r.runDir)
+	}
 
 	r.logger.Info("starting fleet",
 		slog.String("pattern", startupConfig.Pattern),
@@ -279,12 +272,13 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 	r.nodes = nodes
 
-	// Record started nodes
-	for nodeID := range nodes {
-		r.metrics.RecordNodeStart(nodeID)
+	for _, spec := range fleet {
+		r.metrics.RegisterNode(spec)
+		if _, ok := nodes[spec.ID]; ok {
+			r.metrics.RecordNodeStart(spec.ID)
+		}
 	}
 
-	// Start chaos engine if configured
 	if stress.Chaos != nil && stress.Chaos.Enabled {
 		r.chaos = NewChaosEngine(
 			stress.Chaos,
@@ -297,15 +291,12 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		defer r.chaos.Stop()
 	}
 
-	// Also run any explicit events
 	if len(r.scenario.Events) > 0 {
 		go r.runEventsInBackground(ctx)
 	}
 
-	// Run for the configured duration
 	console.PrintRunning(duration)
 
-	// Progress logging
 	progressTicker := time.NewTicker(10 * time.Second)
 	defer progressTicker.Stop()
 
@@ -337,16 +328,12 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 finished:
 	console.ClearProgress()
 
-	// Print summary using pterm
 	results := r.metrics.GetStressResults()
 	console.PrintResults(results)
 
-	// Generate reports if configured
 	var reportFiles []string
 
-	// Add log file to report list if it was configured
 	if stress.LogFile != "" && logFile != nil {
-		// Write summary to log file before closing
 		fmt.Fprintf(logFile, "\n=== TEST COMPLETED ===\n")
 		fmt.Fprintf(logFile, "End time: %s\n", time.Now().Format(time.RFC3339))
 		fmt.Fprintf(logFile, "Total failures: %d, Cascading: %d, Recoveries: %d\n",
@@ -356,32 +343,26 @@ finished:
 		reportFiles = append(reportFiles, stress.LogFile+" (Log)")
 	}
 
-	if stress.ReportFile != "" || stress.HTMLReportFile != "" {
-		report := r.metrics.GenerateReport(r.scenario.Name, stress)
+	report := r.metrics.GenerateReport(r.scenario.Name, stress)
 
-		// Write JSON report
-		if stress.ReportFile != "" {
-			if err := r.metrics.WriteReport(report, stress.ReportFile); err != nil {
-				r.logger.Error("failed to write JSON report", slog.String("error", err.Error()))
-			} else {
-				reportFiles = append(reportFiles, stress.ReportFile+" (JSON)")
-			}
+	if r.runDir != nil {
+		// Use relative paths so links work when HTML is opened from run directory
+		report.LogsDirectory = "logs"
+		for i := range report.Nodes {
+			report.Nodes[i].LogFile = "logs/" + sanitizeFilename(report.Nodes[i].NodeID) + ".log"
 		}
 
-		// Write HTML report
-		if stress.HTMLReportFile != "" {
-			if err := r.metrics.WriteHTMLReport(report, stress, stress.HTMLReportFile); err != nil {
-				r.logger.Error("failed to write HTML report", slog.String("error", err.Error()))
-			} else {
-				reportFiles = append(reportFiles, stress.HTMLReportFile+" (HTML)")
-			}
+		// Write all artifacts to run directory
+		if err := r.metrics.WriteReport(report, r.runDir.ReportPath()); err != nil {
+			r.logger.Error("failed to write JSON report", slog.String("error", err.Error()))
 		}
+		if err := r.metrics.WriteHTMLReport(report, stress, r.runDir.HTMLReportPath()); err != nil {
+			r.logger.Error("failed to write HTML report", slog.String("error", err.Error()))
+		}
+		reportFiles = append(reportFiles, r.runDir.Dir())
 	}
-
-	// Print report locations
 	console.PrintReports(reportFiles)
 
-	// Run assertions if any
 	for _, assertion := range r.scenario.Assertions {
 		if err := r.checkAssertion(ctx, assertion); err != nil {
 			return fmt.Errorf("assertion failed: %w", err)
@@ -470,7 +451,6 @@ func (r *Runner) stopControlPlane() {
 		<-r.serverDone
 	}
 
-	// Stop all nodes
 	for _, node := range r.nodes {
 		node.Stop()
 	}
@@ -505,11 +485,17 @@ func (r *Runner) executeEvent(ctx context.Context, event Event) error {
 
 func (r *Runner) startFleet(ctx context.Context) error {
 	for _, spec := range r.scenario.Fleet {
+		if r.metrics != nil {
+			r.metrics.RegisterNode(spec)
+		}
 		node := NewSimulatedNode(spec, r.controlPlaneAddr, r.logger)
 		if err := node.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start node %s: %w", spec.ID, err)
 		}
 		r.nodes[spec.ID] = node
+		if r.metrics != nil {
+			r.metrics.RecordNodeStart(spec.ID)
+		}
 		r.logger.Info("started simulated node", slog.String("node_id", spec.ID))
 	}
 	return nil
@@ -753,4 +739,3 @@ func (r *Runner) PrintFleetStatus(ctx context.Context) error {
 	}
 	return nil
 }
-

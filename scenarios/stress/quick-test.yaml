@@ -41,7 +41,7 @@ stress:
 
   chaos:
     enabled: true
-    failure_rate: 20.0  # High rate for quick test
+    failure_rate: 200.0  # ~10 failures/min with 50 nodes (200/min/1000 nodes)
 
     xid_distribution:
       13: 20  # Graphics Engine Exception

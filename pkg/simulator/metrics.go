@@ -38,13 +38,25 @@ type StressMetrics struct {
 	failuresByXID map[int]int64
 
 	// Timing metrics
-	samples         []MetricSample
-	latencySum      int64
-	latencyCount    int64
-	maxLatency      int64
+	samples      []MetricSample
+	latencySum   int64
+	latencyCount int64
+	maxLatency   int64
 
 	// Per-node tracking
 	nodeStatus map[string]string
+	nodeEvents map[string][]NodeEvent
+	nodeSpecs  map[string]NodeSpec
+}
+
+// NodeEvent represents an event that occurred on a specific node.
+type NodeEvent struct {
+	Timestamp   time.Time `json:"timestamp"`
+	Type        string    `json:"type"`
+	Status      string    `json:"status,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	FailureType string    `json:"failure_type,omitempty"`
+	XIDCode     int       `json:"xid_code,omitempty"`
 }
 
 // MetricSample represents a point-in-time metric snapshot.
@@ -62,22 +74,40 @@ type MetricSample struct {
 
 // StressReport is the final stress test report.
 type StressReport struct {
-	Name          string        `json:"name"`
-	StartTime     time.Time     `json:"start_time"`
-	EndTime       time.Time     `json:"end_time"`
-	Duration      time.Duration `json:"duration"`
-	Configuration ReportConfig  `json:"configuration"`
-	Summary       ReportSummary `json:"summary"`
-	Failures      FailureReport `json:"failures"`
+	Name          string         `json:"name"`
+	StartTime     time.Time      `json:"start_time"`
+	EndTime       time.Time      `json:"end_time"`
+	Duration      time.Duration  `json:"duration"`
+	Configuration ReportConfig   `json:"configuration"`
+	Summary       ReportSummary  `json:"summary"`
+	Failures      FailureReport  `json:"failures"`
 	Timeline      []MetricSample `json:"timeline"`
+	Nodes         []NodeReport   `json:"nodes"`
+	LogsDirectory string         `json:"logs_directory,omitempty"`
+}
+
+// NodeReport contains per-node statistics and event history.
+type NodeReport struct {
+	NodeID        string      `json:"node_id"`
+	Provider      string      `json:"provider"`
+	Region        string      `json:"region"`
+	Zone          string      `json:"zone"`
+	InstanceType  string      `json:"instance_type"`
+	GPUCount      int         `json:"gpu_count"`
+	GPUType       string      `json:"gpu_type"`
+	Status        string      `json:"status"`
+	FailureCount  int         `json:"failure_count"`
+	RecoveryCount int         `json:"recovery_count"`
+	Events        []NodeEvent `json:"events"`
+	LogFile       string      `json:"log_file,omitempty"`
 }
 
 // ReportConfig summarizes the stress test configuration.
 type ReportConfig struct {
-	TotalNodes      int     `json:"total_nodes"`
-	FailureRate     float64 `json:"failure_rate_per_min"`
-	CascadingEnabled bool   `json:"cascading_enabled"`
-	RecoveryEnabled  bool   `json:"recovery_enabled"`
+	TotalNodes       int     `json:"total_nodes"`
+	FailureRate      float64 `json:"failure_rate_per_min"`
+	CascadingEnabled bool    `json:"cascading_enabled"`
+	RecoveryEnabled  bool    `json:"recovery_enabled"`
 }
 
 // ReportSummary provides high-level statistics.
@@ -96,18 +126,18 @@ type ReportSummary struct {
 
 // FailureReport breaks down failures by type.
 type FailureReport struct {
-	ByType       map[string]int64 `json:"by_type"`
-	ByXID        map[int]int64    `json:"by_xid"`
-	Cascading    int64            `json:"cascading_failures"`
-	TopXIDCodes  []XIDCount       `json:"top_xid_codes"`
+	ByType      map[string]int64 `json:"by_type"`
+	ByXID       map[int]int64    `json:"by_xid"`
+	Cascading   int64            `json:"cascading_failures"`
+	TopXIDCodes []XIDCount       `json:"top_xid_codes"`
 }
 
 // XIDCount pairs an XID code with its occurrence count.
 type XIDCount struct {
-	Code  int   `json:"code"`
+	Code  int    `json:"code"`
 	Name  string `json:"name"`
-	Count int64 `json:"count"`
-	Fatal bool  `json:"fatal"`
+	Count int64  `json:"count"`
+	Fatal bool   `json:"fatal"`
 }
 
 // NewStressMetrics creates a new metrics collector.
@@ -118,8 +148,17 @@ func NewStressMetrics(logger *slog.Logger) *StressMetrics {
 		failuresByType: make(map[string]int64),
 		failuresByXID:  make(map[int]int64),
 		nodeStatus:     make(map[string]string),
+		nodeEvents:     make(map[string][]NodeEvent),
+		nodeSpecs:      make(map[string]NodeSpec),
 		samples:        make([]MetricSample, 0, 1000),
 	}
+}
+
+// RegisterNode records node specification for later reporting.
+func (m *StressMetrics) RegisterNode(spec NodeSpec) {
+	m.mu.Lock()
+	m.nodeSpecs[spec.ID] = spec
+	m.mu.Unlock()
 }
 
 // RecordNodeStart records a node starting.
@@ -127,6 +166,12 @@ func (m *StressMetrics) RecordNodeStart(nodeID string) {
 	atomic.AddInt64(&m.nodesStarted, 1)
 	m.mu.Lock()
 	m.nodeStatus[nodeID] = "healthy"
+	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
+		Timestamp: time.Now(),
+		Type:      "started",
+		Status:    "healthy",
+		Message:   "Node started successfully",
+	})
 	m.mu.Unlock()
 	atomic.AddInt64(&m.nodesHealthy, 1)
 }
@@ -134,6 +179,13 @@ func (m *StressMetrics) RecordNodeStart(nodeID string) {
 // RecordNodeFailedStart records a node that failed to start.
 func (m *StressMetrics) RecordNodeFailedStart(nodeID string) {
 	atomic.AddInt64(&m.nodesFailed, 1)
+	m.mu.Lock()
+	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
+		Timestamp: time.Now(),
+		Type:      "start_failed",
+		Message:   "Node failed to start",
+	})
+	m.mu.Unlock()
 }
 
 // RecordNodeHealth updates node health status.
@@ -141,9 +193,16 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 	m.mu.Lock()
 	oldStatus := m.nodeStatus[nodeID]
 	m.nodeStatus[nodeID] = status
+	if oldStatus != status {
+		m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
+			Timestamp: time.Now(),
+			Type:      "status_change",
+			Status:    status,
+			Message:   fmt.Sprintf("Status changed from %s to %s", oldStatus, status),
+		})
+	}
 	m.mu.Unlock()
 
-	// Update counters
 	if oldStatus != status {
 		switch oldStatus {
 		case "healthy":
@@ -178,12 +237,41 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 	if event.Type == "xid_error" {
 		m.failuresByXID[event.XIDCode]++
 	}
+
+	message := fmt.Sprintf("Failure: %s", event.Type)
+	if event.IsCascade {
+		message += " (cascading)"
+	}
+	if event.Type == "xid_error" && event.XIDCode > 0 {
+		if info, known := XIDCodes[event.XIDCode]; known {
+			message = fmt.Sprintf("XID %d: %s", event.XIDCode, info.Name)
+		} else {
+			message = fmt.Sprintf("XID %d", event.XIDCode)
+		}
+	}
+
+	m.nodeEvents[event.NodeID] = append(m.nodeEvents[event.NodeID], NodeEvent{
+		Timestamp:   time.Now(),
+		Type:        "failure",
+		FailureType: event.Type,
+		XIDCode:     event.XIDCode,
+		Message:     message,
+	})
 	m.mu.Unlock()
 }
 
 // RecordRecovery records a node recovery.
 func (m *StressMetrics) RecordRecovery(nodeID, failureType string) {
 	atomic.AddInt64(&m.recoveries, 1)
+
+	m.mu.Lock()
+	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
+		Timestamp:   time.Now(),
+		Type:        "recovery",
+		FailureType: failureType,
+		Message:     fmt.Sprintf("Recovered from %s", failureType),
+	})
+	m.mu.Unlock()
 }
 
 // RecordOutage records an outage event.
@@ -264,7 +352,6 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 		Timeline:  m.samples,
 	}
 
-	// Configuration summary
 	if config != nil && config.FleetGen != nil {
 		report.Configuration = ReportConfig{
 			TotalNodes:  config.FleetGen.TotalNodes,
@@ -277,13 +364,50 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 		}
 	}
 
-	// Summary statistics
 	report.Summary = m.computeSummary()
-
-	// Failure breakdown
 	report.Failures = m.computeFailureReport()
+	report.Nodes = m.computeNodeReports()
 
 	return report
+}
+
+// computeNodeReports generates per-node reports.
+func (m *StressMetrics) computeNodeReports() []NodeReport {
+	var reports []NodeReport
+
+	for nodeID, spec := range m.nodeSpecs {
+		events := m.nodeEvents[nodeID]
+		status := m.nodeStatus[nodeID]
+		failureCount := 0
+		recoveryCount := 0
+		for _, event := range events {
+			if event.Type == "failure" {
+				failureCount++
+			} else if event.Type == "recovery" {
+				recoveryCount++
+			}
+		}
+
+		reports = append(reports, NodeReport{
+			NodeID:        nodeID,
+			Provider:      spec.Provider,
+			Region:        spec.Region,
+			Zone:          spec.Zone,
+			InstanceType:  spec.InstanceType,
+			GPUCount:      spec.GPUCount,
+			GPUType:       spec.GPUType,
+			Status:        status,
+			FailureCount:  failureCount,
+			RecoveryCount: recoveryCount,
+			Events:        events,
+		})
+	}
+
+	sort.Slice(reports, func(i, j int) bool {
+		return reports[i].NodeID < reports[j].NodeID
+	})
+
+	return reports
 }
 
 func (m *StressMetrics) computeSummary() ReportSummary {
@@ -295,7 +419,6 @@ func (m *StressMetrics) computeSummary() ReportSummary {
 		TotalOutages:    int(atomic.LoadInt64(&m.outages)),
 	}
 
-	// Compute min/max/avg healthy nodes from samples
 	if len(m.samples) > 0 {
 		summary.PeakHealthyNodes = m.samples[0].HealthyNodes
 		summary.MinHealthyNodes = m.samples[0].HealthyNodes
@@ -313,7 +436,6 @@ func (m *StressMetrics) computeSummary() ReportSummary {
 		summary.AvgHealthyNodes = float64(totalHealthy) / float64(len(m.samples))
 	}
 
-	// Latency stats
 	count := atomic.LoadInt64(&m.latencyCount)
 	if count > 0 {
 		summary.AvgLatencyMs = float64(atomic.LoadInt64(&m.latencySum)) / float64(count)
@@ -338,7 +460,6 @@ func (m *StressMetrics) computeFailureReport() FailureReport {
 		report.ByXID[k] = v
 	}
 
-	// Top XID codes
 	type xidEntry struct {
 		code  int
 		count int64
@@ -396,98 +517,17 @@ func (m *StressMetrics) WriteHTMLReport(report *StressReport, config *StressConf
 	return nil
 }
 
-// PrintSummary prints a formatted summary to stdout.
-func (m *StressMetrics) PrintSummary() {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	duration := time.Since(m.startTime)
-	nodesStarted := atomic.LoadInt64(&m.nodesStarted)
-	nodesFailed := atomic.LoadInt64(&m.nodesFailed)
-	nodesHealthy := atomic.LoadInt64(&m.nodesHealthy)
-	nodesUnhealthy := atomic.LoadInt64(&m.nodesUnhealthy)
-	nodesDegraded := atomic.LoadInt64(&m.nodesDegraded)
-	totalFailures := atomic.LoadInt64(&m.totalFailures)
-	cascadingFailures := atomic.LoadInt64(&m.cascadingFailures)
-	recoveries := atomic.LoadInt64(&m.recoveries)
-
-	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                    STRESS TEST RESULTS                       ║")
-	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
-	fmt.Printf("║  Duration: %-51s ║\n", duration.Round(time.Millisecond))
-	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
-	fmt.Println("║  NODES                                                       ║")
-	fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
-	fmt.Printf("║    Started:    %-6d    Failed to Start: %-18d ║\n", nodesStarted, nodesFailed)
-	fmt.Printf("║    Healthy:    %-6d    Unhealthy:        %-18d ║\n", nodesHealthy, nodesUnhealthy)
-	fmt.Printf("║    Degraded:   %-47d ║\n", nodesDegraded)
-	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
-	fmt.Println("║  FAILURES                                                    ║")
-	fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
-	fmt.Printf("║    Total:      %-6d    Cascading:        %-18d ║\n", totalFailures, cascadingFailures)
-	fmt.Printf("║    Recoveries: %-47d ║\n", recoveries)
-
-	// Top failure types
-	if len(m.failuresByType) > 0 {
-		fmt.Println("║                                                              ║")
-		fmt.Println("║  Failure Types:                                              ║")
-		for ftype, count := range m.failuresByType {
-			fmt.Printf("║    • %-20s %6d                              ║\n", ftype, count)
-		}
-	}
-
-	// Top XID codes
-	if len(m.failuresByXID) > 0 {
-		fmt.Println("╠══════════════════════════════════════════════════════════════╣")
-		fmt.Println("║  TOP XID ERRORS                                              ║")
-		fmt.Println("║  ─────────────────────────────────────────────────────────── ║")
-
-		type xidEntry struct {
-			code  int
-			count int64
-		}
-		var entries []xidEntry
-		for code, count := range m.failuresByXID {
-			entries = append(entries, xidEntry{code, count})
-		}
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].count > entries[j].count
-		})
-
-		for i := 0; i < len(entries) && i < 5; i++ {
-			info, known := XIDCodes[entries[i].code]
-			name := "Unknown"
-			fatal := ""
-			if known {
-				name = info.Name
-				if info.Fatal {
-					fatal = " [FATAL]"
-				}
-			}
-			// Truncate name if too long
-			if len(name) > 28 {
-				name = name[:25] + "..."
-			}
-			// Format with proper right border
-			line := fmt.Sprintf("XID %-3d: %-28s %4d%s", entries[i].code, name, entries[i].count, fatal)
-			fmt.Printf("║    %-56s ║\n", line)
-		}
-	}
-
-	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
-}
-
 // GetCurrentStats returns current statistics as a map.
 func (m *StressMetrics) GetCurrentStats() map[string]interface{} {
 	return map[string]interface{}{
-		"elapsed":          time.Since(m.startTime).String(),
-		"nodes_started":    atomic.LoadInt64(&m.nodesStarted),
-		"nodes_healthy":    atomic.LoadInt64(&m.nodesHealthy),
-		"nodes_unhealthy":  atomic.LoadInt64(&m.nodesUnhealthy),
-		"nodes_degraded":   atomic.LoadInt64(&m.nodesDegraded),
-		"total_failures":   atomic.LoadInt64(&m.totalFailures),
-		"cascading":        atomic.LoadInt64(&m.cascadingFailures),
-		"recoveries":       atomic.LoadInt64(&m.recoveries),
+		"elapsed":         time.Since(m.startTime).String(),
+		"nodes_started":   atomic.LoadInt64(&m.nodesStarted),
+		"nodes_healthy":   atomic.LoadInt64(&m.nodesHealthy),
+		"nodes_unhealthy": atomic.LoadInt64(&m.nodesUnhealthy),
+		"nodes_degraded":  atomic.LoadInt64(&m.nodesDegraded),
+		"total_failures":  atomic.LoadInt64(&m.totalFailures),
+		"cascading":       atomic.LoadInt64(&m.cascadingFailures),
+		"recoveries":      atomic.LoadInt64(&m.recoveries),
 	}
 }
 

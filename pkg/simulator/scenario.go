@@ -115,9 +115,6 @@ type ChaosConfig struct {
 
 	// Scheduled outages
 	ScheduledOutages []ScheduledOutage `yaml:"scheduled_outages,omitempty"`
-
-	// Correlated failures
-	CorrelatedFailures []CorrelatedFailure `yaml:"correlated_failures,omitempty"`
 }
 
 // FailureTypeWeight defines a failure type and its probability weight.
@@ -155,26 +152,17 @@ type ScheduledOutage struct {
 	FailureType string   `yaml:"failure_type"` // Type of failure to inject
 }
 
-// CorrelatedFailure defines failures that occur together.
-type CorrelatedFailure struct {
-	Name        string   `yaml:"name"`
-	Trigger     string   `yaml:"trigger"`     // What triggers this (xid code or failure type)
-	Response    string   `yaml:"response"`    // What failure to inject in response
-	Probability float64  `yaml:"probability"` // 0.0-1.0
-	Delay       Duration `yaml:"delay"`       // Delay before correlated failure
-	Scope       string   `yaml:"scope"`       // same_node, same_rack, same_zone, random
-}
-
 // NodeSpec defines a simulated node in the fleet.
 type NodeSpec struct {
-	ID           string            `yaml:"id"`
-	Provider     string            `yaml:"provider"`
-	Region       string            `yaml:"region"`
-	Zone         string            `yaml:"zone"`
-	InstanceType string            `yaml:"instance_type"`
-	GPUCount     int               `yaml:"gpu_count"`
-	GPUType      string            `yaml:"gpu_type"`
-	Labels       map[string]string `yaml:"labels,omitempty"`
+	ID               string            `yaml:"id"`
+	Provider         string            `yaml:"provider"`
+	Region           string            `yaml:"region"`
+	Zone             string            `yaml:"zone"`
+	InstanceType     string            `yaml:"instance_type"`
+	GPUCount         int               `yaml:"gpu_count"`
+	GPUType          string            `yaml:"gpu_type"`
+	Labels           map[string]string `yaml:"labels,omitempty"`
+	ControlPlaneAddr string            `yaml:"-"` // Set at runtime, not from YAML
 }
 
 // Event represents something that happens during a scenario.
