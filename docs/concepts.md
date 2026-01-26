@@ -103,20 +103,68 @@ Common XID errors:
 
 When a node reports unhealthy status, Navarch can automatically cordon it to prevent new workloads.
 
+## Instances vs Nodes
+
+Navarch tracks **instances** and **nodes** as separate concepts:
+
+- **Instance**: A cloud resource (what you pay for). Tracked from when you call `provider.Provision()` until termination.
+- **Node**: A registered agent running on an instance. Created when the agent calls `RegisterNode`.
+
+This separation matters because:
+
+1. **Provisioning can fail** - Instance created but agent never boots.
+2. **Registration can fail** - Instance running but agent crashes on startup.
+3. **Costs accrue immediately** - You pay for instances, not nodes.
+
+### Instance lifecycle
+
+Instances progress through these states:
+
+```
+Provisioning → Pending Registration → Running → Terminating → Terminated
+                        ↓
+                      Failed
+```
+
+**Provisioning**: Cloud provider is creating the instance.
+
+**Pending Registration**: Instance exists, waiting for node agent to register.
+
+**Running**: Node agent has registered successfully.
+
+**Failed**: Provisioning failed, or registration timed out (default: 10 minutes).
+
+**Terminating**: Termination requested, in progress.
+
+**Terminated**: Instance destroyed by cloud provider.
+
+### Stale instance detection
+
+If an instance stays in "Pending Registration" for too long (default: 10 minutes), Navarch marks it as failed. This catches:
+
+- Boot failures (kernel panic, driver issues)
+- Network issues (instance can't reach control plane)
+- Agent crashes (segfault before registration)
+
+Configure via `InstanceManagerConfig`:
+
+```go
+config := controlplane.InstanceManagerConfig{
+    RegistrationTimeout: 10 * time.Minute,  // Time to wait for registration
+    StaleCheckInterval:  1 * time.Minute,   // How often to check
+}
+```
+
 ## Node lifecycle
 
 Nodes progress through these states:
 
 ```
-Provisioning → Active → Cordoned → Draining → Terminated
-                  ↑         ↓
-                  └─────────┘
-                   (uncordon)
+Active → Cordoned → Draining → Terminated
+   ↑         ↓
+   └─────────┘
+    (uncordon)
 ```
-
-### Provisioning
-
-The control plane requests a new instance from the provider. The node agent has not yet registered.
 
 ### Active
 

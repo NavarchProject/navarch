@@ -19,6 +19,7 @@ type InMemDB struct {
 	commands     map[string]*CommandRecord       // commandID -> command
 	nodeCommands map[string][]*CommandRecord     // nodeID -> list of commands
 	metrics      map[string][]*MetricsRecord     // nodeID -> list of metrics (max 100 per node)
+	instances    map[string]*InstanceRecord      // instanceID -> instance record
 }
 
 // NewInMemDB creates a new in-memory database.
@@ -29,6 +30,7 @@ func NewInMemDB() *InMemDB {
 		commands:     make(map[string]*CommandRecord),
 		nodeCommands: make(map[string][]*CommandRecord),
 		metrics:      make(map[string][]*MetricsRecord),
+		instances:    make(map[string]*InstanceRecord),
 	}
 }
 
@@ -321,6 +323,158 @@ func (db *InMemDB) GetRecentMetrics(ctx context.Context, nodeID string, duration
 	}
 
 	return recent, nil
+}
+
+// CreateInstance creates a new instance record.
+func (db *InMemDB) CreateInstance(ctx context.Context, record *InstanceRecord) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if record.InstanceID == "" {
+		return fmt.Errorf("instance_id is required")
+	}
+
+	if _, exists := db.instances[record.InstanceID]; exists {
+		return fmt.Errorf("instance already exists: %s", record.InstanceID)
+	}
+
+	db.instances[record.InstanceID] = db.copyInstanceRecord(record)
+	return nil
+}
+
+// GetInstance retrieves an instance by ID.
+func (db *InMemDB) GetInstance(ctx context.Context, instanceID string) (*InstanceRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	instance, ok := db.instances[instanceID]
+	if !ok {
+		return nil, fmt.Errorf("instance not found: %s", instanceID)
+	}
+	return db.copyInstanceRecord(instance), nil
+}
+
+// UpdateInstanceState updates the state and status message of an instance.
+func (db *InMemDB) UpdateInstanceState(ctx context.Context, instanceID string, state pb.InstanceState, message string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	instance, ok := db.instances[instanceID]
+	if !ok {
+		return fmt.Errorf("instance not found: %s", instanceID)
+	}
+
+	instance.State = state
+	instance.StatusMessage = message
+
+	// Set timestamps based on state transitions
+	now := time.Now()
+	switch state {
+	case pb.InstanceState_INSTANCE_STATE_RUNNING:
+		if instance.ReadyAt.IsZero() {
+			instance.ReadyAt = now
+		}
+	case pb.InstanceState_INSTANCE_STATE_TERMINATED:
+		if instance.TerminatedAt.IsZero() {
+			instance.TerminatedAt = now
+		}
+	}
+
+	return nil
+}
+
+// UpdateInstanceNodeID links an instance to a registered node.
+func (db *InMemDB) UpdateInstanceNodeID(ctx context.Context, instanceID string, nodeID string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	instance, ok := db.instances[instanceID]
+	if !ok {
+		return fmt.Errorf("instance not found: %s", instanceID)
+	}
+
+	instance.NodeID = nodeID
+	return nil
+}
+
+// ListInstances returns all instance records.
+func (db *InMemDB) ListInstances(ctx context.Context) ([]*InstanceRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	instances := make([]*InstanceRecord, 0, len(db.instances))
+	for _, instance := range db.instances {
+		instances = append(instances, db.copyInstanceRecord(instance))
+	}
+	return instances, nil
+}
+
+// ListInstancesByState returns all instances in a specific state.
+func (db *InMemDB) ListInstancesByState(ctx context.Context, state pb.InstanceState) ([]*InstanceRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var instances []*InstanceRecord
+	for _, instance := range db.instances {
+		if instance.State == state {
+			instances = append(instances, db.copyInstanceRecord(instance))
+		}
+	}
+	return instances, nil
+}
+
+// ListInstancesByPool returns all instances belonging to a specific pool.
+func (db *InMemDB) ListInstancesByPool(ctx context.Context, poolName string) ([]*InstanceRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var instances []*InstanceRecord
+	for _, instance := range db.instances {
+		if instance.PoolName == poolName {
+			instances = append(instances, db.copyInstanceRecord(instance))
+		}
+	}
+	return instances, nil
+}
+
+// DeleteInstance removes an instance record.
+func (db *InMemDB) DeleteInstance(ctx context.Context, instanceID string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	delete(db.instances, instanceID)
+	return nil
+}
+
+// copyInstanceRecord creates a deep copy of an InstanceRecord to prevent data races.
+func (db *InMemDB) copyInstanceRecord(src *InstanceRecord) *InstanceRecord {
+	if src == nil {
+		return nil
+	}
+
+	dst := &InstanceRecord{
+		InstanceID:    src.InstanceID,
+		Provider:      src.Provider,
+		Region:        src.Region,
+		Zone:          src.Zone,
+		InstanceType:  src.InstanceType,
+		State:         src.State,
+		PoolName:      src.PoolName,
+		CreatedAt:     src.CreatedAt,
+		ReadyAt:       src.ReadyAt,
+		TerminatedAt:  src.TerminatedAt,
+		NodeID:        src.NodeID,
+		StatusMessage: src.StatusMessage,
+	}
+
+	if src.Labels != nil {
+		dst.Labels = make(map[string]string, len(src.Labels))
+		for k, v := range src.Labels {
+			dst.Labels[k] = v
+		}
+	}
+
+	return dst
 }
 
 // Close closes the database (no-op for in-memory).

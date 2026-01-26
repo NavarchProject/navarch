@@ -53,15 +53,22 @@ func main() {
 
 	database := db.NewInMemDB()
 
+	// Create the instance manager for tracking cloud instance lifecycle
+	instanceManager := controlplane.NewInstanceManager(
+		database,
+		controlplane.DefaultInstanceManagerConfig(),
+		logger.With(slog.String("component", "instance-manager")),
+	)
+
 	srv := controlplane.NewServer(database, controlplane.Config{
 		HealthCheckIntervalSeconds: int32(cfg.Server.HealthCheckInterval.Seconds()),
 		HeartbeatIntervalSeconds:   int32(cfg.Server.HeartbeatInterval.Seconds()),
 		EnabledHealthChecks:        []string{"boot", "nvml", "xid"},
-	}, logger)
+	}, instanceManager, logger)
 
 	var poolManager *controlplane.PoolManager
 	if len(cfg.Pools) > 0 {
-		poolManager, err = initPoolManager(cfg, database, logger)
+		poolManager, err = initPoolManager(cfg, database, instanceManager, logger)
 		if err != nil {
 			logger.Error("failed to initialize pool manager", slog.String("error", err.Error()))
 			os.Exit(1)
@@ -83,6 +90,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Start the instance manager for background stale instance detection
+	instanceManager.Start(ctx)
 
 	if poolManager != nil {
 		poolManager.Start(ctx)
@@ -114,6 +124,8 @@ func main() {
 	if poolManager != nil {
 		poolManager.Stop()
 	}
+
+	instanceManager.Stop()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("error shutting down HTTP server", slog.String("error", err.Error()))
@@ -156,11 +168,11 @@ func readyzHandler(database db.DB, logger *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func initPoolManager(cfg *config.Config, database db.DB, logger *slog.Logger) (*controlplane.PoolManager, error) {
+func initPoolManager(cfg *config.Config, database db.DB, instanceManager *controlplane.InstanceManager, logger *slog.Logger) (*controlplane.PoolManager, error) {
 	metricsSource := controlplane.NewDBMetricsSource(database, logger)
 	pm := controlplane.NewPoolManager(controlplane.PoolManagerConfig{
 		EvaluationInterval: cfg.Server.AutoscaleInterval,
-	}, metricsSource, logger)
+	}, metricsSource, instanceManager, logger)
 
 	providers := make(map[string]provider.Provider)
 	controlPlaneAddr := fmt.Sprintf("http://localhost%s", cfg.Server.Address)

@@ -9,6 +9,8 @@ The `DB` interface provides methods for:
 - **Node Management**: Register, update, list, and delete nodes
 - **Health Checks**: Record and retrieve health check results
 - **Commands**: Issue and track commands sent to nodes
+- **Metrics**: Store and retrieve node metrics
+- **Instance Tracking**: Track cloud instance lifecycle from provisioning through termination
 
 ## Implementations
 
@@ -49,6 +51,26 @@ node, err := database.GetNode(ctx, "node-1")
 
 // List all nodes
 nodes, err := database.ListNodes(ctx)
+
+// Track an instance
+instance := &db.InstanceRecord{
+    InstanceID:   "i-12345",
+    Provider:     "gcp",
+    Region:       "us-central1",
+    Zone:         "us-central1-a",
+    InstanceType: "a3-highgpu-8g",
+    State:        pb.InstanceState_INSTANCE_STATE_PROVISIONING,
+    PoolName:     "gpu-pool",
+    CreatedAt:    time.Now(),
+}
+err = database.CreateInstance(ctx, instance)
+
+// Update instance state when node registers
+err = database.UpdateInstanceState(ctx, "i-12345", pb.InstanceState_INSTANCE_STATE_RUNNING, "node registered")
+err = database.UpdateInstanceNodeID(ctx, "i-12345", "node-1")
+
+// List instances by state
+pending, err := database.ListInstancesByState(ctx, pb.InstanceState_INSTANCE_STATE_PENDING_REGISTRATION)
 ```
 
 ## Future Implementations
