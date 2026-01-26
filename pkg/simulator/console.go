@@ -2,7 +2,9 @@ package simulator
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pterm/pterm"
@@ -151,7 +153,7 @@ func (c *Console) PrintResults(results *StressResults) {
 	}
 }
 
-// PrintReports prints the generated report file paths.
+// PrintReports prints the generated report file paths with clickable links for HTML reports.
 func (c *Console) PrintReports(files []string) {
 	if len(files) == 0 {
 		return
@@ -160,6 +162,22 @@ func (c *Console) PrintReports(files []string) {
 	pterm.DefaultSection.Println("Reports Generated")
 	for _, f := range files {
 		pterm.Success.Println(f)
+	}
+
+	// Find HTML report and print clickable link
+	for _, f := range files {
+		if strings.Contains(f, "(HTML)") {
+			// Extract the file path (remove the " (HTML)" suffix)
+			htmlPath := strings.TrimSuffix(f, " (HTML)")
+			absPath, err := filepath.Abs(htmlPath)
+			if err == nil {
+				fmt.Println()
+				pterm.Info.Println("View HTML report in browser:")
+				// Print file:// URL that's clickable in most terminals
+				fmt.Printf("  file://%s\n", absPath)
+			}
+			break
+		}
 	}
 }
 
