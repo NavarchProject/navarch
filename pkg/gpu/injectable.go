@@ -9,6 +9,55 @@ import (
 )
 
 // Injectable is a fake GPU manager that supports failure injection for testing.
+// It implements the same interface as the real GPU manager, allowing integration
+// testing of the node binary without actual GPUs.
+//
+// Use Injectable for:
+//   - Integration testing the node binary without real GPUs
+//   - Testing GPU driver interactions and error handling paths
+//   - Validating health check logic with controlled failures
+//   - CI/CD pipelines on machines without GPUs
+//
+// # Example Usage
+//
+//	// Create an injectable GPU manager with 8 simulated H100 GPUs
+//	gpuMgr := gpu.NewInjectable(8, "NVIDIA H100 80GB HBM3")
+//
+//	// Initialize (simulates NVML initialization)
+//	gpuMgr.Initialize(ctx)
+//
+//	// Inject failures
+//	gpuMgr.InjectXIDError(0, 79, "GPU has fallen off the bus")
+//	gpuMgr.InjectTemperatureSpike(2, 95)  // 95°C on GPU 2
+//	gpuMgr.InjectNVMLError(errors.New("NVML unavailable"))
+//	gpuMgr.InjectBootError(errors.New("GPU initialization failed"))
+//	gpuMgr.InjectDeviceError(3, errors.New("device not responding"))
+//
+//	// Clear specific failures
+//	gpuMgr.ClearXIDErrors()
+//	gpuMgr.ClearTemperatureSpike(2)
+//	gpuMgr.ClearNVMLError()
+//	gpuMgr.ClearBootError()
+//	gpuMgr.ClearDeviceError(3)
+//
+//	// Or clear all failures at once
+//	gpuMgr.ClearAllErrors()
+//
+//	// Check if any failures are active
+//	if gpuMgr.HasActiveFailures() {
+//	    // handle active failures
+//	}
+//
+// # Injection Methods
+//
+// The following methods inject failures:
+//   - InjectXIDError: Adds an XID error to the error list
+//   - InjectTemperatureSpike: Sets high temperature on a GPU
+//   - InjectNVMLError: Makes all NVML operations return an error
+//   - InjectBootError: Makes initialization fail
+//   - InjectDeviceError: Makes a specific device return errors
+//
+// Each injection method has a corresponding Clear method to remove the failure.
 type Injectable struct {
 	mu          sync.RWMutex
 	deviceCount int

@@ -402,68 +402,13 @@ Stress tests allow you to:
 
 ### Console output
 
-Stress tests display styled console output with real-time progress and a summary at completion:
+Stress tests display real-time progress during execution:
 
 ```
- STRESS TEST: 1000-node-chaos-test
-
-┌──────────────── Configuration ────────────────┐
-│ Duration: 10m0s                               │
-│ Nodes: 1000                                   │
-│ Seed: 12345                                   │
-│ Failure Rate: 10.0/min/1000                   │
-│ Cascading: true                               │
-└───────────────────────────────────────────────┘
-
-ℹ Running stress test for 10m0s...
-
 [ 50.0%] 5m0s elapsed, 5m0s remaining | Nodes: 947 healthy | Failures: 48 (cascade: 7) | Recoveries: 21
 ```
 
-When complete, results are displayed in styled tables:
-
-```
- STRESS TEST RESULTS
-
-ℹ Duration: 10m0.123s
-
-# Nodes
-┌─────────────────┬───────┐
-│ Metric          │ Value │
-├─────────────────┼───────┤
-│ Started         │ 1000  │
-│ Failed to Start │ 0     │
-│ Healthy         │ 912   │
-│ Unhealthy       │ 88    │
-│ Degraded        │ 0     │
-└─────────────────┴───────┘
-
-# Failures
-┌───────────────────┬───────┐
-│ Metric            │ Value │
-├───────────────────┼───────┤
-│ Total Failures    │ 98    │
-│ Cascading         │ 12    │
-│ Recoveries        │ 45    │
-└───────────────────┴───────┘
-
-# Top XID Errors
-┌──────────┬──────────────────────────────┬───────┬─────────────┐
-│ XID Code │ Name                         │ Count │ Severity    │
-├──────────┼──────────────────────────────┼───────┼─────────────┤
-│ 31       │ GPU memory page fault        │ 15    │ Recoverable │
-│ 79       │ GPU has fallen off the bus   │ 8     │ FATAL       │
-│ 48       │ Double Bit ECC Error         │ 7     │ FATAL       │
-└──────────┴──────────────────────────────┴───────┴─────────────┘
-
-# Reports Generated
- ✓ ./sim-runs/2024-01-15_10-30-45.123456789
-
-ℹ View HTML report in browser:
-  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
-
- ✓ Stress test completed successfully
-```
+When complete, the simulator prints a summary with node statistics, failure counts, and XID error breakdown. It also displays the run directory path with a clickable link to the HTML report.
 
 ### Stress test configuration
 
@@ -479,9 +424,6 @@ stress:
   duration: 10m
   metrics_interval: 5s
   seed: 12345
-  report_file: stress-report.json
-  html_report_file: stress-report.html  # Interactive web UI
-  log_file: stress-report.log           # Debug log
 
   fleet_gen:
     total_nodes: 1000
@@ -616,24 +558,7 @@ The `failure_rate` specifies failures per minute per 1000 nodes. For example:
 
 #### XID distribution
 
-Specify the relative weight of each XID code. The simulator includes all known XID codes with their fatal/recoverable classification:
-
-**Fatal XID codes** (require node replacement):
-- 43: GPU stopped processing
-- 48: Double Bit ECC Error
-- 63: ECC page retirement failure
-- 74: NVLink Error
-- 79: GPU has fallen off the bus
-- 95: Uncontained ECC error
-
-**Recoverable XID codes**:
-- 13: Graphics Engine Exception
-- 31: GPU memory page fault
-- 32: Invalid push buffer stream
-- 45: Preemptive cleanup
-- 64: ECC page retirement event
-- 92: High single-bit ECC rate
-- 94: Contained ECC error
+Specify the relative weight of each XID code. See [XID error codes](#xid-error-codes) for the full list of supported codes and their severity classification.
 
 #### Failure types
 
@@ -744,106 +669,33 @@ Correlation scopes:
 
 ### Run directory
 
-Stress tests automatically organize all artifacts in a timestamped run directory. This keeps outputs organized and makes it easy to compare results across multiple runs.
-
-By default, the run directory is created under `./sim-runs/`:
+Stress tests organize all artifacts in a timestamped run directory under `./sim-runs/`:
 
 ```
 sim-runs/
 └── 2024-01-15_10-30-45.123456789/
-    ├── logs/                    # Per-node and control plane logs
-    │   ├── control-plane.log
-    │   ├── node-gcp-001.log
-    │   ├── node-gcp-002.log
-    │   └── ...
-    ├── scenario.yaml            # Copy of the input scenario
-    ├── report.json              # JSON report
-    └── report.html              # Interactive HTML report
+    ├── logs/              # Per-node and control plane logs
+    ├── scenario.yaml      # Copy of input scenario
+    ├── report.json        # JSON report
+    └── report.html        # HTML report
 ```
 
-The directory name includes nanosecond precision to avoid collisions when starting multiple runs in quick succession.
+### Per-node logs
 
-When the stress test completes, the console displays the run directory path and a clickable `file://` link for the HTML report:
+Each simulated node writes detailed logs to its own file in the `logs/` subdirectory. Logs capture node registration, health checks, GPU status changes, failure events, and command execution.
 
-```
-# Reports Generated
- ✓ ./sim-runs/2024-01-15_10-30-45.123456789
+The control plane also maintains its own log file (`control-plane.log`) with cluster-wide events. Log file paths appear as clickable links in the HTML report.
 
-ℹ View HTML report in browser:
-  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
-```
+### Reports
 
-### Per-node logging
+Stress tests generate reports in the run directory. The HTML report provides an interactive visualization you can open in any browser:
 
-Each simulated node writes detailed logs to its own file in the `logs/` subdirectory. Logs are written using Go's structured logging (`slog`) at DEBUG level, capturing:
+- **Results tab**: Summary statistics, failure breakdowns, and charts showing node health over time, failure distribution, and XID errors
+- **Configuration tab**: Test configuration details
 
-- Node registration and heartbeat events
-- Health check reports
-- GPU status changes
-- Failure injection and recovery events
-- Command execution (cordon, drain, terminate)
+The JSON report (`report.json`) contains structured data for programmatic analysis.
 
-Per-node logs are useful for:
-
-- Debugging specific failure sequences
-- Tracing the timeline of events for a single node
-- Post-mortem analysis of cascading failures
-- Providing context to LLMs for automated analysis
-
-The control plane also maintains its own log file (`control-plane.log`) with cluster-wide events.
-
-Log file paths are included as relative links in the HTML report, making them clickable when viewing the report locally.
-
-### Stress test reports
-
-Stress tests generate multiple report formats, all stored in the run directory:
-
-```yaml
-stress:
-  # These paths are now relative to the run directory when using default settings
-  report_file: stress-report.json       # JSON report with raw data
-  html_report_file: stress-report.html  # Interactive HTML report (web UI)
-  log_file: stress-report.log           # Detailed debug log (deprecated, use per-node logs)
-```
-
-Note: The `log_file` option is deprecated in favor of the automatic per-node logging in the run directory. Existing scenarios that specify `log_file` will continue to work for backwards compatibility.
-
-#### HTML report (web UI)
-
-The HTML report provides an interactive web-based visualization of stress test results. Open the file in any browser to view:
-
-- **Results tab**: Summary statistics, failure breakdowns, and interactive charts
-  - Node health over time (line chart)
-  - Failures vs recoveries (line chart)
-  - XID error distribution (pie chart)
-  - Failure types breakdown (bar chart)
-- **Configuration tab**: Full test configuration including fleet generation settings, chaos parameters, cascading failure config, and recovery settings
-
-To generate an HTML report:
-
-```bash
-./bin/simulator run scenarios/stress/high-failure-test.yaml -v
-# Reports generated in run directory
-```
-
-Example output:
-```
-# Reports Generated
- ✓ ./sim-runs/2024-01-15_10-30-45.123456789
-
-ℹ View HTML report in browser:
-  file:///home/user/navarch/sim-runs/2024-01-15_10-30-45.123456789/report.html
-```
-
-#### Log file
-
-The log file captures verbose debug-level output from all components (control plane, nodes, chaos engine) during the stress test. This is useful for:
-
-- Debugging specific failure sequences
-- Providing context to LLMs for analysis
-- Post-mortem investigation of cascading failures
-
-#### JSON report
+#### JSON report structure
 
 The JSON report contains structured data for programmatic analysis.
 
@@ -957,24 +809,20 @@ Focused cascading failure testing:
 
 ### Writing custom stress tests
 
-1. Start from an existing stress test scenario
-2. Adjust `total_nodes` based on your test requirements
-3. Configure templates to match your production fleet
-4. Set `failure_rate` based on expected failure patterns
-5. Enable/disable features (cascading, recovery, outages) as needed
-6. Set a `seed` for reproducible tests
-7. Configure report outputs:
-   - `report_file` for JSON data (programmatic analysis)
-   - `html_report_file` for interactive web visualization
-   - `log_file` for detailed debug logs
+1. Start from an existing stress test scenario.
+2. Adjust `total_nodes` based on your requirements.
+3. Configure templates to match your production fleet.
+4. Set `failure_rate` based on expected failure patterns.
+5. Enable or disable features (cascading, recovery, outages) as needed.
+6. Set a `seed` for reproducible tests.
 
 Tips:
-- Start with smaller node counts (100-500) during development
-- Use `--seed` for debugging specific failure sequences
-- Monitor memory usage for very large fleets (5000+)
-- Allow adequate startup time for large fleets
-- Use the validate command to check scenario syntax
-- Open the HTML report in a browser to visualize results with interactive charts
+
+- Start with smaller node counts (100-500) during development.
+- Use `--seed` to reproduce specific failure sequences.
+- Monitor memory usage for large fleets (5000+ nodes).
+- Allow adequate startup time for large fleets.
+- Use `validate` to check scenario syntax before running.
 
 ### Performance considerations
 
