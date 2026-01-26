@@ -1,18 +1,18 @@
 # Fleet simulator
 
-The Navarch fleet simulator creates a simulated GPU fleet and control plane for testing, development, and demonstration purposes.
+The fleet simulator runs the real Navarch control plane and node code with simulated GPUs, allowing you to test the full system without cloud resources or GPU hardware.
 
 ## Overview
 
-The simulator runs an embedded control plane and spawns simulated nodes that behave like real GPU instances. You can inject failures, issue commands, and observe how the system responds—all without provisioning actual cloud resources.
+The simulator uses the actual production control plane and node daemon implementations. Only the GPU layer is simulated, using an injectable fake that supports failure injection. This means you're testing real node behavior, real health checks, and real command handling—the same code that runs in production.
 
 Use the simulator to:
 
-- Test health check logic and failure detection.
-- Verify command flows (cordon, drain, terminate).
-- Develop and debug new features locally.
-- Run automated integration tests.
-- Demo Navarch to others.
+- Test the actual control plane and node code locally
+- Validate failure detection and recovery logic
+- Verify command flows (cordon, drain, terminate)
+- Run integration tests without GPU hardware
+- Demo Navarch behavior
 
 ## Building the simulator
 
