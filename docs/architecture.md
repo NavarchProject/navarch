@@ -33,6 +33,21 @@ The control plane is a single gRPC server that:
 - Stores node state and metrics in an in-memory database
 - Manages multiple node pools with independent autoscaling policies
 - Issues commands to nodes (cordon, drain, terminate)
+- Tracks instance lifecycle from provisioning through termination
+
+### Instance manager
+
+The instance manager tracks cloud instances separately from nodes:
+
+- Creates instance records when provisioning starts
+- Updates state when nodes register successfully
+- Detects stale instances (provisioned but never registered)
+- Cleans up old terminated instance records
+
+This provides visibility into the gap between provisioning and registration, catching failures like:
+- Boot failures before agent starts
+- Network issues preventing registration
+- Agent crashes during startup
 
 ### Node agent
 

@@ -12,13 +12,16 @@ import (
 )
 
 // PoolManager orchestrates multiple GPU node pools, running autoscalers
-// and acting on scaling recommendations.
+// and acting on scaling recommendations. It integrates with InstanceManager
+// to maintain visibility into instance lifecycle from provisioning through
+// termination.
 type PoolManager struct {
-	pools    map[string]*managedPool
-	mu       sync.RWMutex
-	logger   *slog.Logger
-	interval time.Duration
-	metrics  MetricsSource
+	pools           map[string]*managedPool
+	mu              sync.RWMutex
+	logger          *slog.Logger
+	interval        time.Duration
+	metrics         MetricsSource
+	instanceManager *InstanceManager
 }
 
 type managedPool struct {
@@ -47,7 +50,8 @@ type PoolManagerConfig struct {
 }
 
 // NewPoolManager creates a new pool manager.
-func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, logger *slog.Logger) *PoolManager {
+// The instanceManager parameter is optional; if nil, instance lifecycle tracking is disabled.
+func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, instanceManager *InstanceManager, logger *slog.Logger) *PoolManager {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -56,10 +60,11 @@ func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, logger *slog.L
 		interval = 30 * time.Second
 	}
 	return &PoolManager{
-		pools:    make(map[string]*managedPool),
-		logger:   logger,
-		interval: interval,
-		metrics:  metrics,
+		pools:           make(map[string]*managedPool),
+		logger:          logger,
+		interval:        interval,
+		metrics:         metrics,
+		instanceManager: instanceManager,
 	}
 }
 
@@ -263,6 +268,10 @@ func (pm *PoolManager) actOnRecommendation(ctx context.Context, name string, mp 
 			)
 			return
 		}
+
+		// Track provisioned instances
+		pm.trackProvisionedInstances(ctx, name, mp, nodes)
+
 		pm.logger.Info("scale up complete",
 			slog.String("pool", name),
 			slog.Int("provisioned", len(nodes)),
@@ -276,6 +285,10 @@ func (pm *PoolManager) actOnRecommendation(ctx context.Context, name string, mp 
 			slog.Int("removing", count),
 			slog.String("reason", rec.Reason),
 		)
+
+		// Get nodes before scale down to track terminations
+		nodesBefore := mp.pool.Nodes()
+
 		if err := mp.pool.ScaleDown(ctx, count); err != nil {
 			pm.logger.Error("scale down failed",
 				slog.String("pool", name),
@@ -283,7 +296,65 @@ func (pm *PoolManager) actOnRecommendation(ctx context.Context, name string, mp 
 			)
 			return
 		}
+
+		// Track terminated instances
+		nodesAfter := mp.pool.Nodes()
+		pm.trackTerminatedInstances(ctx, nodesBefore, nodesAfter)
+
 		pm.logger.Info("scale down complete", slog.String("pool", name))
+	}
+}
+
+// trackProvisionedInstances creates instance records for newly provisioned nodes.
+func (pm *PoolManager) trackProvisionedInstances(ctx context.Context, poolName string, mp *managedPool, nodes []*provider.Node) {
+	if pm.instanceManager == nil {
+		return
+	}
+
+	cfg := mp.pool.Config()
+	for _, node := range nodes {
+		// Create instance record in PENDING_REGISTRATION state
+		// (the instance is provisioned, waiting for the node agent to register)
+		if err := pm.instanceManager.TrackProvisioning(ctx, node.ID, node.Provider, node.Region, node.Zone, node.InstanceType, poolName, cfg.Labels); err != nil {
+			pm.logger.Warn("failed to track provisioning start",
+				slog.String("instance_id", node.ID),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
+
+		// Mark as pending registration since provisioning already succeeded
+		if err := pm.instanceManager.TrackProvisioningComplete(ctx, node.ID); err != nil {
+			pm.logger.Warn("failed to track provisioning complete",
+				slog.String("instance_id", node.ID),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+}
+
+// trackTerminatedInstances marks instances as terminated that were removed during scale down.
+func (pm *PoolManager) trackTerminatedInstances(ctx context.Context, before, after []*pool.ManagedNode) {
+	if pm.instanceManager == nil {
+		return
+	}
+
+	// Build a set of nodes that still exist
+	remaining := make(map[string]bool)
+	for _, node := range after {
+		remaining[node.Node.ID] = true
+	}
+
+	// Find nodes that were removed
+	for _, node := range before {
+		if !remaining[node.Node.ID] {
+			if err := pm.instanceManager.TrackTerminated(ctx, node.Node.ID); err != nil {
+				pm.logger.Warn("failed to track instance termination",
+					slog.String("instance_id", node.Node.ID),
+					slog.String("error", err.Error()),
+				)
+			}
+		}
 	}
 }
 

@@ -45,7 +45,7 @@ func (m *mockMetrics) GetPoolMetrics(ctx context.Context, name string) (*PoolMet
 }
 
 func TestPoolManager_AddRemovePool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
 
 	prov := &mockProvider{}
 	p, err := pool.NewSimple(pool.Config{
@@ -85,7 +85,7 @@ func TestPoolManager_AddRemovePool(t *testing.T) {
 }
 
 func TestPoolManager_GetPool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -107,7 +107,7 @@ func TestPoolManager_GetPool(t *testing.T) {
 }
 
 func TestPoolManager_GetPoolStatus(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -132,7 +132,7 @@ func TestPoolManager_GetPoolStatus(t *testing.T) {
 }
 
 func TestPoolManager_ScalePool(t *testing.T) {
-	pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -164,7 +164,7 @@ func TestPoolManager_ScalePool(t *testing.T) {
 func TestPoolManager_StartStop(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 100 * time.Millisecond,
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{
@@ -187,7 +187,7 @@ func TestPoolManager_AutoscalerLoop(t *testing.T) {
 	metrics := &mockMetrics{utilization: 90}
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 50 * time.Millisecond,
-	}, metrics, nil)
+	}, metrics, nil, nil)
 
 	prov := &mockProvider{}
 	p, _ := pool.NewSimple(pool.Config{

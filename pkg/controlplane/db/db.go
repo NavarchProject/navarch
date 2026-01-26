@@ -52,6 +52,51 @@ type MetricsRecord struct {
 	Metrics   *pb.NodeMetrics
 }
 
+// InstanceRecord represents a cloud instance tracked by the control plane.
+// This is separate from NodeRecord to capture the full instance lifecycle,
+// including cases where nodes fail to register or boot properly.
+type InstanceRecord struct {
+	// InstanceID is the provider-assigned instance ID (e.g., GCP instance name).
+	InstanceID string
+
+	// Provider is the cloud provider name (e.g., "gcp", "aws", "lambda").
+	Provider string
+
+	// Region is the cloud region where the instance is running.
+	Region string
+
+	// Zone is the availability zone within the region.
+	Zone string
+
+	// InstanceType is the instance type (e.g., "a3-highgpu-8g").
+	InstanceType string
+
+	// State is the current lifecycle state of the instance.
+	State pb.InstanceState
+
+	// PoolName is the name of the pool that provisioned this instance (empty if standalone).
+	PoolName string
+
+	// CreatedAt is when the instance provisioning was requested.
+	CreatedAt time.Time
+
+	// ReadyAt is when the node registered (instance became ready), if applicable.
+	ReadyAt time.Time
+
+	// TerminatedAt is when the instance was terminated, if applicable.
+	TerminatedAt time.Time
+
+	// NodeID is the ID of the registered node, if the node has registered.
+	// Empty if the instance is still pending registration or failed.
+	NodeID string
+
+	// StatusMessage is a human-readable status message (e.g., error details).
+	StatusMessage string
+
+	// Labels are user-defined labels copied from the pool configuration.
+	Labels map[string]string
+}
+
 // DB is the interface for control plane data storage.
 type DB interface {
 	// Node operations
@@ -74,7 +119,17 @@ type DB interface {
 	// Metrics operations
 	RecordMetrics(ctx context.Context, record *MetricsRecord) error
 	GetRecentMetrics(ctx context.Context, nodeID string, duration time.Duration) ([]*MetricsRecord, error)
-	
+
+	// Instance operations (cloud resource lifecycle tracking)
+	CreateInstance(ctx context.Context, record *InstanceRecord) error
+	GetInstance(ctx context.Context, instanceID string) (*InstanceRecord, error)
+	UpdateInstanceState(ctx context.Context, instanceID string, state pb.InstanceState, message string) error
+	UpdateInstanceNodeID(ctx context.Context, instanceID string, nodeID string) error
+	ListInstances(ctx context.Context) ([]*InstanceRecord, error)
+	ListInstancesByState(ctx context.Context, state pb.InstanceState) ([]*InstanceRecord, error)
+	ListInstancesByPool(ctx context.Context, poolName string) ([]*InstanceRecord, error)
+	DeleteInstance(ctx context.Context, instanceID string) error
+
 	// Cleanup
 	Close() error
 }

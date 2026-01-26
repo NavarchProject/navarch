@@ -16,10 +16,11 @@ import (
 
 // Server implements the ControlPlaneService Connect service.
 type Server struct {
-	db            db.DB
-	config        Config
-	logger        *slog.Logger
-	metricsSource *DBMetricsSource
+	db              db.DB
+	config          Config
+	logger          *slog.Logger
+	metricsSource   *DBMetricsSource
+	instanceManager *InstanceManager
 }
 
 // Config holds configuration for the control plane server.
@@ -39,16 +40,19 @@ func DefaultConfig() Config {
 }
 
 // NewServer creates a new Server. If logger is nil, slog.Default() is used.
-func NewServer(database db.DB, cfg Config, logger *slog.Logger) *Server {
+// The instanceManager parameter is optional; if nil, instance lifecycle tracking
+// on node registration is disabled.
+func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	metricsSource := NewDBMetricsSource(database, logger)
 	return &Server{
-		db:            database,
-		config:        cfg,
-		logger:        logger,
-		metricsSource: metricsSource,
+		db:              database,
+		config:          cfg,
+		logger:          logger,
+		metricsSource:   metricsSource,
+		instanceManager: instanceManager,
 	}
 }
 
@@ -87,6 +91,18 @@ func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.Regis
 			slog.String("error", err.Error()),
 		)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("registration failed: %w", err))
+	}
+
+	// Update instance tracking if enabled
+	// The node_id is the same as the instance_id from the cloud provider
+	if s.instanceManager != nil {
+		if err := s.instanceManager.TrackNodeRegistered(ctx, req.Msg.NodeId, req.Msg.NodeId); err != nil {
+			// Log but don't fail - the node is still registered successfully
+			s.logger.WarnContext(ctx, "failed to update instance tracking",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+		}
 	}
 
 	s.logger.InfoContext(ctx, "node registered successfully", slog.String("node_id", req.Msg.NodeId))
@@ -360,4 +376,93 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		CommandId: commandID,
 		IssuedAt:  timestamppb.New(issuedAt),
 	}), nil
+}
+
+// ListInstances returns all tracked instances with optional filters.
+func (s *Server) ListInstances(ctx context.Context, req *connect.Request[pb.ListInstancesRequest]) (*connect.Response[pb.ListInstancesResponse], error) {
+	instances, err := s.db.ListInstances(ctx)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to list instances",
+			slog.String("error", err.Error()),
+		)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list instances: %w", err))
+	}
+
+	var filtered []*db.InstanceRecord
+	for _, instance := range instances {
+		if req.Msg.Provider != "" && instance.Provider != req.Msg.Provider {
+			continue
+		}
+		if req.Msg.Region != "" && instance.Region != req.Msg.Region {
+			continue
+		}
+		if req.Msg.State != pb.InstanceState_INSTANCE_STATE_UNKNOWN && instance.State != req.Msg.State {
+			continue
+		}
+		if req.Msg.PoolName != "" && instance.PoolName != req.Msg.PoolName {
+			continue
+		}
+		filtered = append(filtered, instance)
+	}
+
+	pbInstances := make([]*pb.InstanceInfo, len(filtered))
+	for i, instance := range filtered {
+		pbInstances[i] = s.instanceRecordToProto(instance)
+	}
+
+	s.logger.DebugContext(ctx, "listed instances",
+		slog.Int("total", len(instances)),
+		slog.Int("filtered", len(filtered)),
+	)
+
+	return connect.NewResponse(&pb.ListInstancesResponse{
+		Instances: pbInstances,
+	}), nil
+}
+
+// GetInstance returns details about a specific instance.
+func (s *Server) GetInstance(ctx context.Context, req *connect.Request[pb.GetInstanceRequest]) (*connect.Response[pb.GetInstanceResponse], error) {
+	if req.Msg.InstanceId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("instance_id is required"))
+	}
+
+	instance, err := s.db.GetInstance(ctx, req.Msg.InstanceId)
+	if err != nil {
+		s.logger.WarnContext(ctx, "instance not found",
+			slog.String("instance_id", req.Msg.InstanceId),
+		)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("instance not found: %s", req.Msg.InstanceId))
+	}
+
+	return connect.NewResponse(&pb.GetInstanceResponse{
+		Instance: s.instanceRecordToProto(instance),
+	}), nil
+}
+
+// instanceRecordToProto converts a db.InstanceRecord to a pb.InstanceInfo.
+func (s *Server) instanceRecordToProto(record *db.InstanceRecord) *pb.InstanceInfo {
+	info := &pb.InstanceInfo{
+		InstanceId:    record.InstanceID,
+		Provider:      record.Provider,
+		Region:        record.Region,
+		Zone:          record.Zone,
+		InstanceType:  record.InstanceType,
+		State:         record.State,
+		PoolName:      record.PoolName,
+		NodeId:        record.NodeID,
+		StatusMessage: record.StatusMessage,
+		Labels:        record.Labels,
+	}
+
+	if !record.CreatedAt.IsZero() {
+		info.CreatedAt = timestamppb.New(record.CreatedAt)
+	}
+	if !record.ReadyAt.IsZero() {
+		info.ReadyAt = timestamppb.New(record.ReadyAt)
+	}
+	if !record.TerminatedAt.IsZero() {
+		info.TerminatedAt = timestamppb.New(record.TerminatedAt)
+	}
+
+	return info
 }
