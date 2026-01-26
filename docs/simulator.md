@@ -415,6 +415,8 @@ stress:
   metrics_interval: 5s
   seed: 12345
   report_file: stress-report.json
+  html_report_file: stress-report.html  # Interactive web UI
+  log_file: stress-report.log           # Debug log
 
   fleet_gen:
     total_nodes: 1000
@@ -677,12 +679,52 @@ Correlation scopes:
 
 ### Stress test reports
 
-Stress tests generate JSON reports with comprehensive metrics:
+Stress tests can generate multiple report formats:
 
 ```yaml
 stress:
-  report_file: stress-report.json
+  report_file: stress-report.json       # JSON report with raw data
+  html_report_file: stress-report.html  # Interactive HTML report (web UI)
+  log_file: stress-report.log           # Detailed debug log
 ```
+
+#### HTML report (web UI)
+
+The HTML report provides an interactive web-based visualization of stress test results. Open the file in any browser to view:
+
+- **Results tab**: Summary statistics, failure breakdowns, and interactive charts
+  - Node health over time (line chart)
+  - Failures vs recoveries (line chart)
+  - XID error distribution (pie chart)
+  - Failure types breakdown (bar chart)
+- **Configuration tab**: Full test configuration including fleet generation settings, chaos parameters, cascading failure config, and recovery settings
+
+To generate an HTML report:
+
+```bash
+./bin/simulator run scenarios/stress/high-failure-test.yaml -v
+# Reports generated at paths specified in the scenario
+```
+
+Example output:
+```
+📄 Reports generated:
+   • /tmp/stress-report.log (Log)
+   • /tmp/stress-report.json (JSON)
+   • /tmp/stress-report.html (HTML)
+```
+
+#### Log file
+
+The log file captures verbose debug-level output from all components (control plane, nodes, chaos engine) during the stress test. This is useful for:
+
+- Debugging specific failure sequences
+- Providing context to LLMs for analysis
+- Post-mortem investigation of cascading failures
+
+#### JSON report
+
+The JSON report contains structured data for programmatic analysis.
 
 Report contents:
 - Configuration summary
@@ -800,7 +842,10 @@ Focused cascading failure testing:
 4. Set `failure_rate` based on expected failure patterns
 5. Enable/disable features (cascading, recovery, outages) as needed
 6. Set a `seed` for reproducible tests
-7. Configure `report_file` to capture results
+7. Configure report outputs:
+   - `report_file` for JSON data (programmatic analysis)
+   - `html_report_file` for interactive web visualization
+   - `log_file` for detailed debug logs
 
 Tips:
 - Start with smaller node counts (100-500) during development
@@ -808,6 +853,7 @@ Tips:
 - Monitor memory usage for very large fleets (5000+)
 - Allow adequate startup time for large fleets
 - Use the validate command to check scenario syntax
+- Open the HTML report in a browser to visualize results with interactive charts
 
 ### Performance considerations
 
