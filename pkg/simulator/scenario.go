@@ -45,6 +45,11 @@ type StressConfig struct {
 
 	// Log file for verbose output (useful for debugging/LLM context)
 	LogFile string `yaml:"log_file,omitempty"`
+
+	// TimeScale controls simulation speed (default 1.0 = real-time).
+	// Values > 1.0 speed up the simulation (e.g., 2.0 = 2x faster).
+	// Events maintain their relative ordering and timing ratios.
+	TimeScale float64 `yaml:"time_scale,omitempty"`
 }
 
 // FleetGeneratorConfig defines how to generate a large fleet programmatically.
@@ -349,6 +354,24 @@ func (s *StressConfig) Validate() error {
 // IsStressTest returns true if this scenario is configured for stress testing.
 func (s *Scenario) IsStressTest() bool {
 	return s.Stress != nil
+}
+
+// GetTimeScale returns the effective time scale (defaults to 1.0).
+func (s *StressConfig) GetTimeScale() float64 {
+	if s == nil || s.TimeScale <= 0 {
+		return 1.0
+	}
+	return s.TimeScale
+}
+
+// ScaleDuration scales a duration by the inverse of the time scale.
+// With TimeScale=2.0, a 10s duration becomes 5s (runs 2x faster).
+func (s *StressConfig) ScaleDuration(d time.Duration) time.Duration {
+	scale := s.GetTimeScale()
+	if scale == 1.0 {
+		return d
+	}
+	return time.Duration(float64(d) / scale)
 }
 
 // GetEffectiveDuration returns the duration for stress tests or 0 for regular scenarios.

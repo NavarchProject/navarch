@@ -203,7 +203,11 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		failureRate = stress.Chaos.FailureRate
 		cascading = stress.Chaos.Cascading != nil && stress.Chaos.Cascading.Enabled
 	}
+	timeScale := stress.GetTimeScale()
 	console.PrintHeader(r.scenario.Name, duration, nodeCount, r.seed, failureRate, cascading)
+	if timeScale > 1.0 {
+		r.logger.Info("time scale enabled", slog.Float64("scale", timeScale))
+	}
 
 	// Create run directory for all artifacts
 	runDir, err := NewRunDir("", r.scenario)
@@ -245,7 +249,8 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	if metricsInterval == 0 {
 		metricsInterval = 5 * time.Second
 	}
-	go r.metrics.StartSampling(ctx, metricsInterval)
+	scaledMetricsInterval := stress.ScaleDuration(metricsInterval)
+	go r.metrics.StartSampling(ctx, scaledMetricsInterval)
 
 	startupConfig := StartupConfig{
 		Pattern:       "linear",
@@ -254,6 +259,10 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 	if stress.FleetGen != nil && stress.FleetGen.Startup.Pattern != "" {
 		startupConfig = stress.FleetGen.Startup
+	}
+	// Scale startup duration by time scale
+	if timeScale > 1.0 {
+		startupConfig.Duration = Duration(stress.ScaleDuration(startupConfig.Duration.Duration()))
 	}
 
 	starter := NewNodeStarter(startupConfig, r.controlPlaneAddr, r.seed, r.logger)
@@ -282,6 +291,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	if stress.Chaos != nil && stress.Chaos.Enabled {
 		r.chaos = NewChaosEngine(
 			stress.Chaos,
+			stress,
 			func() map[string]*SimulatedNode { return r.nodes },
 			r.metrics,
 			r.seed,
@@ -297,7 +307,8 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 	console.PrintRunning(duration)
 
-	progressTicker := time.NewTicker(10 * time.Second)
+	progressInterval := stress.ScaleDuration(10 * time.Second)
+	progressTicker := time.NewTicker(progressInterval)
 	defer progressTicker.Stop()
 
 	startTime := time.Now()

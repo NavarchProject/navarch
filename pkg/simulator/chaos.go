@@ -12,11 +12,12 @@ import (
 
 // ChaosEngine manages failure injection with realistic patterns.
 type ChaosEngine struct {
-	config  *ChaosConfig
-	rng     *rand.Rand
-	logger  *slog.Logger
-	nodes   func() map[string]*SimulatedNode // Node accessor
-	metrics *StressMetrics
+	config       *ChaosConfig
+	stressConfig *StressConfig
+	rng          *rand.Rand
+	logger       *slog.Logger
+	nodes        func() map[string]*SimulatedNode // Node accessor
+	metrics      *StressMetrics
 
 	mu                sync.RWMutex
 	running           bool
@@ -39,12 +40,13 @@ type FailureEvent struct {
 }
 
 // NewChaosEngine creates a new chaos engine.
-func NewChaosEngine(config *ChaosConfig, nodeAccessor func() map[string]*SimulatedNode, metrics *StressMetrics, seed int64, logger *slog.Logger) *ChaosEngine {
+func NewChaosEngine(config *ChaosConfig, stressConfig *StressConfig, nodeAccessor func() map[string]*SimulatedNode, metrics *StressMetrics, seed int64, logger *slog.Logger) *ChaosEngine {
 	if seed == 0 {
 		seed = time.Now().UnixNano()
 	}
 	return &ChaosEngine{
 		config:            config,
+		stressConfig:      stressConfig,
 		rng:               rand.New(rand.NewSource(seed)),
 		logger:            logger.With(slog.String("component", "chaos-engine")),
 		nodes:             nodeAccessor,
@@ -52,6 +54,14 @@ func NewChaosEngine(config *ChaosConfig, nodeAccessor func() map[string]*Simulat
 		pendingRecoveries: make(map[string]time.Time),
 		failureHistory:    make([]FailureEvent, 0, 10000),
 	}
+}
+
+// scaleDuration scales a duration by the time scale factor.
+func (c *ChaosEngine) scaleDuration(d time.Duration) time.Duration {
+	if c.stressConfig == nil {
+		return d
+	}
+	return c.stressConfig.ScaleDuration(d)
 }
 
 // Start begins the chaos engine.
@@ -141,7 +151,9 @@ func (c *ChaosEngine) failureInjectionLoop(ctx context.Context) {
 		return
 	}
 
-	ticker := time.NewTicker(1 * time.Second)
+	// Scale the ticker interval - faster ticker for faster simulation
+	tickerInterval := c.scaleDuration(1 * time.Second)
+	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 
 	for {
@@ -400,10 +412,10 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 
 	for i := 0; i < numAffected && i < len(candidates); i++ {
 		targetNode := candidates[i]
-		minDelay := c.config.Cascading.MinDelay.Duration()
-		maxDelay := c.config.Cascading.MaxDelay.Duration()
+		minDelay := c.scaleDuration(c.config.Cascading.MinDelay.Duration())
+		maxDelay := c.scaleDuration(c.config.Cascading.MaxDelay.Duration())
 		if maxDelay <= minDelay {
-			maxDelay = minDelay + time.Second
+			maxDelay = minDelay + c.scaleDuration(time.Second)
 		}
 		delay := minDelay + time.Duration(c.rng.Int63n(int64(maxDelay-minDelay)))
 
@@ -488,15 +500,17 @@ func (c *ChaosEngine) scheduleRecovery(nodeID, failureType string) {
 	}
 
 	// Calculate recovery time with normal distribution
-	meanNs := c.config.Recovery.MeanTime.Duration().Nanoseconds()
-	stdDevNs := c.config.Recovery.StdDev.Duration().Nanoseconds()
+	// Scale the mean and stddev by time scale
+	meanNs := c.scaleDuration(c.config.Recovery.MeanTime.Duration()).Nanoseconds()
+	stdDevNs := c.scaleDuration(c.config.Recovery.StdDev.Duration()).Nanoseconds()
 	if stdDevNs == 0 {
 		stdDevNs = meanNs / 4 // Default 25% std dev
 	}
 
 	recoveryNs := int64(c.rng.NormFloat64()*float64(stdDevNs)) + meanNs
-	if recoveryNs < int64(10*time.Second) {
-		recoveryNs = int64(10 * time.Second) // Minimum recovery time
+	minRecovery := c.scaleDuration(10 * time.Second).Nanoseconds()
+	if recoveryNs < minRecovery {
+		recoveryNs = minRecovery // Minimum recovery time
 	}
 
 	recoveryTime := time.Now().Add(time.Duration(recoveryNs))
@@ -511,7 +525,9 @@ func (c *ChaosEngine) recoveryLoop(ctx context.Context) {
 		return
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	// Scale the recovery check interval
+	tickerInterval := c.scaleDuration(5 * time.Second)
+	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 
 	for {
@@ -566,7 +582,9 @@ func (c *ChaosEngine) scheduledOutageLoop(ctx context.Context) {
 
 	for _, outage := range c.config.ScheduledOutages {
 		go func(o ScheduledOutage) {
-			waitTime := o.StartTime.Duration() - time.Since(startTime)
+			// Scale the wait time for the outage start
+			scaledStartTime := c.scaleDuration(o.StartTime.Duration())
+			waitTime := scaledStartTime - time.Since(startTime)
 			if waitTime > 0 {
 				select {
 				case <-ctx.Done():
@@ -581,11 +599,12 @@ func (c *ChaosEngine) scheduledOutageLoop(ctx context.Context) {
 }
 
 func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage) {
+	scaledDuration := c.scaleDuration(outage.Duration.Duration())
 	c.logger.Warn("executing scheduled outage",
 		slog.String("name", outage.Name),
 		slog.String("scope", outage.Scope),
 		slog.String("target", outage.Target),
-		slog.Duration("duration", outage.Duration.Duration()),
+		slog.Duration("duration", scaledDuration),
 	)
 
 	nodes := c.nodes()
@@ -628,7 +647,7 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 	select {
 	case <-ctx.Done():
 		return
-	case <-time.After(outage.Duration.Duration()):
+	case <-time.After(scaledDuration):
 	}
 
 	c.logger.Info("outage ended, recovering nodes",

@@ -1,15 +1,15 @@
-name: quick-stress-test
-description: Quick stress test with 50 nodes for validation
+name: fast-stress-test
+description: Fast stress test (4x speed) with 50 nodes for quick validation
 
 fleet: []
 
 stress:
-  duration: 1m
+  duration: 1m  # Simulated duration (appears as 1m in metrics/events)
   metrics_interval: 5s
   seed: 42
-  # time_scale: 2.0  # Uncomment to run 2x faster (30s wall clock for 1m simulation)
-  report_file: /tmp/quick-stress-report.json
-  html_report_file: /tmp/quick-stress-report.html
+  time_scale: 4.0  # Run 4x faster - 1m simulation completes in ~15s wall clock
+  report_file: /tmp/fast-stress-report.json
+  html_report_file: /tmp/fast-stress-report.html
 
   fleet_gen:
     total_nodes: 50
@@ -37,12 +37,12 @@ stress:
 
     startup:
       pattern: linear
-      duration: 10s
+      duration: 10s  # Will run in ~2.5s due to 4x time scale
       jitter_percent: 10
 
   chaos:
     enabled: true
-    failure_rate: 200.0  # ~10 failures/min with 50 nodes (200/min/1000 nodes)
+    failure_rate: 200.0  # ~10 failures/min with 50 nodes
 
     xid_distribution:
       13: 20  # Graphics Engine Exception
@@ -64,22 +64,22 @@ stress:
       enabled: true
       probability: 0.2
       max_depth: 2
-      min_delay: 500ms
-      max_delay: 3s
+      min_delay: 500ms  # Will be ~125ms due to 4x time scale
+      max_delay: 3s     # Will be ~750ms due to 4x time scale
       scope: zone
       max_affected_percent: 0.15
 
     recovery:
       enabled: true
       probability: 0.6
-      mean_time: 30s
+      mean_time: 30s    # Will be ~7.5s due to 4x time scale
       std_dev: 10s
 
 events:
   - at: 0s
     action: log
     params:
-      log_message: "Quick stress test starting"
+      log_message: "Fast stress test starting (4x speed)"
 
   - at: 15s
     action: log
