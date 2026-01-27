@@ -11,15 +11,12 @@ import (
 	"github.com/pterm/pterm"
 )
 
-// Console provides styled console output for stress tests.
 type Console struct{}
 
-// NewConsole creates a new console output handler.
 func NewConsole() *Console {
 	return &Console{}
 }
 
-// PrintHeader prints the stress test header.
 func (c *Console) PrintHeader(name string, duration time.Duration, nodeCount int, seed int64, failureRate float64, cascading bool) {
 	pterm.DefaultHeader.WithBackgroundStyle(pterm.NewStyle(pterm.BgDarkGray)).
 		WithTextStyle(pterm.NewStyle(pterm.FgLightCyan, pterm.Bold)).
@@ -27,7 +24,6 @@ func (c *Console) PrintHeader(name string, duration time.Duration, nodeCount int
 
 	fmt.Println()
 
-	// Configuration panel
 	configPanel := pterm.DefaultBox.WithTitle("Configuration").WithTitleTopCenter()
 	configContent := fmt.Sprintf(
 		"Duration: %s\nNodes: %d\nSeed: %d",
@@ -41,7 +37,6 @@ func (c *Console) PrintHeader(name string, duration time.Duration, nodeCount int
 	fmt.Println()
 }
 
-// PrintProgress prints a progress update line.
 func (c *Console) PrintProgress(pct float64, elapsed, remaining time.Duration, healthyNodes int64, failures, cascading, recoveries int64) {
 	status := fmt.Sprintf("[%5.1f%%] %s elapsed, %s remaining | Nodes: %d healthy | Failures: %d (cascade: %d) | Recoveries: %d",
 		pct,
@@ -54,25 +49,19 @@ func (c *Console) PrintProgress(pct float64, elapsed, remaining time.Duration, h
 	fmt.Printf("\r%-120s", status)
 }
 
-// ClearProgress clears the progress line.
 func (c *Console) ClearProgress() {
 	fmt.Printf("\r%120s\r", "")
 }
 
-// PrintResults prints the stress test results.
 func (c *Console) PrintResults(results *StressResults) {
-	// Header
 	pterm.DefaultHeader.WithBackgroundStyle(pterm.NewStyle(pterm.BgDarkGray)).
 		WithTextStyle(pterm.NewStyle(pterm.FgLightGreen, pterm.Bold)).
 		Println("STRESS TEST RESULTS")
 
 	fmt.Println()
-
-	// Duration
 	pterm.Info.Printfln("Duration: %s", results.Duration.Round(time.Millisecond))
 	fmt.Println()
 
-	// Nodes section
 	nodeData := pterm.TableData{
 		{"Metric", "Value"},
 		{"Started", fmt.Sprintf("%d", results.NodesStarted)},
@@ -86,19 +75,16 @@ func (c *Console) PrintResults(results *StressResults) {
 	pterm.DefaultTable.WithHasHeader().WithBoxed().WithData(nodeData).Render()
 	fmt.Println()
 
-	// Failures section
 	failureData := pterm.TableData{
 		{"Metric", "Value"},
 		{"Total Failures", fmt.Sprintf("%d", results.TotalFailures)},
 		{"Cascading", fmt.Sprintf("%d", results.CascadingFailures)},
 		{"Recoveries", fmt.Sprintf("%d", results.Recoveries)},
 	}
-
 	pterm.DefaultSection.Println("Failures")
 	pterm.DefaultTable.WithHasHeader().WithBoxed().WithData(failureData).Render()
 	fmt.Println()
 
-	// Failure types
 	if len(results.FailuresByType) > 0 {
 		typeData := pterm.TableData{{"Type", "Count"}}
 		for ftype, count := range results.FailuresByType {
@@ -109,7 +95,6 @@ func (c *Console) PrintResults(results *StressResults) {
 		fmt.Println()
 	}
 
-	// Top XID errors
 	if len(results.FailuresByXID) > 0 {
 		type xidEntry struct {
 			code  int
@@ -136,8 +121,7 @@ func (c *Console) PrintResults(results *StressResults) {
 					severity = pterm.Green("Recoverable")
 				}
 			}
-			// Truncate name if too long
-			if len(name) > 30 {
+		if len(name) > 30 {
 				name = name[:27] + "..."
 			}
 			xidData = append(xidData, []string{
@@ -154,7 +138,6 @@ func (c *Console) PrintResults(results *StressResults) {
 	}
 }
 
-// PrintReports prints the generated report file paths with clickable links for HTML reports.
 func (c *Console) PrintReports(files []string) {
 	if len(files) == 0 {
 		return
@@ -165,7 +148,6 @@ func (c *Console) PrintReports(files []string) {
 		pterm.Success.Println(f)
 	}
 
-	// Find HTML report and print clickable link
 	var htmlPath string
 	for _, f := range files {
 		if strings.Contains(f, "(HTML)") {
@@ -192,24 +174,20 @@ func (c *Console) PrintReports(files []string) {
 	}
 }
 
-// PrintSuccess prints a success message.
 func (c *Console) PrintSuccess(msg string) {
 	fmt.Println()
 	pterm.Success.Println(msg)
 }
 
-// PrintError prints an error message.
 func (c *Console) PrintError(msg string) {
 	pterm.Error.Println(msg)
 }
 
-// PrintRunning prints a "running" message with spinner.
 func (c *Console) PrintRunning(duration time.Duration) {
 	pterm.Info.Printfln("Running stress test for %s...", duration)
 	fmt.Println()
 }
 
-// StressResults holds the data for printing results.
 type StressResults struct {
 	Duration          time.Duration
 	NodesStarted      int64
