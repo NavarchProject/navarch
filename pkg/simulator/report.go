@@ -373,390 +373,517 @@ const htmlReportTemplate = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stress Test Report: {{.Name}}</title>
+    <title>{{.Name}} | Stress Test Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0d1117;
-            color: #c9d1d9;
-            line-height: 1.6;
-            padding: 20px;
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+        
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #1a1a1a;
+            --bg-hover: #222222;
+            --border: #2a2a2a;
+            --border-subtle: #1f1f1f;
+            --text-primary: #e5e5e5;
+            --text-secondary: #888888;
+            --text-muted: #555555;
+            --accent: #00d9ff;
+            --accent-dim: #00d9ff22;
+            --success: #00ff88;
+            --success-dim: #00ff8815;
+            --warning: #ffaa00;
+            --warning-dim: #ffaa0015;
+            --danger: #ff4444;
+            --danger-dim: #ff444415;
+            --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+            --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        h1 { color: #58a6ff; margin-bottom: 10px; font-size: 2em; }
-        h2 { color: #8b949e; font-size: 1.3em; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #21262d; }
-        h3 { color: #c9d1d9; font-size: 1.1em; margin: 20px 0 10px 0; }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: var(--sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .container { max-width: 1600px; margin: 0 auto; padding: 16px; }
+        
+        /* Header - Compact command bar style */
         .header {
-            background: #161b22;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 16px;
+            margin: -16px -16px 16px -16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header h1 {
+            font-family: var(--mono);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        .header-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 3px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .header-meta {
             display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #8b949e;
+            gap: 20px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-secondary);
         }
-        .header-meta span { display: flex; align-items: center; gap: 5px; }
+        .header-meta span { display: flex; align-items: center; gap: 6px; }
+        .header-meta .label { color: var(--text-muted); }
+        .header-meta .value { color: var(--text-primary); }
 
-        /* Tabs */
+        /* Tabs - Terminal style */
         .tabs {
             display: flex;
             gap: 0;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 3px;
+            margin-bottom: 16px;
+            width: fit-content;
         }
         .tab {
-            padding: 12px 24px;
+            padding: 6px 16px;
             cursor: pointer;
-            color: #8b949e;
+            color: var(--text-secondary);
             border: none;
             background: none;
-            font-size: 1em;
-            font-family: inherit;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            font-size: 12px;
+            font-family: var(--mono);
+            font-weight: 500;
+            border-radius: 3px;
+            transition: all 0.15s;
         }
-        .tab:hover { color: #c9d1d9; }
+        .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
         .tab.active {
-            color: #58a6ff;
-            border-bottom-color: #58a6ff;
+            color: var(--bg-primary);
+            background: var(--accent);
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
+        /* Stats grid - Dense metric cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
         }
         .stat-card {
-            background: #161b22;
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            position: relative;
         }
-        .stat-card.success { border-left: 4px solid #3fb950; }
-        .stat-card.warning { border-left: 4px solid #d29922; }
-        .stat-card.danger { border-left: 4px solid #f85149; }
-        .stat-card.info { border-left: 4px solid #58a6ff; }
-        .stat-label { font-size: 0.85em; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 2em; font-weight: 600; margin-top: 5px; }
-        .stat-card.success .stat-value { color: #3fb950; }
-        .stat-card.warning .stat-value { color: #d29922; }
-        .stat-card.danger .stat-value { color: #f85149; }
-        .stat-card.info .stat-value { color: #58a6ff; }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            border-radius: 4px 0 0 4px;
+        }
+        .stat-card.success::before { background: var(--success); }
+        .stat-card.warning::before { background: var(--warning); }
+        .stat-card.danger::before { background: var(--danger); }
+        .stat-card.info::before { background: var(--accent); }
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+        .stat-value {
+            font-family: var(--mono);
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 2px;
+            letter-spacing: -0.02em;
+        }
+        .stat-card.success .stat-value { color: var(--success); }
+        .stat-card.warning .stat-value { color: var(--warning); }
+        .stat-card.danger .stat-value { color: var(--danger); }
+        .stat-card.info .stat-value { color: var(--accent); }
 
+        /* Charts */
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 12px;
         }
         .chart-card {
-            background: #161b22;
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            padding: 16px;
+            border: 1px solid var(--border);
         }
-        .chart-card h3 { color: #c9d1d9; font-size: 1em; margin-bottom: 15px; }
-        .chart-container { position: relative; height: 300px; }
-        .chart-container.small { height: 200px; }
+        .chart-card h3 {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+        .chart-container { position: relative; height: 240px; }
+        .chart-container.small { height: 180px; }
 
+        /* Tables - Dense data display */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
+            font-family: var(--mono);
+            font-size: 12px;
         }
         .data-table th, .data-table td {
-            padding: 12px;
+            padding: 8px 12px;
             text-align: left;
-            border-bottom: 1px solid #21262d;
+            border-bottom: 1px solid var(--border-subtle);
         }
         .data-table th {
-            background: #21262d;
-            color: #8b949e;
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
             font-weight: 500;
-            font-size: 0.85em;
+            font-size: 10px;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .data-table tr:hover { background: #21262d; }
+        .data-table tr:hover { background: var(--bg-hover); }
+        .data-table td { color: var(--text-secondary); }
 
+        /* Badges - Minimal */
         .badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 10px;
             font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
-        .badge.fatal { background: #f8514922; color: #f85149; }
-        .badge.recoverable { background: #3fb95022; color: #3fb950; }
-        .badge.enabled { background: #3fb95022; color: #3fb950; }
-        .badge.disabled { background: #48505822; color: #484f58; }
+        .badge.fatal { background: var(--danger-dim); color: var(--danger); border: 1px solid var(--danger); }
+        .badge.recoverable { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
+        .badge.enabled { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
+        .badge.disabled { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
 
+        /* Config sections */
         .config-section {
-            background: #161b22;
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid #30363d;
-            margin-bottom: 20px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
         }
         .config-section h3 {
-            color: #58a6ff;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #21262d;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
         }
         .config-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
         }
         .config-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #21262d;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-subtle);
         }
         .config-item:last-child { border-bottom: none; }
-        .config-label { color: #8b949e; }
-        .config-value { color: #c9d1d9; font-weight: 500; font-family: monospace; }
+        .config-label { color: var(--text-muted); font-size: 12px; }
+        .config-value {
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+        }
 
         .config-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        /* Section headers */
+        .section-header {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 20px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
         }
 
         .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #21262d;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
             text-align: center;
-            color: #484f58;
-            font-size: 0.85em;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.05em;
         }
 
-        /* Timeline Track View - Compact */
+        /* Timeline Track View - Dense terminal style */
         .timeline-container {
-            background: #161b22;
-            border-radius: 8px;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            border: 1px solid var(--border);
             overflow: hidden;
         }
         .timeline-header {
             display: flex;
-            background: #21262d;
-            border-bottom: 1px solid #30363d;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 10;
         }
         .timeline-labels {
-            min-width: 140px;
-            max-width: 140px;
-            padding: 6px 10px;
+            min-width: 160px;
+            max-width: 160px;
+            padding: 4px 8px;
+            font-family: var(--mono);
             font-weight: 500;
-            color: #8b949e;
-            font-size: 0.75em;
-            border-right: 1px solid #30363d;
+            color: var(--text-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-right: 1px solid var(--border);
         }
         .timeline-ruler {
             flex: 1;
             display: flex;
             align-items: center;
-            padding: 6px 0;
+            padding: 4px 0;
             overflow-x: auto;
         }
         .timeline-tick {
             flex: 1;
             text-align: center;
-            font-size: 0.7em;
-            color: #8b949e;
-            border-left: 1px solid #30363d;
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            border-left: 1px solid var(--border-subtle);
             padding: 0 2px;
             min-width: 50px;
         }
         .timeline-body {
-            max-height: 70vh;
+            max-height: 65vh;
             overflow-y: auto;
         }
         .timeline-row {
             display: flex;
-            border-bottom: 1px solid #21262d;
-            min-height: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            min-height: 18px;
         }
-        .timeline-row:hover {
-            background: #21262d66;
-        }
-        .timeline-row.has-failures {
-            background: #f8514908;
-        }
+        .timeline-row:hover { background: var(--bg-hover); }
+        .timeline-row.has-failures { background: var(--danger-dim); }
         .timeline-node-label {
-            min-width: 140px;
-            max-width: 140px;
-            padding: 2px 8px;
-            font-size: 0.7em;
-            font-family: monospace;
-            color: #8b949e;
-            border-right: 1px solid #30363d;
+            min-width: 160px;
+            max-width: 160px;
+            padding: 1px 8px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-secondary);
+            border-right: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             cursor: pointer;
         }
         .timeline-node-label:hover {
-            color: #c9d1d9;
-            background: #21262d;
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
         }
         .timeline-track {
             flex: 1;
             position: relative;
-            height: 20px;
+            height: 18px;
         }
         .timeline-segment {
             position: absolute;
-            top: 3px;
+            top: 2px;
             height: 14px;
-            border-radius: 2px;
+            border-radius: 1px;
         }
-        .timeline-segment.healthy { background: #238636; }
-        .timeline-segment.degraded { background: #9e6a03; }
-        .timeline-segment.unhealthy { background: #da3633; }
-        .timeline-segment.pending { background: #484f58; }
+        .timeline-segment.healthy { background: #166534; }
+        .timeline-segment.degraded { background: #854d0e; }
+        .timeline-segment.unhealthy { background: #991b1b; }
+        .timeline-segment.pending { background: var(--bg-tertiary); }
         .timeline-event {
             position: absolute;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
-            border: 1px solid #0d1117;
             cursor: pointer;
             z-index: 5;
         }
-        .timeline-event.failure { background: #f85149; }
-        .timeline-event.recovery { background: #3fb950; }
-        .timeline-event.status_change { background: #58a6ff; }
+        .timeline-event.failure { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
+        .timeline-event.recovery { background: var(--success); box-shadow: 0 0 4px var(--success); }
+        .timeline-event.status_change { background: var(--accent); }
         .timeline-controls {
             display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 8px;
+            margin-bottom: 12px;
             align-items: center;
             flex-wrap: wrap;
-            font-size: 0.85em;
         }
         .timeline-legend {
             display: flex;
-            gap: 15px;
-            padding: 8px 12px;
-            background: #161b22;
-            border-radius: 6px;
-            border: 1px solid #30363d;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
+            gap: 12px;
+            padding: 6px 10px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            border: 1px solid var(--border);
         }
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 5px;
-            font-size: 0.75em;
-            color: #8b949e;
+            gap: 4px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
         }
         .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 1px;
         }
-        .legend-color.healthy { background: #238636; }
-        .legend-color.degraded { background: #9e6a03; }
-        .legend-color.unhealthy { background: #da3633; }
+        .legend-color.healthy { background: #166534; }
+        .legend-color.degraded { background: #854d0e; }
+        .legend-color.unhealthy { background: #991b1b; }
         .legend-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
         }
-        .legend-dot.failure { background: #f85149; }
-        .legend-dot.recovery { background: #3fb950; }
+        .legend-dot.failure { background: var(--danger); }
+        .legend-dot.recovery { background: var(--success); }
         .timeline-tooltip {
-            position: absolute;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 6px;
+            position: fixed;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 3px;
             padding: 8px 10px;
-            font-size: 0.8em;
-            color: #c9d1d9;
-            z-index: 100;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-primary);
+            z-index: 1000;
             pointer-events: none;
-            max-width: 280px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            max-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .zoom-controls {
             display: flex;
-            gap: 3px;
+            gap: 2px;
         }
         .zoom-btn {
-            padding: 4px 10px;
-            background: #21262d;
-            border: 1px solid #30363d;
-            border-radius: 4px;
-            color: #c9d1d9;
+            padding: 3px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.8em;
+            font-family: var(--mono);
+            font-size: 11px;
         }
-        .zoom-btn:hover { background: #30363d; }
+        .zoom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
-        /* Node List - Compact Split View */
+        /* Node List - Terminal-style split view */
         .nodes-container {
             display: flex;
-            gap: 15px;
-            height: 75vh;
+            gap: 12px;
+            height: 70vh;
         }
         .nodes-sidebar {
-            width: 280px;
-            min-width: 280px;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
+            width: 300px;
+            min-width: 300px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
         }
         .nodes-sidebar-header {
-            padding: 10px;
-            border-bottom: 1px solid #30363d;
-            background: #21262d;
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-tertiary);
         }
         .nodes-sidebar-header input {
             width: 100%;
-            padding: 6px 10px;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 4px;
-            color: #c9d1d9;
-            font-size: 0.8em;
+            padding: 5px 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+        .nodes-sidebar-header input:focus {
+            outline: none;
+            border-color: var(--accent);
         }
         .nodes-sidebar-filters {
             display: flex;
-            gap: 5px;
-            margin-top: 8px;
+            gap: 4px;
+            margin-top: 6px;
         }
         .nodes-sidebar-filters select {
             flex: 1;
             padding: 4px 6px;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 4px;
-            color: #c9d1d9;
-            font-size: 0.75em;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            color: var(--text-secondary);
+            font-family: var(--mono);
+            font-size: 10px;
         }
         .nodes-sidebar-list {
             flex: 1;
@@ -765,154 +892,187 @@ const htmlReportTemplate = `<!DOCTYPE html>
         .node-list-item {
             display: flex;
             align-items: center;
-            padding: 6px 10px;
+            padding: 4px 8px;
             cursor: pointer;
-            border-bottom: 1px solid #21262d;
-            font-size: 0.8em;
-            gap: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+            gap: 6px;
         }
-        .node-list-item:hover {
-            background: #21262d;
-        }
+        .node-list-item:hover { background: var(--bg-hover); }
         .node-list-item.selected {
-            background: #388bfd22;
-            border-left: 2px solid #58a6ff;
+            background: var(--accent-dim);
+            border-left: 2px solid var(--accent);
         }
         .node-list-item .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .node-list-item .status-dot.healthy { background: #3fb950; }
-        .node-list-item .status-dot.degraded { background: #d29922; }
-        .node-list-item .status-dot.unhealthy { background: #f85149; }
+        .node-list-item .status-dot.healthy { background: var(--success); }
+        .node-list-item .status-dot.degraded { background: var(--warning); }
+        .node-list-item .status-dot.unhealthy { background: var(--danger); }
         .node-list-item .node-id {
             flex: 1;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-family: monospace;
-            color: #8b949e;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-secondary);
         }
         .node-list-item .failure-badge {
-            background: #f8514922;
-            color: #f85149;
-            padding: 1px 5px;
-            border-radius: 3px;
-            font-size: 0.75em;
-            font-weight: 500;
+            background: var(--danger-dim);
+            color: var(--danger);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 9px;
+            font-weight: 600;
         }
         .nodes-detail {
             flex: 1;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
         .nodes-detail-header {
-            padding: 15px;
-            background: #21262d;
-            border-bottom: 1px solid #30363d;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
         }
         .nodes-detail-content {
             flex: 1;
             overflow-y: auto;
-            padding: 15px;
+            padding: 12px;
         }
         .nodes-detail-empty {
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: #8b949e;
-            font-size: 0.9em;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 11px;
         }
         .node-info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 6px;
+            margin-bottom: 16px;
         }
         .node-info-item {
-            background: #21262d;
-            padding: 10px;
-            border-radius: 6px;
+            background: var(--bg-tertiary);
+            padding: 8px;
+            border-radius: 3px;
+            border: 1px solid var(--border-subtle);
         }
         .node-info-item label {
             display: block;
-            font-size: 0.7em;
-            color: #8b949e;
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
             text-transform: uppercase;
-            margin-bottom: 3px;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
         }
         .node-info-item span {
-            font-family: monospace;
-            font-size: 0.85em;
-            color: #c9d1d9;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-primary);
         }
         .node-events-list {
-            background: #0d1117;
-            border-radius: 6px;
-            max-height: 400px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            max-height: 350px;
             overflow-y: auto;
         }
         .node-event-item {
             display: flex;
             align-items: flex-start;
-            padding: 8px 10px;
-            border-bottom: 1px solid #21262d;
-            font-size: 0.8em;
-            gap: 10px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 11px;
+            gap: 8px;
         }
         .node-event-item:last-child { border-bottom: none; }
         .node-event-time {
-            color: #8b949e;
-            font-size: 0.75em;
+            font-family: var(--mono);
+            color: var(--text-muted);
+            font-size: 10px;
             white-space: nowrap;
-            min-width: 75px;
+            min-width: 70px;
         }
         .node-event-icon {
-            width: 16px;
+            width: 14px;
             text-align: center;
+            font-size: 10px;
         }
         .node-event-msg {
             flex: 1;
-            color: #c9d1d9;
+            font-family: var(--mono);
+            color: var(--text-secondary);
+            font-size: 11px;
         }
         .nodes-sidebar-stats {
-            padding: 8px 10px;
-            background: #21262d;
-            border-top: 1px solid #30363d;
-            font-size: 0.75em;
-            color: #8b949e;
+            padding: 6px 8px;
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        
+        /* Utility classes */
+        .mono { font-family: var(--mono); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        
+        /* Input focus states */
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>{{.Name}}</h1>
+            <div class="header-left">
+                <h1>{{.Name}}</h1>
+                <span class="header-badge">stress test</span>
+            </div>
             <div class="header-meta">
-                <span>Start: {{.StartTime}}</span>
-                <span>Duration: {{.Duration}}</span>
-                <span>{{.TotalNodes}} nodes</span>
-                <span>{{.FailureRate}}/min/1000 failure rate</span>
+                <span><span class="label">start</span> <span class="value">{{.StartTime}}</span></span>
+                <span><span class="label">duration</span> <span class="value">{{.Duration}}</span></span>
+                <span><span class="label">nodes</span> <span class="value">{{.TotalNodes}}</span></span>
+                <span><span class="label">rate</span> <span class="value">{{.FailureRate}}/min/1k</span></span>
+                <span><span class="label">seed</span> <span class="value">{{if .Seed}}{{.Seed}}{{else}}random{{end}}</span></span>
             </div>
         </div>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('results')">Results</button>
             <button class="tab" onclick="showTab('timeline')">Timeline</button>
-            <button class="tab" onclick="showTab('nodes')">Nodes</button>
-            <button class="tab" onclick="showTab('config')">Configuration</button>
+            <button class="tab" onclick="showTab('nodes')">Nodes ({{.TotalNodes}})</button>
+            <button class="tab" onclick="showTab('config')">Config</button>
         </div>
 
         <!-- Results Tab -->
         <div id="results" class="tab-content active">
-            <h2>Summary Statistics</h2>
+            <div class="section-header">Key Metrics</div>
             <div class="stats-grid">
                 <div class="stat-card success">
                     <div class="stat-label">Nodes Started</div>
@@ -948,32 +1108,32 @@ const htmlReportTemplate = `<!DOCTYPE html>
                 </div>
             </div>
 
-            <h2>Timeline</h2>
+            <div class="section-header">Health Timeline</div>
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>Node Health Over Time</h3>
+                    <h3>Node Status Distribution</h3>
                     <div class="chart-container">
                         <canvas id="healthChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>Cumulative Failures & Recoveries</h3>
+                    <h3>Failures vs Recoveries (cumulative)</h3>
                     <div class="chart-container">
                         <canvas id="failuresChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <h2>Failure Analysis</h2>
+            <div class="section-header">Failure Breakdown</div>
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>Failures by Type</h3>
+                    <h3>By Type</h3>
                     <div class="chart-container">
                         <canvas id="failureTypeChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>XID Error Distribution</h3>
+                    <h3>XID Codes</h3>
                     <div class="chart-container">
                         <canvas id="xidChart"></canvas>
                     </div>
@@ -981,7 +1141,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
             </div>
 
             {{if .TopXIDCodes}}
-            <h2>Top XID Errors</h2>
+            <div class="section-header">Top XID Errors</div>
             <div class="chart-card">
                 <table class="data-table">
                     <thead>
@@ -1014,26 +1174,26 @@ const htmlReportTemplate = `<!DOCTYPE html>
         <div id="timeline" class="tab-content">
             <div class="timeline-controls">
                 <div class="timeline-legend">
-                    <div class="legend-item"><div class="legend-color healthy"></div><span>Healthy</span></div>
-                    <div class="legend-item"><div class="legend-color degraded"></div><span>Degraded</span></div>
-                    <div class="legend-item"><div class="legend-color unhealthy"></div><span>Unhealthy</span></div>
-                    <div class="legend-item"><div class="legend-dot failure"></div><span>Failure</span></div>
-                    <div class="legend-item"><div class="legend-dot recovery"></div><span>Recovery</span></div>
+                    <div class="legend-item"><div class="legend-color healthy"></div><span>healthy</span></div>
+                    <div class="legend-item"><div class="legend-color degraded"></div><span>degraded</span></div>
+                    <div class="legend-item"><div class="legend-color unhealthy"></div><span>unhealthy</span></div>
+                    <div class="legend-item"><div class="legend-dot failure"></div><span>failure</span></div>
+                    <div class="legend-item"><div class="legend-dot recovery"></div><span>recovery</span></div>
                 </div>
-                <input type="text" id="timelineSearch" placeholder="Filter nodes..." 
-                       style="padding: 5px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; width: 150px; font-size: 0.8em;">
-                <select id="timelineFilter" style="padding: 5px 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-size: 0.8em;">
-                    <option value="">All</option>
-                    <option value="has_events">With Events</option>
-                    <option value="unhealthy">Unhealthy</option>
-                    <option value="degraded">Degraded</option>
+                <input type="text" id="timelineSearch" placeholder="filter..." 
+                       style="padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 2px; color: var(--text-primary); width: 120px; font-family: var(--mono); font-size: 10px;">
+                <select id="timelineFilter" style="padding: 4px 6px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 2px; color: var(--text-secondary); font-family: var(--mono); font-size: 10px;">
+                    <option value="">all nodes</option>
+                    <option value="has_events">with events</option>
+                    <option value="unhealthy">unhealthy</option>
+                    <option value="degraded">degraded</option>
                 </select>
                 <div class="zoom-controls">
                     <button class="zoom-btn" onclick="zoomTimeline(-1)">−</button>
-                    <span style="padding: 0 8px; color: #8b949e; font-size: 0.8em;" id="zoomLevel">100%</span>
+                    <span style="padding: 0 6px; color: var(--text-muted); font-family: var(--mono); font-size: 10px;" id="zoomLevel">100%</span>
                     <button class="zoom-btn" onclick="zoomTimeline(1)">+</button>
                 </div>
-                <span style="color: #8b949e; font-size: 0.75em;"><span id="timelineVisibleNodes">0</span> nodes</span>
+                <span style="color: var(--text-muted); font-family: var(--mono); font-size: 10px;"><span id="timelineVisibleNodes">0</span> nodes</span>
             </div>
             
             <div class="timeline-container">
@@ -1083,10 +1243,10 @@ const htmlReportTemplate = `<!DOCTYPE html>
 
         <!-- Configuration Tab -->
         <div id="config" class="tab-content">
-            <h2>Test Configuration</h2>
+            <div class="section-header">Test Configuration</div>
 
             <div class="config-section">
-                <h3>General Settings</h3>
+                <h3>General</h3>
                 <div class="config-grid">
                     <div>
                         <div class="config-item">
@@ -1369,8 +1529,11 @@ const htmlReportTemplate = `<!DOCTYPE html>
     </div>
 
     <script>
-        Chart.defaults.color = '#8b949e';
-        Chart.defaults.borderColor = '#30363d';
+        // Chart.js global config for dark theme
+        Chart.defaults.color = '#888888';
+        Chart.defaults.borderColor = '#2a2a2a';
+        Chart.defaults.font.family = "'JetBrains Mono', monospace";
+        Chart.defaults.font.size = 10;
 
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -1379,18 +1542,39 @@ const htmlReportTemplate = `<!DOCTYPE html>
             event.target.classList.add('active');
         }
 
+        // Color palette
+        const colors = {
+            success: '#00ff88',
+            warning: '#ffaa00',
+            danger: '#ff4444',
+            accent: '#00d9ff',
+            successDim: 'rgba(0, 255, 136, 0.1)',
+            warningDim: 'rgba(255, 170, 0, 0.1)',
+            dangerDim: 'rgba(255, 68, 68, 0.1)',
+            accentDim: 'rgba(0, 217, 255, 0.1)',
+        };
+
         // Node Health Timeline
         new Chart(document.getElementById('healthChart'), {
             type: 'line',
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: '#3fb950', backgroundColor: '#3fb95022', fill: true, tension: 0.3 },
-                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: '#d29922', backgroundColor: '#d2992222', fill: true, tension: 0.3 },
-                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: '#f85149', backgroundColor: '#f8514922', fill: true, tension: 0.3 }
+                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: colors.warning, backgroundColor: colors.warningDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'bottom' } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
+            }
         });
 
         // Failures & Recoveries Timeline
@@ -1399,11 +1583,20 @@ const htmlReportTemplate = `<!DOCTYPE html>
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Cumulative Failures', data: {{.FailuresData}}, borderColor: '#f85149', backgroundColor: '#f8514922', fill: true, tension: 0.3 },
-                    { label: 'Cumulative Recoveries', data: {{.RecoveriesData}}, borderColor: '#3fb950', backgroundColor: '#3fb95022', fill: true, tension: 0.3 }
+                    { label: 'Failures', data: {{.FailuresData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Recoveries', data: {{.RecoveriesData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'bottom' } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
+            }
         });
 
         // Failure Type Distribution
@@ -1411,9 +1604,9 @@ const htmlReportTemplate = `<!DOCTYPE html>
             type: 'doughnut',
             data: {
                 labels: {{.FailureTypeLabels}},
-                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#f85149', '#d29922', '#58a6ff', '#3fb950', '#a371f7', '#f778ba', '#79c0ff', '#7ee787', '#ffa657', '#ff7b72'] }]
+                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#ff4444', '#ffaa00', '#00d9ff', '#00ff88', '#a855f7', '#ec4899', '#60a5fa', '#4ade80', '#f97316', '#ef4444'], borderWidth: 0 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 8 } } } }
         });
 
         // XID Distribution (Results)
@@ -1421,9 +1614,18 @@ const htmlReportTemplate = `<!DOCTYPE html>
             type: 'bar',
             data: {
                 labels: {{.XIDLabels}},
-                datasets: [{ label: 'Count', data: {{.XIDData}}, backgroundColor: '#58a6ff', borderRadius: 4 }]
+                datasets: [{ label: 'Count', data: {{.XIDData}}, backgroundColor: colors.accent, borderRadius: 2 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    y: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
         });
 
         // XID Distribution Chart (Config)
@@ -1432,9 +1634,9 @@ const htmlReportTemplate = `<!DOCTYPE html>
             type: 'doughnut',
             data: {
                 labels: {{.XIDDistLabels}},
-                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#f85149', '#d29922', '#58a6ff', '#3fb950', '#a371f7', '#f778ba', '#79c0ff', '#7ee787', '#ffa657', '#ff7b72'] }]
+                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#ff4444', '#ffaa00', '#00d9ff', '#00ff88', '#a855f7', '#ec4899', '#60a5fa', '#4ade80', '#f97316', '#ef4444'], borderWidth: 0 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 8 } } } }
         });
         {{end}}
         
@@ -1445,9 +1647,8 @@ const htmlReportTemplate = `<!DOCTYPE html>
         let timelineFilteredNodes = [...timelineNodes];
         
         function parseGoDuration(durationStr) {
-            // Parse Go duration string like "1m0s" or "5m30s" to milliseconds
             const matches = durationStr.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/);
-            if (!matches) return 60000; // Default 1 minute
+            if (!matches) return 60000;
             const hours = parseInt(matches[1]) || 0;
             const minutes = parseInt(matches[2]) || 0;
             const seconds = parseFloat(matches[3]) || 0;
@@ -1460,25 +1661,19 @@ const htmlReportTemplate = `<!DOCTYPE html>
             const ruler = document.getElementById('timelineRuler');
             const body = document.getElementById('timelineBody');
             
-            // Calculate tick intervals based on duration
             const numTicks = Math.min(20, Math.max(6, Math.floor(durationMs / 10000)));
             const tickInterval = durationMs / numTicks;
             
-            // Render ruler
             let rulerHtml = '';
             for (let i = 0; i <= numTicks; i++) {
                 const time = (i * tickInterval) / 1000;
-                let label;
-                if (time >= 60) {
-                    label = Math.floor(time / 60) + 'm' + (time % 60 > 0 ? Math.floor(time % 60) + 's' : '');
-                } else {
-                    label = Math.floor(time) + 's';
-                }
+                let label = time >= 60 
+                    ? Math.floor(time / 60) + 'm' + (time % 60 > 0 ? Math.floor(time % 60) + 's' : '')
+                    : Math.floor(time) + 's';
                 rulerHtml += '<div class="timeline-tick">' + label + '</div>';
             }
             ruler.innerHTML = rulerHtml;
             
-            // Find the earliest timestamp across all nodes
             let minTime = Infinity;
             timelineFilteredNodes.forEach(node => {
                 if (node.events && node.events.length > 0) {
@@ -1488,21 +1683,19 @@ const htmlReportTemplate = `<!DOCTYPE html>
             });
             if (minTime === Infinity) minTime = Date.now() - durationMs;
             
-            // Render node tracks
             let bodyHtml = '';
             timelineFilteredNodes.forEach(node => {
-                const statusColor = node.status === 'healthy' ? '#238636' : 
-                                  node.status === 'degraded' ? '#9e6a03' : '#da3633';
+                const statusColor = node.status === 'healthy' ? colors.success : 
+                                  node.status === 'degraded' ? colors.warning : colors.danger;
                 const hasFailures = node.events && node.events.some(e => e.type === 'failure');
                 
                 bodyHtml += '<div class="timeline-row' + (hasFailures ? ' has-failures' : '') + '">';
                 bodyHtml += '<div class="timeline-node-label" title="' + node.node_id + '" onclick="selectNodeFromTimeline(\'' + node.node_id + '\')">';
-                bodyHtml += '<span style="width: 6px; height: 6px; border-radius: 50%; background: ' + statusColor + '; flex-shrink: 0;"></span>';
+                bodyHtml += '<span style="width: 5px; height: 5px; border-radius: 50%; background: ' + statusColor + '; flex-shrink: 0;"></span>';
                 bodyHtml += '<span style="overflow: hidden; text-overflow: ellipsis;">' + node.node_id + '</span>';
                 bodyHtml += '</div>';
                 bodyHtml += '<div class="timeline-track" data-node="' + node.node_id + '">';
                 
-                // Build status segments from events
                 if (node.events && node.events.length > 0) {
                     let currentStatus = 'pending';
                     let segmentStart = 0;
@@ -1511,26 +1704,18 @@ const htmlReportTemplate = `<!DOCTYPE html>
                         const eventTime = new Date(event.timestamp).getTime();
                         const eventPos = ((eventTime - minTime) / durationMs) * 100 * timelineZoom;
                         
-                        // Close previous segment
                         if (idx > 0 || event.type === 'started') {
-                            const segmentEnd = eventPos;
-                            const segmentWidth = segmentEnd - segmentStart;
+                            const segmentWidth = eventPos - segmentStart;
                             if (segmentWidth > 0.1) {
                                 bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + segmentWidth + '%;"></div>';
                             }
                         }
                         
-                        // Update status based on event
-                        if (event.type === 'started' || event.type === 'recovery') {
-                            currentStatus = 'healthy';
-                        } else if (event.type === 'failure') {
-                            currentStatus = 'unhealthy';
-                        } else if (event.type === 'status_change' && event.status) {
-                            currentStatus = event.status;
-                        }
+                        if (event.type === 'started' || event.type === 'recovery') currentStatus = 'healthy';
+                        else if (event.type === 'failure') currentStatus = 'unhealthy';
+                        else if (event.type === 'status_change' && event.status) currentStatus = event.status;
                         segmentStart = eventPos;
                         
-                        // Render event marker (except for 'started')
                         if (event.type !== 'started') {
                             const eventClass = event.type === 'failure' ? 'failure' : 
                                              event.type === 'recovery' ? 'recovery' : 'status_change';
@@ -1542,13 +1727,11 @@ const htmlReportTemplate = `<!DOCTYPE html>
                         }
                     });
                     
-                    // Final segment to end
                     const finalWidth = (100 * timelineZoom) - segmentStart;
                     if (finalWidth > 0.1) {
                         bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + finalWidth + '%;"></div>';
                     }
                 } else {
-                    // No events - show as healthy for full duration
                     bodyHtml += '<div class="timeline-segment healthy" style="left: 0; width: ' + (100 * timelineZoom) + '%;"></div>';
                 }
                 
@@ -1564,24 +1747,21 @@ const htmlReportTemplate = `<!DOCTYPE html>
             const nodeId = element.dataset.node;
             const tooltip = document.getElementById('timelineTooltip');
             
-            const time = new Date(event.timestamp).toLocaleString();
-            let typeLabel = event.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-            let color = event.type === 'failure' ? '#f85149' : 
-                       event.type === 'recovery' ? '#3fb950' : '#58a6ff';
+            const time = new Date(event.timestamp).toLocaleTimeString();
+            let typeLabel = event.type.replace('_', ' ').toUpperCase();
+            let color = event.type === 'failure' ? colors.danger : 
+                       event.type === 'recovery' ? colors.success : colors.accent;
             
-            tooltip.innerHTML = '<div style="margin-bottom: 8px; font-weight: 500; color: ' + color + ';">' + typeLabel + '</div>';
-            tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Node:</strong> ' + nodeId + '</div>';
-            tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Time:</strong> ' + time + '</div>';
-            if (event.message) {
-                tooltip.innerHTML += '<div style="margin-bottom: 5px;"><strong>Details:</strong> ' + event.message + '</div>';
-            }
-            if (event.xid_code) {
-                tooltip.innerHTML += '<div><strong>XID Code:</strong> ' + event.xid_code + '</div>';
-            }
+            let html = '<div style="margin-bottom: 6px; font-weight: 600; color: ' + color + '; font-size: 10px; letter-spacing: 0.05em;">' + typeLabel + '</div>';
+            html += '<div style="margin-bottom: 3px; color: #888;"><span style="color: #555;">node</span> ' + nodeId + '</div>';
+            html += '<div style="margin-bottom: 3px; color: #888;"><span style="color: #555;">time</span> ' + time + '</div>';
+            if (event.message) html += '<div style="margin-bottom: 3px; color: #e5e5e5;">' + event.message + '</div>';
+            if (event.xid_code) html += '<div style="color: ' + colors.danger + ';"><span style="color: #555;">xid</span> ' + event.xid_code + '</div>';
             
+            tooltip.innerHTML = html;
             tooltip.style.display = 'block';
-            tooltip.style.left = (e.pageX + 15) + 'px';
-            tooltip.style.top = (e.pageY - 10) + 'px';
+            tooltip.style.left = (e.clientX + 12) + 'px';
+            tooltip.style.top = (e.clientY - 10) + 'px';
         }
         
         function hideEventTooltip() {
@@ -1589,18 +1769,9 @@ const htmlReportTemplate = `<!DOCTYPE html>
         }
         
         function zoomTimeline(direction) {
-            if (direction > 0 && timelineZoom < 5) {
-                timelineZoom *= 1.5;
-            } else if (direction < 0 && timelineZoom > 0.5) {
-                timelineZoom /= 1.5;
-            }
+            if (direction > 0 && timelineZoom < 5) timelineZoom *= 1.5;
+            else if (direction < 0 && timelineZoom > 0.5) timelineZoom /= 1.5;
             document.getElementById('zoomLevel').textContent = Math.round(timelineZoom * 100) + '%';
-            renderTimeline();
-        }
-        
-        function resetZoom() {
-            timelineZoom = 1;
-            document.getElementById('zoomLevel').textContent = '100%';
             renderTimeline();
         }
         
@@ -1610,30 +1781,22 @@ const htmlReportTemplate = `<!DOCTYPE html>
             
             timelineFilteredNodes = timelineNodes.filter(node => {
                 const matchesSearch = !search || node.node_id.toLowerCase().includes(search);
-                
                 let matchesFilter = true;
-                if (filter === 'has_events') {
-                    matchesFilter = node.events && node.events.length > 1;
-                } else if (filter === 'unhealthy') {
-                    matchesFilter = node.status === 'unhealthy';
-                } else if (filter === 'degraded') {
-                    matchesFilter = node.status === 'degraded';
-                }
-                
+                if (filter === 'has_events') matchesFilter = node.events && node.events.length > 1;
+                else if (filter === 'unhealthy') matchesFilter = node.status === 'unhealthy';
+                else if (filter === 'degraded') matchesFilter = node.status === 'degraded';
                 return matchesSearch && matchesFilter;
             });
-            
             renderTimeline();
         }
         
-        // Initialize timeline
         if (timelineNodes && timelineNodes.length > 0) {
             renderTimeline();
             document.getElementById('timelineSearch').addEventListener('input', filterTimeline);
             document.getElementById('timelineFilter').addEventListener('change', filterTimeline);
         }
         
-        // Node management - Compact split-panel view
+        // Node management
         const allNodes = {{.NodesJSON}};
         let filteredNodes = [...allNodes];
         let selectedNodeId = null;
@@ -1649,9 +1812,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
                 html += '<div class="node-list-item' + (isSelected ? ' selected' : '') + '" onclick="selectNode(\'' + node.node_id + '\')">';
                 html += '<div class="status-dot ' + node.status + '"></div>';
                 html += '<span class="node-id">' + node.node_id + '</span>';
-                if (failureCount > 0) {
-                    html += '<span class="failure-badge">' + failureCount + '</span>';
-                }
+                if (failureCount > 0) html += '<span class="failure-badge">' + failureCount + '</span>';
                 html += '</div>';
             });
             
@@ -1671,13 +1832,13 @@ const htmlReportTemplate = `<!DOCTYPE html>
             if (!node) return;
             
             const detailContainer = document.getElementById('nodeDetailContent');
-            const statusColor = node.status === 'healthy' ? '#3fb950' : 
-                              node.status === 'degraded' ? '#d29922' : '#f85149';
+            const statusColor = node.status === 'healthy' ? colors.success : 
+                              node.status === 'degraded' ? colors.warning : colors.danger;
             
             let html = '<div class="nodes-detail-header">';
-            html += '<div style="display: flex; align-items: center; gap: 10px;">';
-            html += '<span style="width: 12px; height: 12px; border-radius: 50%; background: ' + statusColor + ';"></span>';
-            html += '<h3 style="margin: 0; color: #c9d1d9; font-size: 1.1em; font-family: monospace;">' + node.node_id + '</h3>';
+            html += '<div style="display: flex; align-items: center; gap: 8px;">';
+            html += '<span style="width: 8px; height: 8px; border-radius: 50%; background: ' + statusColor + ';"></span>';
+            html += '<code style="margin: 0; color: #e5e5e5; font-size: 12px;">' + node.node_id + '</code>';
             html += '<span class="badge ' + (node.status === 'healthy' ? 'enabled' : node.status === 'degraded' ? 'recoverable' : 'fatal') + '">' + node.status + '</span>';
             html += '</div></div>';
             
@@ -1687,44 +1848,42 @@ const htmlReportTemplate = `<!DOCTYPE html>
             html += '<div class="node-info-item"><label>Region</label><span>' + node.region + '</span></div>';
             html += '<div class="node-info-item"><label>Zone</label><span>' + node.zone + '</span></div>';
             html += '<div class="node-info-item"><label>Instance</label><span>' + node.instance_type + '</span></div>';
-            html += '<div class="node-info-item"><label>GPUs</label><span>' + node.gpu_count + 'x ' + node.gpu_type + '</span></div>';
-            html += '<div class="node-info-item"><label>Failures</label><span style="color: #f85149;">' + node.failure_count + '</span></div>';
+            html += '<div class="node-info-item"><label>GPUs</label><span>' + node.gpu_count + '× ' + node.gpu_type + '</span></div>';
+            html += '<div class="node-info-item"><label>Failures</label><span style="color: ' + colors.danger + ';">' + node.failure_count + '</span></div>';
             html += '</div>';
             
-            // Log file path
             if (node.log_file) {
-                html += '<div style="margin-bottom: 12px;"><label style="color: #8b949e; font-size: 0.75em; text-transform: uppercase;">Log File</label>';
-                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 0.85em; color: #58a6ff; word-break: break-all; background: #161b22; padding: 6px; border-radius: 4px; margin-top: 4px; text-decoration: none; font-family: monospace;">' + node.log_file + ' ↗</a></div>';
+                html += '<div style="margin-bottom: 12px;">';
+                html += '<label style="display: block; font-family: var(--mono); font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Log File</label>';
+                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 11px; color: ' + colors.accent + '; word-break: break-all; background: #0a0a0a; padding: 6px 8px; border-radius: 2px; text-decoration: none; font-family: var(--mono); border: 1px solid #2a2a2a;">' + node.log_file + ' ↗</a>';
+                html += '</div>';
             }
             
-            // Events list
-            html += '<h4 style="color: #8b949e; font-size: 0.8em; margin-bottom: 10px; text-transform: uppercase;">Event Log (' + (node.events ? node.events.length : 0) + ')</h4>';
+            html += '<div style="font-family: var(--mono); font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Events (' + (node.events ? node.events.length : 0) + ')</div>';
             html += '<div class="node-events-list">';
             
             if (node.events && node.events.length > 0) {
                 node.events.forEach(event => {
                     const time = new Date(event.timestamp).toLocaleTimeString();
-                    let icon = '•';
-                    let color = '#8b949e';
+                    let icon = '•', color = '#555';
                     
-                    if (event.type === 'started') { icon = '▶'; color = '#3fb950'; }
-                    else if (event.type === 'failure') { icon = '✗'; color = '#f85149'; }
-                    else if (event.type === 'recovery') { icon = '↻'; color = '#3fb950'; }
-                    else if (event.type === 'status_change') { icon = '◆'; color = '#58a6ff'; }
+                    if (event.type === 'started') { icon = '▸'; color = colors.success; }
+                    else if (event.type === 'failure') { icon = '✕'; color = colors.danger; }
+                    else if (event.type === 'recovery') { icon = '↺'; color = colors.success; }
+                    else if (event.type === 'status_change') { icon = '◆'; color = colors.accent; }
                     
                     html += '<div class="node-event-item">';
                     html += '<span class="node-event-time">' + time + '</span>';
                     html += '<span class="node-event-icon" style="color: ' + color + ';">' + icon + '</span>';
                     html += '<span class="node-event-msg">' + event.message;
-                    if (event.xid_code) html += ' <span style="color: #f85149; font-family: monospace; font-size: 0.9em;">[XID ' + event.xid_code + ']</span>';
+                    if (event.xid_code) html += ' <span style="color: ' + colors.danger + ';">[XID ' + event.xid_code + ']</span>';
                     html += '</span></div>';
                 });
             } else {
-                html += '<div style="padding: 15px; color: #8b949e; text-align: center;">No events</div>';
+                html += '<div style="padding: 12px; color: #555; text-align: center; font-family: var(--mono); font-size: 10px;">No events recorded</div>';
             }
             
             html += '</div></div>';
-            
             detailContainer.innerHTML = html;
             detailContainer.className = '';
         }
@@ -1739,8 +1898,7 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     node.node_id.toLowerCase().includes(search) ||
                     node.provider.toLowerCase().includes(search) ||
                     node.region.toLowerCase().includes(search);
-                const matchesStatus = !statusFilter || node.status === statusFilter;
-                return matchesSearch && matchesStatus;
+                return matchesSearch && (!statusFilter || node.status === statusFilter);
             });
             
             filteredNodes.sort((a, b) => {
@@ -1751,23 +1909,29 @@ const htmlReportTemplate = `<!DOCTYPE html>
                     default: return a.node_id.localeCompare(b.node_id);
                 }
             });
-            
             renderNodes();
         }
         
-        // Public function to select node from timeline
         window.selectNodeFromTimeline = function(nodeId) {
             showTab('nodes');
             setTimeout(() => selectNode(nodeId), 100);
         };
         
-        // Initialize
         if (allNodes && allNodes.length > 0) {
             filterNodes();
             document.getElementById('nodeSearch').addEventListener('input', filterNodes);
             document.getElementById('statusFilter').addEventListener('change', filterNodes);
             document.getElementById('sortBy').addEventListener('change', filterNodes);
         }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === '1') showTab('results');
+            else if (e.key === '2') showTab('timeline');
+            else if (e.key === '3') showTab('nodes');
+            else if (e.key === '4') showTab('config');
+        });
     </script>
 </body>
 </html>`
