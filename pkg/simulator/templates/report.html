@@ -9,23 +9,23 @@
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
         
         :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #111111;
-            --bg-tertiary: #1a1a1a;
-            --bg-hover: #222222;
-            --border: #2a2a2a;
-            --border-subtle: #1f1f1f;
-            --text-primary: #e5e5e5;
-            --text-secondary: #888888;
-            --text-muted: #555555;
-            --accent: #00d9ff;
-            --accent-dim: #00d9ff22;
-            --success: #00ff88;
-            --success-dim: #00ff8815;
-            --warning: #ffaa00;
-            --warning-dim: #ffaa0015;
-            --danger: #ff4444;
-            --danger-dim: #ff444415;
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-hover: #30363d;
+            --border: #30363d;
+            --border-subtle: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent: #58a6ff;
+            --accent-dim: #58a6ff20;
+            --success: #3fb950;
+            --success-dim: #3fb95018;
+            --warning: #d29922;
+            --warning-dim: #d2992218;
+            --danger: #f85149;
+            --danger-dim: #f8514918;
             --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
             --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
@@ -381,9 +381,9 @@
             height: 14px;
             border-radius: 1px;
         }
-        .timeline-segment.healthy { background: #166534; }
-        .timeline-segment.degraded { background: #854d0e; }
-        .timeline-segment.unhealthy { background: #991b1b; }
+        .timeline-segment.healthy { background: #238636; }
+        .timeline-segment.degraded { background: #9e6a03; }
+        .timeline-segment.unhealthy { background: #da3633; }
         .timeline-segment.pending { background: var(--bg-tertiary); }
         .timeline-event {
             position: absolute;
@@ -426,9 +426,9 @@
             height: 10px;
             border-radius: 1px;
         }
-        .legend-color.healthy { background: #166534; }
-        .legend-color.degraded { background: #854d0e; }
-        .legend-color.unhealthy { background: #991b1b; }
+        .legend-color.healthy { background: #238636; }
+        .legend-color.degraded { background: #9e6a03; }
+        .legend-color.unhealthy { background: #da3633; }
         .legend-dot {
             width: 6px;
             height: 6px;
@@ -1160,8 +1160,8 @@
 
     <script>
         // Chart.js global config for dark theme
-        Chart.defaults.color = '#888888';
-        Chart.defaults.borderColor = '#2a2a2a';
+        Chart.defaults.color = '#8b949e';
+        Chart.defaults.borderColor = '#30363d';
         Chart.defaults.font.family = "'JetBrains Mono', monospace";
         Chart.defaults.font.size = 10;
 
@@ -1174,14 +1174,14 @@
 
         // Color palette
         const colors = {
-            success: '#00ff88',
-            warning: '#ffaa00',
-            danger: '#ff4444',
-            accent: '#00d9ff',
-            successDim: 'rgba(0, 255, 136, 0.1)',
-            warningDim: 'rgba(255, 170, 0, 0.1)',
-            dangerDim: 'rgba(255, 68, 68, 0.1)',
-            accentDim: 'rgba(0, 217, 255, 0.1)',
+            success: '#3fb950',
+            warning: '#d29922',
+            danger: '#f85149',
+            accent: '#58a6ff',
+            successDim: 'rgba(63, 185, 80, 0.15)',
+            warningDim: 'rgba(210, 153, 34, 0.15)',
+            dangerDim: 'rgba(248, 81, 73, 0.15)',
+            accentDim: 'rgba(88, 166, 255, 0.15)',
         };
 
         // Node Health Timeline
@@ -1200,7 +1200,7 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    y: { beginAtZero: true, grid: { color: '#21262d' } },
                     x: { grid: { display: false } }
                 },
                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
@@ -1222,7 +1222,7 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    y: { beginAtZero: true, grid: { color: '#21262d' } },
                     x: { grid: { display: false } }
                 },
                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
@@ -1251,7 +1251,7 @@
                 maintainAspectRatio: false,
                 indexAxis: 'y',
                 scales: {
-                    x: { beginAtZero: true, grid: { color: '#1a1a1a' } },
+                    x: { beginAtZero: true, grid: { color: '#21262d' } },
                     y: { grid: { display: false } }
                 },
                 plugins: { legend: { display: false } }

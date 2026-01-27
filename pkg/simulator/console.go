@@ -121,7 +121,7 @@ func (c *Console) PrintResults(results *StressResults) {
 					severity = pterm.Green("Recoverable")
 				}
 			}
-		if len(name) > 30 {
+			if len(name) > 30 {
 				name = name[:27] + "..."
 			}
 			xidData = append(xidData, []string{
