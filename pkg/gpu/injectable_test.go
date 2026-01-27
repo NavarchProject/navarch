@@ -315,6 +315,42 @@ func TestInjectable_XIDErrors(t *testing.T) {
 		}
 	})
 
+	t.Run("clear specific XID error", func(t *testing.T) {
+		g.InjectXIDError(0, 79, "GPU fell off bus")
+		g.InjectXIDError(1, 48, "Double bit ECC")
+		g.InjectXIDError(0, 31, "Memory page fault")
+
+		gpu0UUID := g.devices[0].info.UUID
+
+		g.ClearXIDError(0, 79)
+
+		errors, err := g.GetXIDErrors(ctx)
+		if err != nil {
+			t.Fatalf("GetXIDErrors() error = %v", err)
+		}
+		if len(errors) != 2 {
+			t.Errorf("len(errors) = %d, want 2", len(errors))
+		}
+		for _, e := range errors {
+			if e.DeviceID == gpu0UUID && e.XIDCode == 79 {
+				t.Error("XID 79 on GPU 0 should have been cleared")
+			}
+		}
+		g.ClearXIDErrors()
+	})
+
+	t.Run("clear nonexistent XID error", func(t *testing.T) {
+		g.InjectXIDError(0, 79, "test")
+		g.ClearXIDError(1, 79) // Different GPU
+		g.ClearXIDError(0, 48) // Different code
+
+		errors, _ := g.GetXIDErrors(ctx)
+		if len(errors) != 1 {
+			t.Errorf("len(errors) = %d, want 1", len(errors))
+		}
+		g.ClearXIDErrors()
+	})
+
 	t.Run("XID error with invalid GPU index", func(t *testing.T) {
 		g.InjectXIDError(100, 79, "test")
 		errors, _ := g.GetXIDErrors(ctx)

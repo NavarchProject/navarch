@@ -195,6 +195,29 @@ func (g *Injectable) ClearXIDErrors() {
 	g.xidErrors = nil
 }
 
+// ClearXIDError removes a specific XID error by GPU index and code.
+func (g *Injectable) ClearXIDError(gpuIndex, xidCode int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	deviceID := ""
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		deviceID = g.devices[gpuIndex].info.UUID
+	}
+
+	var remaining []*XIDError
+	removed := false
+	for _, err := range g.xidErrors {
+		// Only remove the first matching error to handle duplicates correctly
+		if !removed && err.DeviceID == deviceID && err.XIDCode == xidCode {
+			removed = true
+			continue
+		}
+		remaining = append(remaining, err)
+	}
+	g.xidErrors = remaining
+}
+
 // InjectTemperatureSpike sets a high temperature on a specific GPU.
 func (g *Injectable) InjectTemperatureSpike(gpuIndex, temperature int) {
 	g.mu.Lock()

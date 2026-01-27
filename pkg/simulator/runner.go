@@ -297,7 +297,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 	console.PrintRunning(duration)
 
-	progressTicker := time.NewTicker(10 * time.Second)
+	progressTicker := time.NewTicker(time.Second)
 	defer progressTicker.Stop()
 
 	startTime := time.Now()

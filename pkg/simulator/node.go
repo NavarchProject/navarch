@@ -181,7 +181,7 @@ func (n *SimulatedNode) RecoverFailure(failureType string) {
 func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 	switch f.Type {
 	case "xid_error":
-		n.gpu.ClearXIDErrors()
+		n.gpu.ClearXIDError(f.GPUIndex, f.XIDCode)
 	case "temperature":
 		if f.GPUIndex >= 0 {
 			n.gpu.ClearTemperatureSpike(f.GPUIndex)

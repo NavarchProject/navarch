@@ -1,6 +1,7 @@
 package simulator
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -136,6 +137,44 @@ func TestSimulatedNode_MultipleFailures(t *testing.T) {
 	failures = node.GetFailures()
 	if len(failures) != 0 {
 		t.Errorf("after clear: %d failures, want 0", len(failures))
+	}
+}
+
+func TestSimulatedNode_ClearSpecificXIDError(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 8}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+	ctx := context.Background()
+
+	// Initialize GPU so we can query its state
+	if err := node.gpu.Initialize(ctx); err != nil {
+		t.Fatalf("failed to initialize GPU: %v", err)
+	}
+
+	// Inject multiple XID errors on different GPUs
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 48, GPUIndex: 1})
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 31, GPUIndex: 2})
+
+	// Verify all 3 XID errors exist in GPU state
+	xidErrors, _ := node.gpu.GetXIDErrors(ctx)
+	if len(xidErrors) != 3 {
+		t.Fatalf("expected 3 XID errors in GPU, got %d", len(xidErrors))
+	}
+
+	// Directly call clearSpecificFailure for just one error
+	// This verifies that ClearXIDError only clears the specific one
+	node.clearSpecificFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
+
+	xidErrors, _ = node.gpu.GetXIDErrors(ctx)
+	if len(xidErrors) != 2 {
+		t.Errorf("expected 2 XID errors after clearing one, got %d", len(xidErrors))
+	}
+
+	// Verify the correct errors remain
+	for _, err := range xidErrors {
+		if err.XIDCode == 79 {
+			t.Errorf("XID 79 should have been cleared but was found")
+		}
 	}
 }
 
