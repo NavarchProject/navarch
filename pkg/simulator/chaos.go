@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -235,18 +236,22 @@ func (c *ChaosEngine) selectXIDCode() int {
 		return codes[c.rng.Intn(len(codes))]
 	}
 
+	// Sort codes for deterministic iteration order (reproducibility with --seed)
+	codes := make([]int, 0, len(c.config.XIDDistribution))
 	totalWeight := 0
-	for _, weight := range c.config.XIDDistribution {
+	for code, weight := range c.config.XIDDistribution {
+		codes = append(codes, code)
 		totalWeight += weight
 	}
 	if totalWeight == 0 {
 		return 79
 	}
+	sort.Ints(codes)
 
 	roll := c.rng.Intn(totalWeight)
 	cumulative := 0
-	for code, weight := range c.config.XIDDistribution {
-		cumulative += weight
+	for _, code := range codes {
+		cumulative += c.config.XIDDistribution[code]
 		if roll < cumulative {
 			return code
 		}
