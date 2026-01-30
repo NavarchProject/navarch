@@ -6,7 +6,7 @@ Navarch is an open-source GPU fleet management system that monitors health, mana
 
 Navarch provides a unified control plane for managing GPU infrastructure:
 
-- Monitors GPU health using NVML and XID error detection.
+- Monitors GPU health using health events and CEL-based policy evaluation.
 - Manages node lifecycle with cordon, drain, and terminate operations.
 - Autoscales node pools based on utilization, queue depth, or schedules.
 - Supports multiple cloud providers (Lambda Labs, GCP, AWS).
@@ -55,8 +55,8 @@ Providers abstract cloud-specific operations:
 Health checks detect GPU issues:
 
 - Boot validation confirms the node started correctly.
-- NVML checks verify GPU driver communication.
-- XID error detection catches hardware and driver faults.
+- GPU checks verify driver communication and metrics.
+- Health event monitoring catches XID errors, thermal issues, and other faults.
 
 ## Documentation
 
@@ -79,7 +79,7 @@ To test scenarios without real hardware, see the [simulator guide](simulator.md)
 ## Requirements
 
 - Go 1.21 or later for building from source.
-- NVIDIA drivers and NVML for GPU health monitoring.
+- NVIDIA drivers for GPU health monitoring.
 - Network access between nodes and the control plane.
 
 ## Source code

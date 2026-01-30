@@ -79,18 +79,19 @@ cd navarch
 
 ### Basic GPU detection
 
-Verify NVML detects all GPUs:
+Run GPU tests to verify the GPU manager works correctly:
 
 ```bash
-go test ./pkg/gpu/... -v -run TestNVML_WithHardware
+go test ./pkg/gpu/... -v
 ```
 
 Expected output:
 ```
-=== RUN   TestNVML_WithHardware
-    nvml_test.go:87: Found 8 GPU(s)
-    nvml_test.go:97: GPU 0 UUID: GPU-xxxxx
-    nvml_test.go:101: GPU 0 Name: NVIDIA A100-SXM4-80GB
+=== RUN   TestInjectable_NewInjectable
+--- PASS: TestInjectable_NewInjectable (0.00s)
+=== RUN   TestInjectable_CollectHealthEvents
+--- PASS: TestInjectable_CollectHealthEvents (0.00s)
+...
 ```
 
 ### Health check validation
@@ -114,16 +115,16 @@ Expected output:
 Health: Healthy
 ```
 
-### XID error detection
+### Health event detection
 
-Test XID parsing from real dmesg:
+Check for GPU errors in system logs:
 
 ```bash
-# Check for existing XID errors
+# Check for existing XID errors in dmesg
 sudo dmesg | grep -i "NVRM: Xid"
 
-# Run XID tests
-go test ./pkg/gpu/... -v -run TestXID
+# Run health event tests
+go test ./pkg/gpu/... -v -run TestInjectable_CollectHealthEvents
 ```
 
 ### Command delivery
@@ -214,14 +215,14 @@ watch -n 60 'go run ./cmd/navarch get endurance-test | grep -E "Health|Heartbeat
 
 ## Troubleshooting
 
-### NVML not detected
+### GPU not detected
 
 ```bash
 # Check NVIDIA driver
 nvidia-smi
 
-# Check NVML library
-ldconfig -p | grep libnvidia-ml
+# Check that driver is loaded
+lsmod | grep nvidia
 
 # Reinstall driver if needed
 sudo apt-get install --reinstall nvidia-driver-535

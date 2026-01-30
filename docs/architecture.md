@@ -54,7 +54,7 @@ This provides visibility into the gap between provisioning and registration, cat
 Each GPU instance runs a lightweight agent that:
 - Registers with the control plane on startup
 - Sends heartbeats with GPU metrics every 5-30s
-- Runs health checks (boot, NVML, XID detection)
+- Runs health checks (boot, GPU metrics, health events)
 - Polls for and executes commands from the control plane
 
 ### Pool manager
@@ -70,7 +70,7 @@ The pool manager orchestrates autoscaling:
 Nodes report GPU metrics in heartbeats:
 - GPU utilization percentage (0-100)
 - Temperature, power usage, memory usage
-- XID errors and health status
+- Health events and status
 
 The control plane aggregates metrics by pool for autoscaling decisions.
 
@@ -95,7 +95,7 @@ Navarch and Kubernetes operate at different layers and can work together or inde
 
 **Navarch manages infrastructure:**
 - Provisions GPU VMs across multiple clouds
-- Monitors GPU hardware health (XID errors, thermal issues)
+- Monitors GPU hardware health (XID errors, thermal issues, ECC errors)
 - Auto-replaces nodes with failed GPUs
 - Scales based on GPU utilization or job queue depth
 
@@ -465,15 +465,16 @@ Navarch monitors GPU hardware health independently of workload health.
 - Checks driver installation
 - Validates GPU visibility
 
-**NVML check:**
-- Queries NVIDIA Management Library
+**GPU check:**
+- Queries GPU metrics (temperature, power, utilization)
 - Detects communication failures
-- Monitors temperature and power
+- Monitors health thresholds
 
-**XID check:**
-- Parses kernel logs for XID errors
-- Classifies errors by severity (fatal vs recoverable)
-- Common XIDs: 79 (fallen off bus), 63 (row remapping)
+**Health event check:**
+- Collects GPU health events (XID errors, thermal warnings, ECC errors)
+- Sends events to control plane for CEL policy evaluation
+- CEL policies classify events by severity (fatal vs recoverable)
+- Common events: XID 79 (fallen off bus), thermal warnings, ECC errors
 
 ### Auto-replacement
 
@@ -500,7 +501,7 @@ sequenceDiagram
     participant AS as Autoscaler
 
     loop Every 5-30 seconds
-        Node->>Node: Query GPUs via NVML
+        Node->>Node: Query GPU metrics
         Node->>CP: SendHeartbeat(metrics)
         Note over Node: GPU 0: 85% util<br/>GPU 1: 90% util<br/>Temp: 65°C
         CP->>DB: RecordMetrics(node_id, metrics)

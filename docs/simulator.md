@@ -164,10 +164,21 @@ Parameters:
 
 | Parameter | Description |
 |-----------|-------------|
-| `failure_type` | Type of failure: `xid_error`, `nvml_failure`, `boot_failure`, `temperature`. |
+| `failure_type` | Type of failure: `xid_error`, `temperature`, `memory_error`, `nvlink_error`, `backend_error`, `boot_failure`. |
 | `xid_code` | XID error code (for xid_error type). |
 | `gpu_index` | Affected GPU index (0-based). |
 | `message` | Custom error message. |
+
+Failure types:
+
+| Type | Description |
+|------|-------------|
+| `xid_error` | Simulates an NVIDIA XID error on a specific GPU. |
+| `temperature` | Simulates a thermal event (high GPU temperature). |
+| `memory_error` | Simulates an ECC memory error. |
+| `nvlink_error` | Simulates an NVLink communication error. |
+| `backend_error` | Simulates a GPU backend failure (all GPU operations fail). |
+| `boot_failure` | Simulates a GPU boot/initialization failure. |
 
 ### recover_failure
 
@@ -585,9 +596,11 @@ Specify the relative weight of each XID code. The simulator includes all known X
 |------|-------------|
 | `xid_error` | GPU XID error with specified code distribution |
 | `temperature` | Thermal throttling/shutdown |
-| `nvml_failure` | NVML communication failure |
+| `backend_error` | GPU backend communication failure (alias: `nvml_failure`) |
 | `boot_failure` | GPU boot/detection failure |
 | `network` | Network connectivity loss |
+| `memory_error` | ECC memory error |
+| `nvlink_error` | NVLink communication error |
 
 ### Cascading failures
 

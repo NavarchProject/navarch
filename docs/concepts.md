@@ -83,23 +83,34 @@ Health checks detect GPU issues before they affect workloads.
 
 Validates that the node started correctly and can communicate with the control plane.
 
-### NVML check
+### GPU check
 
-Verifies communication with the NVIDIA Management Library. Detects driver issues and GPU initialization failures.
+Queries GPU metrics including temperature, power usage, and utilization. Detects communication failures and threshold violations.
 
-### XID error check
+### Health event check
 
-Monitors system logs for NVIDIA XID errors. These indicate hardware faults, driver issues, or thermal problems.
+Collects GPU health events and sends them to the control plane for evaluation. The control plane uses CEL (Common Expression Language) policies to classify events by severity.
+
+Health event types:
+
+| Type | Description |
+|------|-------------|
+| XID error | NVIDIA driver errors (hardware faults, driver issues) |
+| Thermal | Temperature warnings and critical events |
+| ECC SBE | Single-bit ECC errors (correctable) |
+| ECC DBE | Double-bit ECC errors (uncorrectable) |
+| NVLink | NVLink communication errors |
+| PCIe | PCIe bus errors |
 
 Common XID errors:
 
 | XID | Severity | Description |
 |-----|----------|-------------|
-| 31 | Critical | GPU memory page fault. |
-| 43 | Warning | GPU stopped processing. |
-| 48 | Critical | Double bit ECC error. |
-| 63 | Warning | ECC page retirement. |
-| 79 | Critical | GPU has fallen off the bus. |
+| 31 | Fatal | GPU memory page fault. |
+| 43 | Fatal | GPU stopped processing. |
+| 48 | Fatal | Double bit ECC error. |
+| 63 | Fatal | ECC page retirement. |
+| 79 | Fatal | GPU has fallen off the bus. |
 
 When a node reports unhealthy status, Navarch can automatically cordon it to prevent new workloads.
 

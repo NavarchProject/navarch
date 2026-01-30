@@ -164,4 +164,4 @@ If the build fails:
 
 1. Verify Go 1.21 or later is installed: `go version`
 2. Run `go mod download` to fetch dependencies.
-3. Check for missing NVML headers if building with GPU support.
+3. Check for missing dependencies if building with GPU support.

@@ -22,8 +22,8 @@ Every heartbeat (5-30 seconds) includes:
 
 **Health status:**
 - Boot check results
-- NVML communication status
-- XID error detection
+- GPU communication status
+- Health event detection (XID errors, thermal, ECC)
 
 ### Collection flow
 
@@ -32,7 +32,7 @@ Every heartbeat (5-30 seconds) includes:
 │ Node Agent  │ ───────────────────>│ Control Plane│
 │             │   (every 5-30s)     │              │
 │ - Query GPU │                     │ - Store      │
-│ - Read XID  │                     │ - Aggregate  │
+│ - Collect   │                     │ - Aggregate  │
 │ - Check     │                     │ - Autoscale  │
 └─────────────┘                     └──────────────┘
 ```
@@ -46,8 +46,9 @@ The node daemon uses the `metrics.Collector` to gather system and GPU metrics.
 - **Memory usage**: Read from `/proc/meminfo` using `MemTotal` and `MemAvailable`
 
 **GPU metrics** are collected via the GPU manager interface:
-- Uses NVML (NVIDIA Management Library) on systems with NVIDIA GPUs
-- Falls back to fake GPU manager for testing/development
+- Queries GPU temperature, power, utilization, and memory
+- Collects health events (XID errors, thermal warnings, ECC errors)
+- Uses injectable GPU manager for testing/development
 
 **Code location**: `pkg/node/metrics/`
 

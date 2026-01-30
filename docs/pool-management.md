@@ -247,7 +247,7 @@ health:
 
 The replacement process:
 
-1. Node fails health checks (XID error, NVML failure, etc.)
+1. Node fails health checks (XID error, thermal event, ECC error, etc.)
 2. After `unhealthy_threshold` consecutive failures, node is marked unhealthy.
 3. The control plane notifies the pool manager via the health observer interface.
 4. If `auto_replace` is enabled, the unhealthy node is terminated.
