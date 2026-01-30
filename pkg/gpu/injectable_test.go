@@ -609,3 +609,236 @@ func TestInjectable_TemperatureSpikeBoundary(t *testing.T) {
 	})
 }
 
+func TestInjectable_CollectHealthEvents(t *testing.T) {
+	ctx := context.Background()
+	g := NewInjectable(4, "")
+
+	if err := g.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	t.Run("no events initially", func(t *testing.T) {
+		events, err := g.CollectHealthEvents(ctx)
+		if err != nil {
+			t.Fatalf("CollectHealthEvents() error = %v", err)
+		}
+		if len(events) != 0 {
+			t.Errorf("len(events) = %d, want 0", len(events))
+		}
+	})
+
+	t.Run("inject and collect XID event", func(t *testing.T) {
+		g.InjectXIDHealthEvent(0, 79, "GPU has fallen off the bus")
+
+		events, err := g.CollectHealthEvents(ctx)
+		if err != nil {
+			t.Fatalf("CollectHealthEvents() error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].EventType != EventTypeXID {
+			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeXID)
+		}
+		if events[0].Metrics["xid_code"] != 79 {
+			t.Errorf("xid_code = %v, want 79", events[0].Metrics["xid_code"])
+		}
+		if events[0].GPUIndex != 0 {
+			t.Errorf("GPUIndex = %d, want 0", events[0].GPUIndex)
+		}
+	})
+
+	t.Run("events cleared after collection", func(t *testing.T) {
+		events, err := g.CollectHealthEvents(ctx)
+		if err != nil {
+			t.Fatalf("CollectHealthEvents() error = %v", err)
+		}
+		if len(events) != 0 {
+			t.Errorf("len(events) = %d after collection, want 0", len(events))
+		}
+	})
+
+	t.Run("XID health event also adds legacy XID error", func(t *testing.T) {
+		// Clear any leftover errors from previous tests
+		g.ClearXIDErrors()
+		g.ClearHealthEvents()
+
+		g.InjectXIDHealthEvent(1, 48, "Double bit ECC")
+
+		// Check legacy API
+		xidErrors, err := g.GetXIDErrors(ctx)
+		if err != nil {
+			t.Fatalf("GetXIDErrors() error = %v", err)
+		}
+		if len(xidErrors) != 1 {
+			t.Fatalf("len(xidErrors) = %d, want 1", len(xidErrors))
+		}
+		if xidErrors[0].XIDCode != 48 {
+			t.Errorf("legacy XIDCode = %d, want 48", xidErrors[0].XIDCode)
+		}
+
+		g.ClearXIDErrors()
+		g.ClearHealthEvents()
+	})
+}
+
+func TestInjectable_InjectHealthEvents(t *testing.T) {
+	ctx := context.Background()
+	g := NewInjectable(4, "")
+
+	if err := g.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	t.Run("inject thermal event", func(t *testing.T) {
+		g.InjectThermalHealthEvent(0, 95, "Temperature critical")
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].EventType != EventTypeThermal {
+			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeThermal)
+		}
+		if events[0].Metrics["temperature"] != 95 {
+			t.Errorf("temperature = %v, want 95", events[0].Metrics["temperature"])
+		}
+	})
+
+	t.Run("inject memory event", func(t *testing.T) {
+		g.InjectMemoryHealthEvent(1, EventTypeECCDBE, 0, 1, "Double-bit ECC error")
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].EventType != EventTypeECCDBE {
+			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeECCDBE)
+		}
+		if events[0].Metrics["ecc_dbe_count"] != 1 {
+			t.Errorf("ecc_dbe_count = %v, want 1", events[0].Metrics["ecc_dbe_count"])
+		}
+	})
+
+	t.Run("inject NVLink event", func(t *testing.T) {
+		g.InjectNVLinkHealthEvent(2, 3, "NVLink error on link 3")
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].EventType != EventTypeNVLink {
+			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeNVLink)
+		}
+		if events[0].Metrics["link_id"] != 3 {
+			t.Errorf("link_id = %v, want 3", events[0].Metrics["link_id"])
+		}
+	})
+
+	t.Run("inject custom event", func(t *testing.T) {
+		customEvent := HealthEvent{
+			GPUIndex:  0,
+			System:    HealthSystemPCIE,
+			EventType: EventTypePCIE,
+			Metrics: map[string]any{
+				"error_count": 42,
+			},
+			Message: "PCIe error",
+		}
+		g.InjectHealthEvent(customEvent)
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].System != HealthSystemPCIE {
+			t.Errorf("System = %s, want %s", events[0].System, HealthSystemPCIE)
+		}
+		if events[0].Metrics["error_count"] != 42 {
+			t.Errorf("error_count = %v, want 42", events[0].Metrics["error_count"])
+		}
+	})
+}
+
+func TestInjectable_ClearHealthEvents(t *testing.T) {
+	ctx := context.Background()
+	g := NewInjectable(4, "")
+
+	if err := g.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	// Inject multiple events
+	g.InjectXIDHealthEvent(0, 79, "XID")
+	g.InjectThermalHealthEvent(1, 90, "Thermal")
+	g.InjectMemoryHealthEvent(2, EventTypeECCSBE, 5, 0, "SBE")
+
+	t.Run("clear all events", func(t *testing.T) {
+		g.ClearHealthEvents()
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 0 {
+			t.Errorf("len(events) = %d after clear, want 0", len(events))
+		}
+	})
+
+	// Re-inject
+	g.InjectXIDHealthEvent(0, 79, "XID")
+	g.InjectThermalHealthEvent(1, 90, "Thermal")
+	g.InjectXIDHealthEvent(2, 48, "XID 2")
+
+	t.Run("clear events by type", func(t *testing.T) {
+		g.ClearHealthEventsByType(EventTypeXID)
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].EventType != EventTypeThermal {
+			t.Errorf("remaining event type = %s, want %s", events[0].EventType, EventTypeThermal)
+		}
+	})
+
+	// Re-inject
+	g.InjectXIDHealthEvent(0, 79, "XID GPU 0")
+	g.InjectThermalHealthEvent(1, 90, "Thermal GPU 1")
+	g.InjectXIDHealthEvent(0, 48, "XID 2 GPU 0")
+
+	t.Run("clear events by GPU", func(t *testing.T) {
+		g.ClearHealthEventsByGPU(0)
+
+		events, _ := g.CollectHealthEvents(ctx)
+		if len(events) != 1 {
+			t.Fatalf("len(events) = %d, want 1", len(events))
+		}
+		if events[0].GPUIndex != 1 {
+			t.Errorf("remaining event GPU = %d, want 1", events[0].GPUIndex)
+		}
+	})
+}
+
+func TestInjectable_CollectHealthEvents_NotInitialized(t *testing.T) {
+	ctx := context.Background()
+	g := NewInjectable(2, "")
+
+	if _, err := g.CollectHealthEvents(ctx); err == nil {
+		t.Error("CollectHealthEvents() should fail when not initialized")
+	}
+}
+
+func TestInjectable_CollectHealthEvents_WithNVMLError(t *testing.T) {
+	ctx := context.Background()
+	g := NewInjectable(2, "")
+
+	if err := g.Initialize(ctx); err != nil {
+		t.Fatalf("Initialize() error = %v", err)
+	}
+
+	nvmlErr := errors.New("NVML error")
+	g.InjectNVMLError(nvmlErr)
+
+	if _, err := g.CollectHealthEvents(ctx); err != nvmlErr {
+		t.Errorf("CollectHealthEvents() error = %v, want %v", err, nvmlErr)
+	}
+}
+

@@ -9,6 +9,7 @@ import (
 )
 
 // Injectable is a fake GPU manager that supports failure injection for testing.
+// It implements both Manager and HealthEventCollector interfaces.
 type Injectable struct {
 	mu          sync.RWMutex
 	deviceCount int
@@ -19,6 +20,9 @@ type Injectable struct {
 	nvmlError    error
 	bootError    error
 	deviceErrors map[int]error
+
+	// Health events for the new DCGM-style interface
+	healthEvents []HealthEvent
 }
 
 type injectableDevice struct {
@@ -310,5 +314,133 @@ func (g *Injectable) HasActiveFailures() bool {
 	}
 
 	return false
+}
+
+// CollectHealthEvents returns and clears all pending health events.
+// This implements the HealthEventCollector interface.
+func (g *Injectable) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.nvmlError != nil {
+		return nil, g.nvmlError
+	}
+
+	if !g.initialized {
+		return nil, errors.New("not initialized")
+	}
+
+	events := make([]HealthEvent, len(g.healthEvents))
+	copy(events, g.healthEvents)
+	g.healthEvents = nil
+
+	return events, nil
+}
+
+// InjectHealthEvent adds a health event for testing.
+func (g *Injectable) InjectHealthEvent(event HealthEvent) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.healthEvents = append(g.healthEvents, event)
+}
+
+// InjectXIDHealthEvent adds an XID error as a health event.
+func (g *Injectable) InjectXIDHealthEvent(gpuIndex, xidCode int, message string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	gpuUUID := ""
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		gpuUUID = g.devices[gpuIndex].info.UUID
+	}
+
+	event := NewXIDEvent(gpuIndex, gpuUUID, xidCode, message)
+	g.healthEvents = append(g.healthEvents, event)
+
+	// Also add to legacy xidErrors for backward compatibility
+	g.xidErrors = append(g.xidErrors, &XIDError{
+		Timestamp: event.Timestamp.Format(time.RFC3339),
+		DeviceID:  gpuUUID,
+		XIDCode:   xidCode,
+		Message:   message,
+	})
+}
+
+// InjectThermalHealthEvent adds a thermal event.
+func (g *Injectable) InjectThermalHealthEvent(gpuIndex, temperature int, message string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	gpuUUID := ""
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		gpuUUID = g.devices[gpuIndex].info.UUID
+		g.devices[gpuIndex].temperatureSpike = temperature
+	}
+
+	event := NewThermalEvent(gpuIndex, gpuUUID, temperature, message)
+	g.healthEvents = append(g.healthEvents, event)
+}
+
+// InjectMemoryHealthEvent adds a memory/ECC event.
+func (g *Injectable) InjectMemoryHealthEvent(gpuIndex int, eventType string, sbeCount, dbeCount int, message string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	gpuUUID := ""
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		gpuUUID = g.devices[gpuIndex].info.UUID
+	}
+
+	event := NewMemoryEvent(gpuIndex, gpuUUID, eventType, sbeCount, dbeCount, message)
+	g.healthEvents = append(g.healthEvents, event)
+}
+
+// InjectNVLinkHealthEvent adds an NVLink error event.
+func (g *Injectable) InjectNVLinkHealthEvent(gpuIndex, linkID int, message string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	gpuUUID := ""
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		gpuUUID = g.devices[gpuIndex].info.UUID
+	}
+
+	event := NewNVLinkEvent(gpuIndex, gpuUUID, linkID, message)
+	g.healthEvents = append(g.healthEvents, event)
+}
+
+// ClearHealthEvents removes all pending health events.
+func (g *Injectable) ClearHealthEvents() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.healthEvents = nil
+}
+
+// ClearHealthEventsByType removes health events of a specific type.
+func (g *Injectable) ClearHealthEventsByType(eventType string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var remaining []HealthEvent
+	for _, e := range g.healthEvents {
+		if e.EventType != eventType {
+			remaining = append(remaining, e)
+		}
+	}
+	g.healthEvents = remaining
+}
+
+// ClearHealthEventsByGPU removes health events for a specific GPU.
+func (g *Injectable) ClearHealthEventsByGPU(gpuIndex int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var remaining []HealthEvent
+	for _, e := range g.healthEvents {
+		if e.GPUIndex != gpuIndex {
+			remaining = append(remaining, e)
+		}
+	}
+	g.healthEvents = remaining
 }
 
