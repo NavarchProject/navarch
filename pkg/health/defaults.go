@@ -1,7 +1,11 @@
 package health
 
+// XID error documentation: https://docs.nvidia.com/deploy/xid-errors/index.html
+// DCGM health systems: https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/feature-overview.html#health
+
 // DefaultPolicy returns the default health policy with sensible rules
 // that match the behavior of the hardcoded XID classification.
+// See https://docs.nvidia.com/deploy/xid-errors/index.html for XID codes.
 func DefaultPolicy() *Policy {
 	return &Policy{
 		Rules: []Rule{
