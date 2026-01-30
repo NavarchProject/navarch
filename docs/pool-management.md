@@ -248,11 +248,22 @@ health:
 The replacement process:
 
 1. Node fails health checks (XID error, NVML failure, etc.)
-2. After `unhealthy_threshold` consecutive failures, node is marked unhealthy
-3. If `auto_replace` is enabled, the unhealthy node is terminated
-4. A replacement node is provisioned immediately
+2. After `unhealthy_threshold` consecutive failures, node is marked unhealthy.
+3. The control plane notifies the pool manager via the health observer interface.
+4. If `auto_replace` is enabled, the unhealthy node is terminated.
+5. A replacement node is provisioned immediately.
 
 This ensures your pools maintain capacity even when GPU hardware fails.
+
+### Health recovery
+
+When a node that was previously unhealthy reports a healthy status, it automatically transitions back to active. This handles cases where transient errors (like recoverable XID codes) resolve without requiring node replacement.
+
+The health state machine:
+
+- **Active → Unhealthy**: Node reports unhealthy health check results.
+- **Unhealthy → Active**: Node reports healthy or degraded results after being unhealthy.
+- **Unhealthy → Terminated**: Auto-replacement terminates the node (if `auto_replace: true` and threshold is reached).
 
 ## Scaling behavior
 

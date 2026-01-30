@@ -12,6 +12,9 @@ The simulator provides:
 - Event sequencing with precise timing control.
 - Control plane validation and behavior verification.
 - Interactive mode for manual testing and exploration.
+- Stress testing with large fleets and chaos engineering.
+- Automatic node replacement for fatal failures.
+- Cold start delay simulation for realistic provisioning.
 
 ## Installation
 

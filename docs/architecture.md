@@ -376,11 +376,15 @@ if current_time in schedule_window:
 
 When health checks fail:
 
-1. Node reports unhealthy status
-2. After threshold failures (default 2), pool manager cordons node
-3. If auto-replace enabled, provision replacement
-4. Drain workloads from unhealthy node
-5. Terminate unhealthy node
+1. Node reports unhealthy status via health check.
+2. Control plane updates node status and notifies the health observer.
+3. Pool manager receives notification via the `NodeHealthObserver` interface.
+4. After threshold failures (default 2), pool manager triggers replacement.
+5. If auto-replace is enabled, terminate the unhealthy node and provision a replacement.
+
+The health observer pattern decouples health detection (in the control plane) from replacement logic (in the pool manager), allowing different components to respond to health events independently.
+
+When a node recovers (reports healthy after being unhealthy), the control plane automatically transitions it back to active status. This handles transient errors like recoverable XID codes without requiring node replacement.
 
 ## Multi-cloud provisioning
 

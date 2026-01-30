@@ -507,6 +507,8 @@ Cold start delays simulate provisioning time before a node comes online. Configu
 - Use `cold_start_min` and `cold_start_max` to sample uniformly between the two values.
 - Use `cold_start_mean` and `cold_start_stddev` to sample from a normal distribution and clamp to the optional min/max.
 
+Cold start delays also apply to replacement nodes when auto-replacement is enabled. The simulator respects the configured cold start parameters when provisioning replacements for unhealthy nodes.
+
 ### Chaos engineering
 
 The chaos configuration controls failure injection:
@@ -619,9 +621,13 @@ recovery:
   probability: 0.7    # 70% of non-fatal errors recover
   mean_time: 5m       # Average recovery time
   std_dev: 2m         # Recovery time variation
+  replace_fatal: true # Replace nodes with fatal errors
+  replace_cold_start: 45s  # Cold start delay for replacements
 ```
 
 Recovery only applies to non-fatal XID codes and other recoverable failure types.
+
+When `replace_fatal` is enabled, the simulator automatically provisions replacement nodes for nodes that experience fatal failures (like fatal XID errors). The replacement uses the same node specification and applies the configured cold start delay.
 
 ### Scheduled outages
 
