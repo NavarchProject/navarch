@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,18 +47,30 @@ func (g *FleetGenerator) computeDistributions() {
 		g.templateWeights[i] = t.Weight
 	}
 
-	for provider, weight := range g.config.Providers {
+	// Sort provider keys for deterministic iteration order (reproducibility with seeded RNG)
+	providers := make([]string, 0, len(g.config.Providers))
+	for provider := range g.config.Providers {
+		providers = append(providers, provider)
+	}
+	sort.Strings(providers)
+	for _, provider := range providers {
 		g.providerList = append(g.providerList, provider)
-		g.providerWeights = append(g.providerWeights, weight)
+		g.providerWeights = append(g.providerWeights, g.config.Providers[provider])
 	}
 	if len(g.providerList) == 0 {
 		g.providerList = []string{"gcp", "aws", "lambda"}
 		g.providerWeights = []int{50, 35, 15}
 	}
 
-	for region, weight := range g.config.Regions {
+	// Sort region keys for deterministic iteration order (reproducibility with seeded RNG)
+	regions := make([]string, 0, len(g.config.Regions))
+	for region := range g.config.Regions {
+		regions = append(regions, region)
+	}
+	sort.Strings(regions)
+	for _, region := range regions {
 		g.regionList = append(g.regionList, region)
-		g.regionWeights = append(g.regionWeights, weight)
+		g.regionWeights = append(g.regionWeights, g.config.Regions[region])
 	}
 	if len(g.regionList) == 0 {
 		g.regionList = []string{"us-central1", "us-east1", "us-west1", "europe-west1", "asia-east1"}
@@ -182,10 +195,11 @@ type NodeStarter struct {
 	rng              *rand.Rand
 	runDir           *RunDir
 
-	mu      sync.Mutex
-	nodes   map[string]*SimulatedNode
-	started int64
-	failed  int64
+	mu              sync.Mutex
+	nodes           map[string]*SimulatedNode
+	coldStartDelays map[string]time.Duration
+	started         int64
+	failed          int64
 }
 
 // NewNodeStarter creates a new node starter.
@@ -199,6 +213,7 @@ func NewNodeStarter(config StartupConfig, controlPlaneAddr string, seed int64, l
 		logger:           logger,
 		rng:              rand.New(rand.NewSource(seed)),
 		nodes:            make(map[string]*SimulatedNode),
+		coldStartDelays:  make(map[string]time.Duration),
 	}
 }
 
@@ -436,6 +451,21 @@ func (s *NodeStarter) startNode(ctx context.Context, spec NodeSpec) error {
 		}
 	}
 
+	delay := s.coldStartDelay()
+	if delay > 0 {
+		s.logger.Debug("cold start delay",
+			slog.String("node_id", spec.ID),
+			slog.Duration("delay", delay),
+		)
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+
 	node := NewSimulatedNode(spec, s.controlPlaneAddr, logger)
 	if err := node.Start(ctx); err != nil {
 		atomic.AddInt64(&s.failed, 1)
@@ -444,6 +474,7 @@ func (s *NodeStarter) startNode(ctx context.Context, spec NodeSpec) error {
 
 	s.mu.Lock()
 	s.nodes[spec.ID] = node
+	s.coldStartDelays[spec.ID] = delay
 	s.mu.Unlock()
 
 	atomic.AddInt64(&s.started, 1)
@@ -459,12 +490,65 @@ func (s *NodeStarter) addJitter(d time.Duration) time.Duration {
 	return time.Duration(float64(d) * jitterFactor)
 }
 
+func (s *NodeStarter) coldStartDelay() time.Duration {
+	mean := s.config.ColdStartMean.Duration()
+	stddev := s.config.ColdStartStdDev.Duration()
+	min := s.config.ColdStartMin.Duration()
+	max := s.config.ColdStartMax.Duration()
+
+	if mean > 0 {
+		delay := mean
+		if stddev > 0 {
+			delay = time.Duration(s.rng.NormFloat64()*float64(stddev) + float64(mean))
+			if delay < 0 {
+				delay = 0
+			}
+		}
+		if min > 0 && delay < min {
+			delay = min
+		}
+		if max > 0 && delay > max {
+			delay = max
+		}
+		return delay
+	}
+
+	if min > 0 || max > 0 {
+		if max <= 0 {
+			max = min
+		}
+		if min < 0 {
+			min = 0
+		}
+		if max < min {
+			max = min
+		}
+		if max == min {
+			return min
+		}
+		return min + time.Duration(s.rng.Int63n(int64(max-min)))
+	}
+
+	return 0
+}
+
 // GetNodes returns all started nodes.
 func (s *NodeStarter) GetNodes() map[string]*SimulatedNode {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	result := make(map[string]*SimulatedNode, len(s.nodes))
 	for k, v := range s.nodes {
+		result[k] = v
+	}
+	return result
+}
+
+// GetColdStartDelays returns cold start delays for all started nodes.
+func (s *NodeStarter) GetColdStartDelays() map[string]time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result := make(map[string]time.Duration, len(s.coldStartDelays))
+	for k, v := range s.coldStartDelays {
 		result[k] = v
 	}
 	return result

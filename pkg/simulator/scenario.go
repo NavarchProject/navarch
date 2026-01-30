@@ -10,11 +10,11 @@ import (
 
 // Scenario defines a simulation scenario to run against the control plane.
 type Scenario struct {
-	Name        string       `yaml:"name"`
-	Description string       `yaml:"description"`
-	Fleet       []NodeSpec   `yaml:"fleet"`
-	Events      []Event      `yaml:"events"`
-	Assertions  []Assertion  `yaml:"assertions,omitempty"`
+	Name        string      `yaml:"name"`
+	Description string      `yaml:"description"`
+	Fleet       []NodeSpec  `yaml:"fleet"`
+	Events      []Event     `yaml:"events"`
+	Assertions  []Assertion `yaml:"assertions,omitempty"`
 
 	// Stress test configuration (optional - enables stress testing mode)
 	Stress *StressConfig `yaml:"stress,omitempty"`
@@ -91,6 +91,14 @@ type StartupConfig struct {
 
 	// Jitter percentage (0-100)
 	JitterPercent int `yaml:"jitter_percent,omitempty"`
+
+	// Cold start delay range for node provisioning
+	ColdStartMin Duration `yaml:"cold_start_min,omitempty"`
+	ColdStartMax Duration `yaml:"cold_start_max,omitempty"`
+
+	// Cold start delay distribution (mean/stddev)
+	ColdStartMean   Duration `yaml:"cold_start_mean,omitempty"`
+	ColdStartStdDev Duration `yaml:"cold_start_stddev,omitempty"`
 }
 
 // ChaosConfig defines chaos engineering parameters.
@@ -126,20 +134,24 @@ type FailureTypeWeight struct {
 // CascadingConfig controls cascading failure behavior.
 type CascadingConfig struct {
 	Enabled            bool     `yaml:"enabled"`
-	Probability        float64  `yaml:"probability"`         // 0.0-1.0
-	MaxDepth           int      `yaml:"max_depth"`           // Maximum cascade depth
-	MinDelay           Duration `yaml:"min_delay"`           // Minimum delay before cascade
-	MaxDelay           Duration `yaml:"max_delay"`           // Maximum delay before cascade
-	Scope              string   `yaml:"scope"`               // rack, zone, region, provider, random
+	Probability        float64  `yaml:"probability"`          // 0.0-1.0
+	MaxDepth           int      `yaml:"max_depth"`            // Maximum cascade depth
+	MinDelay           Duration `yaml:"min_delay"`            // Minimum delay before cascade
+	MaxDelay           Duration `yaml:"max_delay"`            // Maximum delay before cascade
+	Scope              string   `yaml:"scope"`                // rack, zone, region, provider, random
 	MaxAffectedPercent float64  `yaml:"max_affected_percent"` // Max % of scoped nodes affected
 }
 
 // RecoveryConfig controls automatic recovery behavior.
 type RecoveryConfig struct {
-	Enabled            bool     `yaml:"enabled"`
-	Probability        float64  `yaml:"probability"`           // Probability of recovery for non-fatal errors
-	MeanTime           Duration `yaml:"mean_time"`             // Mean time to recovery
-	StdDev             Duration `yaml:"std_dev"`               // Standard deviation of recovery time
+	Enabled     bool     `yaml:"enabled"`
+	Probability float64  `yaml:"probability"` // Probability of recovery for non-fatal errors
+	MeanTime    Duration `yaml:"mean_time"`   // Mean time to recovery
+	StdDev      Duration `yaml:"std_dev"`     // Standard deviation of recovery time
+
+	// Replacement provisions new nodes for fatal failures
+	ReplaceFatal     bool     `yaml:"replace_fatal"`      // Replace nodes with fatal failures
+	ReplaceColdStart Duration `yaml:"replace_cold_start"` // Cold start delay for replacement (0 = use startup config)
 }
 
 // ScheduledOutage defines a planned outage event.
@@ -163,6 +175,26 @@ type NodeSpec struct {
 	GPUType          string            `yaml:"gpu_type"`
 	Labels           map[string]string `yaml:"labels,omitempty"`
 	ControlPlaneAddr string            `yaml:"-"` // Set at runtime, not from YAML
+	Generation       int               `yaml:"-"` // Replacement generation (0 = original)
+}
+
+// BaseID returns the original node ID without generation suffix.
+func (s NodeSpec) BaseID() string {
+	// Match pattern: -genN where N is one or more digits at end of string
+	id := s.ID
+	for i := len(id) - 1; i >= 0; i-- {
+		if id[i] < '0' || id[i] > '9' {
+			// Found non-digit, check if preceded by "-gen"
+			if i >= 3 && id[i-3:i+1] == "-gen" {
+				// Verify there are digits after "-gen"
+				if i+1 < len(id) {
+					return id[:i-3]
+				}
+			}
+			break
+		}
+	}
+	return s.ID
 }
 
 // Event represents something that happens during a scenario.
@@ -186,7 +218,7 @@ type EventParams struct {
 	CommandArgs map[string]string `yaml:"command_args,omitempty"`
 
 	// For wait_for_status
-	ExpectedStatus string `yaml:"expected_status,omitempty"`
+	ExpectedStatus string   `yaml:"expected_status,omitempty"`
 	Timeout        Duration `yaml:"timeout,omitempty"`
 
 	// For log
@@ -280,15 +312,15 @@ func (s *Scenario) Validate() error {
 	}
 
 	validActions := map[string]bool{
-		"start_fleet":       true,
-		"stop_fleet":        true,
-		"inject_failure":    true,
-		"recover_failure":   true,
-		"issue_command":     true,
-		"wait_for_status":   true,
-		"wait":              true,
-		"log":               true,
-		"assert":            true,
+		"start_fleet":     true,
+		"stop_fleet":      true,
+		"inject_failure":  true,
+		"recover_failure": true,
+		"issue_command":   true,
+		"wait_for_status": true,
+		"wait":            true,
+		"log":             true,
+		"assert":          true,
 	}
 
 	for i, event := range s.Events {
@@ -361,20 +393,20 @@ func (s *Scenario) GetEffectiveDuration() time.Duration {
 
 // Known XID error codes and their meanings.
 var XIDCodes = map[int]XIDInfo{
-	13:  {Code: 13, Name: "Graphics Engine Exception", Fatal: false, Description: "Usually a shader/compute kernel issue"},
-	31:  {Code: 31, Name: "GPU memory page fault", Fatal: false, Description: "Memory access violation, often recoverable"},
-	32:  {Code: 32, Name: "Invalid or corrupted push buffer stream", Fatal: false, Description: "Command buffer corruption"},
-	43:  {Code: 43, Name: "GPU stopped processing", Fatal: true, Description: "GPU hang requiring reset"},
-	45:  {Code: 45, Name: "Preemptive cleanup", Fatal: false, Description: "Driver preemptively cleaned up due to previous errors"},
-	48:  {Code: 48, Name: "Double Bit ECC Error", Fatal: true, Description: "Uncorrectable memory error"},
-	63:  {Code: 63, Name: "ECC page retirement/row remapping failure", Fatal: true, Description: "Memory subsystem degradation"},
-	64:  {Code: 64, Name: "ECC page retirement/row remapping recording event", Fatal: false, Description: "ECC error being handled"},
-	68:  {Code: 68, Name: "NVDEC0 Exception", Fatal: false, Description: "Video decoder error"},
-	74:  {Code: 74, Name: "NVLink Error", Fatal: true, Description: "Multi-GPU interconnect failure"},
-	79:  {Code: 79, Name: "GPU has fallen off the bus", Fatal: true, Description: "Complete GPU failure, hardware issue"},
-	92:  {Code: 92, Name: "High single-bit ECC error rate", Fatal: false, Description: "Memory degradation warning"},
-	94:  {Code: 94, Name: "Contained ECC error", Fatal: false, Description: "ECC error contained and corrected"},
-	95:  {Code: 95, Name: "Uncontained ECC error", Fatal: true, Description: "ECC error that could not be contained"},
+	13: {Code: 13, Name: "Graphics Engine Exception", Fatal: false, Description: "Usually a shader/compute kernel issue"},
+	31: {Code: 31, Name: "GPU memory page fault", Fatal: false, Description: "Memory access violation, often recoverable"},
+	32: {Code: 32, Name: "Invalid or corrupted push buffer stream", Fatal: false, Description: "Command buffer corruption"},
+	43: {Code: 43, Name: "GPU stopped processing", Fatal: true, Description: "GPU hang requiring reset"},
+	45: {Code: 45, Name: "Preemptive cleanup", Fatal: false, Description: "Driver preemptively cleaned up due to previous errors"},
+	48: {Code: 48, Name: "Double Bit ECC Error", Fatal: true, Description: "Uncorrectable memory error"},
+	63: {Code: 63, Name: "ECC page retirement/row remapping failure", Fatal: true, Description: "Memory subsystem degradation"},
+	64: {Code: 64, Name: "ECC page retirement/row remapping recording event", Fatal: false, Description: "ECC error being handled"},
+	68: {Code: 68, Name: "NVDEC0 Exception", Fatal: false, Description: "Video decoder error"},
+	74: {Code: 74, Name: "NVLink Error", Fatal: true, Description: "Multi-GPU interconnect failure"},
+	79: {Code: 79, Name: "GPU has fallen off the bus", Fatal: true, Description: "Complete GPU failure, hardware issue"},
+	92: {Code: 92, Name: "High single-bit ECC error rate", Fatal: false, Description: "Memory degradation warning"},
+	94: {Code: 94, Name: "Contained ECC error", Fatal: false, Description: "ECC error contained and corrected"},
+	95: {Code: 95, Name: "Uncontained ECC error", Fatal: true, Description: "ECC error that could not be contained"},
 }
 
 // XIDInfo describes an XID error code.
@@ -384,4 +416,3 @@ type XIDInfo struct {
 	Fatal       bool
 	Description string
 }
-

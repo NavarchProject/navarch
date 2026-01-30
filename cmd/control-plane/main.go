@@ -66,6 +66,8 @@ func main() {
 			logger.Error("failed to initialize pool manager", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
+		// Wire pool manager to receive health notifications for auto-replacement
+		srv.SetHealthObserver(poolManager)
 	}
 
 	mux := http.NewServeMux()

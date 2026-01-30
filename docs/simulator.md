@@ -498,7 +498,14 @@ startup:
   duration: 5m
   batch_size: 100
   jitter_percent: 20
+  cold_start_min: 30s
+  cold_start_max: 2m
 ```
+
+Cold start delays simulate provisioning time before a node comes online. Configure either a range or a normal distribution:
+
+- Use `cold_start_min` and `cold_start_max` to sample uniformly between the two values.
+- Use `cold_start_mean` and `cold_start_stddev` to sample from a normal distribution and clamp to the optional min/max.
 
 ### Chaos engineering
 

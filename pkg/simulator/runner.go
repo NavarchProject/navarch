@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -29,14 +31,31 @@ type Runner struct {
 	client           protoconnect.ControlPlaneServiceClient
 	waitForCancel    bool
 
-	server     *http.Server
-	serverDone chan struct{}
+	httpServer    *http.Server
+	serverDone    chan struct{}
+	database      *db.InMemDB
+	cpServer      *controlplane.Server
 
 	// Stress testing components
-	chaos   *ChaosEngine
-	metrics *StressMetrics
-	seed    int64
-	runDir  *RunDir
+	chaos         *ChaosEngine
+	metrics       *StressMetrics
+	seed          int64
+	rng           *rand.Rand
+	runDir        *RunDir
+	startupConfig StartupConfig
+	mu            sync.Mutex
+	nodeSpecs     map[string]NodeSpec // nodeID -> spec for replacement
+}
+
+// simHealthObserver implements NodeHealthObserver for the simulator.
+type simHealthObserver struct {
+	runner   *Runner
+	ctx      context.Context
+	recovery *RecoveryConfig
+}
+
+func (o *simHealthObserver) OnNodeUnhealthy(ctx context.Context, nodeID string) {
+	go o.runner.handleUnhealthyNode(o.ctx, nodeID, o.recovery)
 }
 
 // RunnerOption configures a Runner.
@@ -68,6 +87,7 @@ func WithWaitForCancel() RunnerOption {
 func WithSeed(seed int64) RunnerOption {
 	return func(r *Runner) {
 		r.seed = seed
+		r.rng = rand.New(rand.NewSource(seed))
 	}
 }
 
@@ -247,22 +267,37 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 	go r.metrics.StartSampling(ctx, metricsInterval)
 
-	startupConfig := StartupConfig{
+	r.startupConfig = StartupConfig{
 		Pattern:       "linear",
 		Duration:      Duration(30 * time.Second),
 		JitterPercent: 10,
 	}
 	if stress.FleetGen != nil && stress.FleetGen.Startup.Pattern != "" {
-		startupConfig = stress.FleetGen.Startup
+		r.startupConfig = stress.FleetGen.Startup
 	}
 
-	starter := NewNodeStarter(startupConfig, r.controlPlaneAddr, r.seed, r.logger)
+	// Store node specs for potential replacement
+	r.nodeSpecs = make(map[string]NodeSpec)
+	for _, spec := range fleet {
+		r.nodeSpecs[spec.ID] = spec
+	}
+
+	// Set up replacement observer for fatal failures
+	if stress.Chaos != nil && stress.Chaos.Recovery != nil && stress.Chaos.Recovery.ReplaceFatal {
+		r.cpServer.SetHealthObserver(&simHealthObserver{
+			runner:   r,
+			ctx:      ctx,
+			recovery: stress.Chaos.Recovery,
+		})
+	}
+
+	starter := NewNodeStarter(r.startupConfig, r.controlPlaneAddr, r.seed, r.logger)
 	if r.runDir != nil {
 		starter.SetRunDir(r.runDir)
 	}
 
 	r.logger.Info("starting fleet",
-		slog.String("pattern", startupConfig.Pattern),
+		slog.String("pattern", r.startupConfig.Pattern),
 		slog.Int("nodes", len(fleet)),
 	)
 
@@ -272,10 +307,14 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	}
 	r.nodes = nodes
 
+	coldStartDelays := starter.GetColdStartDelays()
 	for _, spec := range fleet {
 		r.metrics.RegisterNode(spec)
 		if _, ok := nodes[spec.ID]; ok {
 			r.metrics.RecordNodeStart(spec.ID)
+			if delay, ok := coldStartDelays[spec.ID]; ok && delay > 0 {
+				r.metrics.RecordColdStartDelay(spec.ID, delay)
+			}
 		}
 	}
 
@@ -327,6 +366,9 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 finished:
 	console.ClearProgress()
+
+	// Take a final sample to ensure accurate end-state data
+	r.metrics.TakeSample()
 
 	results := r.metrics.GetStressResults()
 	console.PrintResults(results)
@@ -407,16 +449,16 @@ func (r *Runner) runEventsInBackground(ctx context.Context) {
 }
 
 func (r *Runner) startControlPlane(ctx context.Context) error {
-	database := db.NewInMemDB()
+	r.database = db.NewInMemDB()
 	cfg := controlplane.DefaultConfig()
 	// Use faster intervals for simulation
 	cfg.HealthCheckIntervalSeconds = 5
 	cfg.HeartbeatIntervalSeconds = 3
 
-	server := controlplane.NewServer(database, cfg, r.logger.With(slog.String("component", "control-plane")))
+	r.cpServer = controlplane.NewServer(r.database, cfg, r.logger.With(slog.String("component", "control-plane")))
 
 	mux := http.NewServeMux()
-	path, handler := protoconnect.NewControlPlaneServiceHandler(server)
+	path, handler := protoconnect.NewControlPlaneServiceHandler(r.cpServer)
 	mux.Handle(path, handler)
 
 	listener, err := net.Listen("tcp", ":0")
@@ -427,14 +469,14 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	addr := listener.Addr().(*net.TCPAddr)
 	r.controlPlaneAddr = fmt.Sprintf("http://localhost:%d", addr.Port)
 
-	r.server = &http.Server{
+	r.httpServer = &http.Server{
 		Handler: h2c.NewHandler(mux, &http2.Server{}),
 	}
 	r.serverDone = make(chan struct{})
 
 	go func() {
 		defer close(r.serverDone)
-		if err := r.server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := r.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			r.logger.Error("control plane server error", slog.String("error", err.Error()))
 		}
 	}()
@@ -444,15 +486,92 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 }
 
 func (r *Runner) stopControlPlane() {
-	if r.server != nil {
+	if r.httpServer != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		r.server.Shutdown(ctx)
+		r.httpServer.Shutdown(ctx)
 		<-r.serverDone
 	}
 
 	for _, node := range r.nodes {
 		node.Stop()
+	}
+}
+
+func (r *Runner) handleUnhealthyNode(ctx context.Context, nodeID string, recovery *RecoveryConfig) {
+	r.mu.Lock()
+	spec, ok := r.nodeSpecs[nodeID]
+	if !ok {
+		r.mu.Unlock()
+		return
+	}
+	existingNode, exists := r.nodes[nodeID]
+	if !exists || existingNode == nil {
+		r.mu.Unlock()
+		return
+	}
+	existingNode.Stop()
+	delete(r.nodes, nodeID)
+	r.mu.Unlock()
+
+	r.logger.Info("node became unhealthy, scheduling replacement",
+		slog.String("node_id", nodeID),
+	)
+
+	// Calculate cold start delay
+	coldStart := recovery.ReplaceColdStart.Duration()
+	if coldStart == 0 && r.rng != nil {
+		if r.startupConfig.ColdStartMin.Duration() > 0 {
+			min := r.startupConfig.ColdStartMin.Duration()
+			max := r.startupConfig.ColdStartMax.Duration()
+			if max <= min {
+				max = min + time.Second
+			}
+			coldStart = min + time.Duration(r.rng.Int63n(int64(max-min)))
+		} else {
+			coldStart = 30*time.Second + time.Duration(r.rng.Int63n(int64(30*time.Second)))
+		}
+	}
+
+	r.logger.Info("provisioning replacement node",
+		slog.String("old_node_id", nodeID),
+		slog.Duration("cold_start", coldStart),
+	)
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(coldStart):
+	}
+
+	newSpec := spec
+	newSpec.ID = fmt.Sprintf("%s-gen%d", spec.BaseID(), spec.Generation+1)
+	newSpec.Generation = spec.Generation + 1
+
+	newNode := NewSimulatedNode(newSpec, r.controlPlaneAddr, r.logger)
+	if err := newNode.Start(ctx); err != nil {
+		r.logger.Error("failed to start replacement node",
+			slog.String("node_id", newSpec.ID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	r.mu.Lock()
+	r.nodes[newSpec.ID] = newNode
+	r.nodeSpecs[newSpec.ID] = newSpec
+	r.mu.Unlock()
+
+	r.logger.Info("replacement node started",
+		slog.String("old_node_id", nodeID),
+		slog.String("new_node_id", newSpec.ID),
+		slog.Duration("cold_start", coldStart),
+	)
+
+	if r.metrics != nil {
+		r.metrics.RegisterNode(newSpec)
+		r.metrics.RecordNodeStart(newSpec.ID)
+		r.metrics.RecordColdStartDelay(newSpec.ID, coldStart)
 	}
 }
 

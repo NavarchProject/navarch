@@ -122,6 +122,13 @@ func (c *ChaosEngine) InjectFailure(nodeID string, failure InjectedFailure) erro
 	c.recordFailure(event)
 	if c.metrics != nil {
 		c.metrics.RecordFailure(event)
+		status := c.determineNodeStatus(node)
+		c.logger.Debug("updating node health",
+			slog.String("node_id", nodeID),
+			slog.String("status", status),
+			slog.Int("failure_count", len(node.GetFailures())),
+		)
+		c.metrics.RecordNodeHealth(nodeID, status)
 	}
 
 	// Check for cascading
@@ -135,6 +142,20 @@ func (c *ChaosEngine) InjectFailure(nodeID string, failure InjectedFailure) erro
 	}
 
 	return nil
+}
+
+func (c *ChaosEngine) determineNodeStatus(node *SimulatedNode) string {
+	failures := node.GetFailures()
+	if len(failures) == 0 {
+		return "healthy"
+	}
+	for _, f := range failures {
+		switch f.Type {
+		case "boot_failure", "nvml_failure", "network", "device_error":
+			return "unhealthy"
+		}
+	}
+	return "degraded"
 }
 
 func (c *ChaosEngine) failureInjectionLoop(ctx context.Context) {
@@ -412,7 +433,7 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 		}
 		delay := minDelay + time.Duration(c.rng.Int63n(int64(maxDelay-minDelay)))
 
-		go func(target *SimulatedNode, d int) {
+		go func(target *SimulatedNode, d int, delay time.Duration) {
 			time.Sleep(delay)
 
 			cascadeFailure := c.generateXIDFailure()
@@ -432,6 +453,7 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 			c.recordFailure(event)
 			if c.metrics != nil {
 				c.metrics.RecordFailure(event)
+				c.metrics.RecordNodeHealth(target.ID(), c.determineNodeStatus(target))
 			}
 
 			c.logger.Debug("cascading failure triggered",
@@ -441,7 +463,7 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 			)
 
 			c.maybeTriggerCascade(target.ID(), cascadeFailure, d+1)
-		}(targetNode, depth)
+		}(targetNode, depth, delay)
 	}
 }
 
@@ -537,13 +559,22 @@ func (c *ChaosEngine) processRecoveries() {
 	toRecover := make(map[string]string)
 	for key, recoveryTime := range c.pendingRecoveries {
 		if now.After(recoveryTime) {
+			parsed := false
 			for i := len(key) - 1; i >= 0; i-- {
 				if key[i] == ':' {
 					toRecover[key[:i]] = key[i+1:]
+					parsed = true
 					break
 				}
 			}
-			delete(c.pendingRecoveries, key)
+			if parsed {
+				delete(c.pendingRecoveries, key)
+			} else {
+				c.logger.Warn("invalid recovery key format, expected nodeID:failureType",
+					slog.String("key", key),
+				)
+				delete(c.pendingRecoveries, key) // Remove malformed key to prevent infinite loop
+			}
 		}
 	}
 	c.mu.Unlock()
@@ -557,6 +588,7 @@ func (c *ChaosEngine) processRecoveries() {
 			)
 			if c.metrics != nil {
 				c.metrics.RecordRecovery(nodeID, failureType)
+				c.metrics.RecordNodeHealth(nodeID, c.determineNodeStatus(node))
 			}
 		}
 	}
@@ -619,6 +651,10 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 			Message:   failure.Message,
 		}
 		c.recordFailure(event)
+		if c.metrics != nil {
+			c.metrics.RecordFailure(event)
+			c.metrics.RecordNodeHealth(node.ID(), c.determineNodeStatus(node))
+		}
 	}
 
 	if c.metrics != nil {
@@ -643,6 +679,9 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 
 	for _, node := range affected {
 		node.ClearFailures()
+		if c.metrics != nil {
+			c.metrics.RecordNodeHealth(node.ID(), "healthy")
+		}
 	}
 }
 

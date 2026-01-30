@@ -308,5 +308,93 @@ func (pm *PoolManager) ScalePool(ctx context.Context, name string, target int) e
 	return mp.pool.ScaleDown(ctx, status.TotalNodes-target)
 }
 
+// OnNodeUnhealthy implements NodeHealthObserver. It finds the pool containing
+// the node and triggers replacement if configured.
+func (pm *PoolManager) OnNodeUnhealthy(ctx context.Context, nodeID string) {
+	pm.mu.RLock()
+	var targetPool *managedPool
+	var poolName string
+	for name, mp := range pm.pools {
+		if mp.pool.HasNode(nodeID) {
+			targetPool = mp
+			poolName = name
+			break
+		}
+	}
+	pm.mu.RUnlock()
+
+	if targetPool == nil {
+		pm.logger.Debug("unhealthy node not found in any pool",
+			slog.String("node_id", nodeID),
+		)
+		return
+	}
+
+	if err := pm.handleUnhealthyNode(ctx, nodeID, poolName, targetPool); err != nil {
+		pm.logger.Error("failed to handle unhealthy node",
+			slog.String("node_id", nodeID),
+			slog.String("pool", poolName),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+// handleUnhealthyNode processes an unhealthy node and triggers replacement
+// if the pool is configured for auto-replacement.
+func (pm *PoolManager) handleUnhealthyNode(ctx context.Context, nodeID, poolName string, mp *managedPool) error {
+	cfg := mp.pool.Config()
+	if !cfg.AutoReplace {
+		pm.logger.Debug("auto-replace disabled, skipping replacement",
+			slog.String("pool", poolName),
+			slog.String("node_id", nodeID),
+		)
+		return nil
+	}
+
+	shouldReplace := mp.pool.RecordHealthFailure(nodeID)
+	if !shouldReplace {
+		pm.logger.Debug("node health failure recorded, threshold not reached",
+			slog.String("pool", poolName),
+			slog.String("node_id", nodeID),
+		)
+		return nil
+	}
+
+	pm.logger.Info("replacing unhealthy node",
+		slog.String("pool", poolName),
+		slog.String("node_id", nodeID),
+	)
+
+	newNode, err := mp.pool.ReplaceNode(ctx, nodeID)
+	if err != nil {
+		pm.logger.Error("failed to replace unhealthy node",
+			slog.String("pool", poolName),
+			slog.String("node_id", nodeID),
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	pm.logger.Info("node replaced successfully",
+		slog.String("pool", poolName),
+		slog.String("old_node_id", nodeID),
+		slog.String("new_node_id", newNode.ID),
+	)
+	return nil
+}
+
+// HandleUnhealthyNode processes an unhealthy node notification and triggers
+// replacement if the pool is configured for auto-replacement.
+// Deprecated: Use OnNodeUnhealthy which finds the pool automatically.
+func (pm *PoolManager) HandleUnhealthyNode(ctx context.Context, nodeID, poolName string) error {
+	pm.mu.RLock()
+	mp, ok := pm.pools[poolName]
+	pm.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("pool %q not found", poolName)
+	}
+	return pm.handleUnhealthyNode(ctx, nodeID, poolName, mp)
+}
+
 // ProviderFactory creates providers by name.
 type ProviderFactory func(name string, config map[string]any) (provider.Provider, error)

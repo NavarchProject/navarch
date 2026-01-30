@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,13 +11,13 @@ import (
 )
 
 type mockProvider struct {
-	provisions int
-	terminates int
+	provisions atomic.Int64
+	terminates atomic.Int64
 }
 
 func (m *mockProvider) Name() string { return "mock" }
 func (m *mockProvider) Provision(ctx context.Context, req provider.ProvisionRequest) (*provider.Node, error) {
-	m.provisions++
+	m.provisions.Add(1)
 	return &provider.Node{
 		ID:           "node-" + req.Name,
 		Provider:     "mock",
@@ -25,7 +26,7 @@ func (m *mockProvider) Provision(ctx context.Context, req provider.ProvisionRequ
 	}, nil
 }
 func (m *mockProvider) Terminate(ctx context.Context, id string) error {
-	m.terminates++
+	m.terminates.Add(1)
 	return nil
 }
 func (m *mockProvider) List(ctx context.Context) ([]*provider.Node, error) {
@@ -208,8 +209,136 @@ func TestPoolManager_AutoscalerLoop(t *testing.T) {
 	cancel()
 	pm.Stop()
 
-	if prov.provisions == 0 {
+	if prov.provisions.Load() == 0 {
 		t.Error("expected autoscaler to trigger scale up")
 	}
+}
+
+func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
+	t.Run("node_in_pool_with_auto_replace", func(t *testing.T) {
+		pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+
+		prov := &mockProvider{}
+		p, _ := pool.NewSimple(pool.Config{
+			Name:               "test-pool",
+			MinNodes:           0,
+			MaxNodes:           10,
+			AutoReplace:        true,
+			UnhealthyThreshold: 1,
+		}, prov, "mock")
+		pm.AddPool(p, nil)
+
+		// Add a node to the pool
+		ctx := context.Background()
+		nodes, _ := p.ScaleUp(ctx, 1)
+		if len(nodes) == 0 {
+			t.Fatal("Failed to add node to pool")
+		}
+		nodeID := nodes[0].ID
+
+		// Trigger unhealthy notification
+		pm.OnNodeUnhealthy(ctx, nodeID)
+
+		// Should have terminated the old node and provisioned a new one
+		if prov.terminates.Load() != 1 {
+			t.Errorf("Expected 1 termination, got %d", prov.terminates.Load())
+		}
+		if prov.provisions.Load() != 2 { // 1 initial + 1 replacement
+			t.Errorf("Expected 2 provisions, got %d", prov.provisions.Load())
+		}
+	})
+
+	t.Run("node_in_pool_without_auto_replace", func(t *testing.T) {
+		pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+
+		prov := &mockProvider{}
+		p, _ := pool.NewSimple(pool.Config{
+			Name:        "test-pool",
+			MinNodes:    0,
+			MaxNodes:    10,
+			AutoReplace: false, // disabled
+		}, prov, "mock")
+		pm.AddPool(p, nil)
+
+		// Add a node to the pool
+		ctx := context.Background()
+		nodes, _ := p.ScaleUp(ctx, 1)
+		if len(nodes) == 0 {
+			t.Fatal("Failed to add node to pool")
+		}
+		nodeID := nodes[0].ID
+
+		// Trigger unhealthy notification
+		pm.OnNodeUnhealthy(ctx, nodeID)
+
+		// Should NOT terminate or provision
+		if prov.terminates.Load() != 0 {
+			t.Errorf("Expected 0 terminations, got %d", prov.terminates.Load())
+		}
+		if prov.provisions.Load() != 1 { // Only initial
+			t.Errorf("Expected 1 provision (initial only), got %d", prov.provisions.Load())
+		}
+	})
+
+	t.Run("node_not_in_any_pool", func(t *testing.T) {
+		pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+
+		prov := &mockProvider{}
+		p, _ := pool.NewSimple(pool.Config{
+			Name:     "test-pool",
+			MinNodes: 0,
+			MaxNodes: 10,
+		}, prov, "mock")
+		pm.AddPool(p, nil)
+
+		// Trigger unhealthy for unknown node (should not panic)
+		ctx := context.Background()
+		pm.OnNodeUnhealthy(ctx, "unknown-node-id")
+
+		// Should not affect anything
+		if prov.terminates.Load() != 0 {
+			t.Errorf("Expected 0 terminations, got %d", prov.terminates.Load())
+		}
+	})
+
+	t.Run("threshold_not_reached", func(t *testing.T) {
+		pm := NewPoolManager(PoolManagerConfig{}, nil, nil)
+
+		prov := &mockProvider{}
+		p, _ := pool.NewSimple(pool.Config{
+			Name:               "test-pool",
+			MinNodes:           0,
+			MaxNodes:           10,
+			AutoReplace:        true,
+			UnhealthyThreshold: 3, // Requires 3 failures
+		}, prov, "mock")
+		pm.AddPool(p, nil)
+
+		// Add a node to the pool
+		ctx := context.Background()
+		nodes, _ := p.ScaleUp(ctx, 1)
+		if len(nodes) == 0 {
+			t.Fatal("Failed to add node to pool")
+		}
+		nodeID := nodes[0].ID
+
+		// First unhealthy notification - threshold not reached
+		pm.OnNodeUnhealthy(ctx, nodeID)
+		if prov.terminates.Load() != 0 {
+			t.Errorf("Expected 0 terminations after 1st failure, got %d", prov.terminates.Load())
+		}
+
+		// Second unhealthy notification - threshold not reached
+		pm.OnNodeUnhealthy(ctx, nodeID)
+		if prov.terminates.Load() != 0 {
+			t.Errorf("Expected 0 terminations after 2nd failure, got %d", prov.terminates.Load())
+		}
+
+		// Third unhealthy notification - threshold reached
+		pm.OnNodeUnhealthy(ctx, nodeID)
+		if prov.terminates.Load() != 1 {
+			t.Errorf("Expected 1 termination after 3rd failure, got %d", prov.terminates.Load())
+		}
+	})
 }
 

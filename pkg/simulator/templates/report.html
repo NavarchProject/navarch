@@ -6,8 +6,6 @@
     <title>{{.Name}} | Stress Test Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
-        
         :root {
             --bg-primary: #0d1117;
             --bg-secondary: #161b22;
@@ -26,8 +24,8 @@
             --warning-dim: #d2992218;
             --danger: #f85149;
             --danger-dim: #f8514918;
-            --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-            --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -917,7 +915,7 @@
 
             {{if .HasFleetGen}}
             <div class="config-section">
-                <h3>Fleet Generation</h3>
+                <h3>Fleet</h3>
                 <div class="config-grid">
                     <div>
                         <div class="config-item">
@@ -925,39 +923,19 @@
                             <span class="config-value">{{.TotalNodes}}</span>
                         </div>
                         <div class="config-item">
-                            <span class="config-label">Startup Pattern</span>
-                            <span class="config-value">{{.StartupPattern}}</span>
+                            <span class="config-label">Startup</span>
+                            <span class="config-value">{{.StartupPattern}}{{if .StartupDuration}}, {{.StartupDuration}}{{end}}{{if .StartupJitter}} ±{{.StartupJitter}}%{{end}}</span>
                         </div>
+                        {{if .HasColdStart}}
                         <div class="config-item">
-                            <span class="config-label">Startup Duration</span>
-                            <span class="config-value">{{.StartupDuration}}</span>
-                        </div>
-                        {{if .StartupBatchSize}}
-                        <div class="config-item">
-                            <span class="config-label">Batch Size</span>
-                            <span class="config-value">{{.StartupBatchSize}}</span>
-                        </div>
-                        {{end}}
-                        {{if .StartupJitter}}
-                        <div class="config-item">
-                            <span class="config-label">Jitter</span>
-                            <span class="config-value">{{.StartupJitter}}%</span>
+                            <span class="config-label">Cold Start</span>
+                            <span class="config-value">{{if .ColdStartMean}}{{.ColdStartMean}} ±{{.ColdStartStdDev}}{{else}}{{.ColdStartMin}} – {{.ColdStartMax}}{{end}}</span>
                         </div>
                         {{end}}
                     </div>
                     <div>
                         {{if .FleetProviders}}
-                        <h4 style="color: #8b949e; font-size: 0.9em; margin-bottom: 10px;">Provider Distribution</h4>
                         {{range .FleetProviders}}
-                        <div class="config-item">
-                            <span class="config-label">{{.Key}}</span>
-                            <span class="config-value">{{.Value}}%</span>
-                        </div>
-                        {{end}}
-                        {{end}}
-                        {{if .FleetRegions}}
-                        <h4 style="color: #8b949e; font-size: 0.9em; margin: 15px 0 10px 0;">Region Distribution</h4>
-                        {{range .FleetRegions}}
                         <div class="config-item">
                             <span class="config-label">{{.Key}}</span>
                             <span class="config-value">{{.Value}}%</span>
@@ -968,29 +946,36 @@
                 </div>
 
                 {{if .FleetTemplates}}
-                <h4 style="color: #8b949e; font-size: 0.9em; margin: 20px 0 10px 0;">Node Templates</h4>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Weight</th>
-                            <th>GPU Count</th>
-                            <th>GPU Type</th>
-                            <th>Instance Type</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .FleetTemplates}}
-                        <tr>
-                            <td><strong>{{.Name}}</strong></td>
-                            <td>{{.Weight}}</td>
-                            <td>{{.GPUCount}}</td>
-                            <td>{{.GPUType}}</td>
-                            <td>{{.InstanceType}}</td>
-                        </tr>
+                <!-- Stacked bar showing template distribution -->
+                <div style="margin-top: 16px;">
+                    <div style="display: flex; height: 32px; border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                        {{range $i, $t := .FleetTemplates}}
+                        <div style="flex: {{$t.Weight}}; background: {{if eq $i 0}}var(--accent){{else if eq $i 1}}var(--success){{else if eq $i 2}}var(--warning){{else}}var(--danger){{end}}; display: flex; align-items: center; justify-content: center; min-width: 40px;" title="{{$t.Name}}: {{$t.Weight}}%">
+                            <span style="font-family: var(--mono); font-size: 11px; color: white; font-weight: 500;">{{$t.Weight}}%</span>
+                        </div>
                         {{end}}
-                    </tbody>
-                </table>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px;">
+                        {{range $i, $t := .FleetTemplates}}
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div style="width: 10px; height: 10px; border-radius: 2px; background: {{if eq $i 0}}var(--accent){{else if eq $i 1}}var(--success){{else if eq $i 2}}var(--warning){{else}}var(--danger){{end}};"></div>
+                            <span style="color: var(--text-secondary);">{{$t.Name}}</span>
+                            <span style="color: var(--text-muted); font-family: var(--mono);">{{$t.GPUCount}}× GPU</span>
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+
+                {{if .FleetRegions}}
+                <div style="margin-top: 16px;">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Regions</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        {{range .FleetRegions}}
+                        <span style="background: var(--bg-tertiary); padding: 4px 8px; border-radius: 3px; font-family: var(--mono); font-size: 11px; color: var(--text-secondary);">{{.Key}} <span style="color: var(--text-muted);">{{.Value}}%</span></span>
+                        {{end}}
+                    </div>
+                </div>
                 {{end}}
             </div>
             {{end}}
@@ -1162,7 +1147,7 @@
         // Chart.js global config for dark theme
         Chart.defaults.color = '#8b949e';
         Chart.defaults.borderColor = '#30363d';
-        Chart.defaults.font.family = "'JetBrains Mono', monospace";
+        Chart.defaults.font.family = "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace";
         Chart.defaults.font.size = 10;
 
         function showTab(tabId) {
@@ -1184,15 +1169,15 @@
             accentDim: 'rgba(88, 166, 255, 0.15)',
         };
 
-        // Node Health Timeline
+        // Node Health Timeline - stacked area chart
         new Chart(document.getElementById('healthChart'), {
             type: 'line',
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: colors.warning, backgroundColor: colors.warningDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
+                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: colors.success, backgroundColor: 'rgba(63, 185, 80, 0.6)', fill: 'origin', tension: 0.2, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: colors.warning, backgroundColor: 'rgba(210, 153, 34, 0.6)', fill: '-1', tension: 0.2, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: colors.danger, backgroundColor: 'rgba(248, 81, 73, 0.6)', fill: '-1', tension: 0.2, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
             options: {
@@ -1200,7 +1185,7 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#21262d' } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: '#21262d' } },
                     x: { grid: { display: false } }
                 },
                 plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
@@ -1283,6 +1268,17 @@
             const minutes = parseInt(matches[2]) || 0;
             const seconds = parseFloat(matches[3]) || 0;
             return (hours * 3600 + minutes * 60 + seconds) * 1000;
+        }
+
+        function formatDuration(ns) {
+            if (!ns || ns <= 0) return '0s';
+            const ms = ns / 1000000;
+            if (ms < 1000) return ms.toFixed(0) + 'ms';
+            const s = ms / 1000;
+            if (s < 60) return s.toFixed(1) + 's';
+            const m = Math.floor(s / 60);
+            const remainS = s % 60;
+            return m + 'm' + remainS.toFixed(0) + 's';
         }
         
         const durationMs = parseGoDuration(testDuration);
@@ -1480,6 +1476,9 @@
             html += '<div class="node-info-item"><label>Instance</label><span>' + node.instance_type + '</span></div>';
             html += '<div class="node-info-item"><label>GPUs</label><span>' + node.gpu_count + '× ' + node.gpu_type + '</span></div>';
             html += '<div class="node-info-item"><label>Failures</label><span style="color: ' + colors.danger + ';">' + node.failure_count + '</span></div>';
+            if (node.cold_start_delay && node.cold_start_delay > 0) {
+                html += '<div class="node-info-item"><label>Cold Start</label><span>' + formatDuration(node.cold_start_delay) + '</span></div>';
+            }
             html += '</div>';
             
             if (node.log_file) {

@@ -44,9 +44,10 @@ type StressMetrics struct {
 	maxLatency   int64
 
 	// Per-node tracking
-	nodeStatus map[string]string
-	nodeEvents map[string][]NodeEvent
-	nodeSpecs  map[string]NodeSpec
+	nodeStatus          map[string]string
+	nodeEvents          map[string][]NodeEvent
+	nodeSpecs           map[string]NodeSpec
+	nodeColdStartDelays map[string]time.Duration
 }
 
 // NodeEvent represents an event that occurred on a specific node.
@@ -88,18 +89,19 @@ type StressReport struct {
 
 // NodeReport contains per-node statistics and event history.
 type NodeReport struct {
-	NodeID        string      `json:"node_id"`
-	Provider      string      `json:"provider"`
-	Region        string      `json:"region"`
-	Zone          string      `json:"zone"`
-	InstanceType  string      `json:"instance_type"`
-	GPUCount      int         `json:"gpu_count"`
-	GPUType       string      `json:"gpu_type"`
-	Status        string      `json:"status"`
-	FailureCount  int         `json:"failure_count"`
-	RecoveryCount int         `json:"recovery_count"`
-	Events        []NodeEvent `json:"events"`
-	LogFile       string      `json:"log_file,omitempty"`
+	NodeID         string        `json:"node_id"`
+	Provider       string        `json:"provider"`
+	Region         string        `json:"region"`
+	Zone           string        `json:"zone"`
+	InstanceType   string        `json:"instance_type"`
+	GPUCount       int           `json:"gpu_count"`
+	GPUType        string        `json:"gpu_type"`
+	Status         string        `json:"status"`
+	FailureCount   int           `json:"failure_count"`
+	RecoveryCount  int           `json:"recovery_count"`
+	ColdStartDelay time.Duration `json:"cold_start_delay,omitempty"`
+	Events         []NodeEvent   `json:"events"`
+	LogFile        string        `json:"log_file,omitempty"`
 }
 
 // ReportConfig summarizes the stress test configuration.
@@ -143,14 +145,15 @@ type XIDCount struct {
 // NewStressMetrics creates a new metrics collector.
 func NewStressMetrics(logger *slog.Logger) *StressMetrics {
 	return &StressMetrics{
-		logger:         logger.With(slog.String("component", "stress-metrics")),
-		startTime:      time.Now(),
-		failuresByType: make(map[string]int64),
-		failuresByXID:  make(map[int]int64),
-		nodeStatus:     make(map[string]string),
-		nodeEvents:     make(map[string][]NodeEvent),
-		nodeSpecs:      make(map[string]NodeSpec),
-		samples:        make([]MetricSample, 0, 1000),
+		logger:              logger.With(slog.String("component", "stress-metrics")),
+		startTime:           time.Now(),
+		failuresByType:      make(map[string]int64),
+		failuresByXID:       make(map[int]int64),
+		nodeStatus:          make(map[string]string),
+		nodeEvents:          make(map[string][]NodeEvent),
+		nodeSpecs:           make(map[string]NodeSpec),
+		nodeColdStartDelays: make(map[string]time.Duration),
+		samples:             make([]MetricSample, 0, 1000),
 	}
 }
 
@@ -158,6 +161,13 @@ func NewStressMetrics(logger *slog.Logger) *StressMetrics {
 func (m *StressMetrics) RegisterNode(spec NodeSpec) {
 	m.mu.Lock()
 	m.nodeSpecs[spec.ID] = spec
+	m.mu.Unlock()
+}
+
+// RecordColdStartDelay records the cold start delay for a node.
+func (m *StressMetrics) RecordColdStartDelay(nodeID string, delay time.Duration) {
+	m.mu.Lock()
+	m.nodeColdStartDelays[nodeID] = delay
 	m.mu.Unlock()
 }
 
@@ -389,17 +399,18 @@ func (m *StressMetrics) computeNodeReports() []NodeReport {
 		}
 
 		reports = append(reports, NodeReport{
-			NodeID:        nodeID,
-			Provider:      spec.Provider,
-			Region:        spec.Region,
-			Zone:          spec.Zone,
-			InstanceType:  spec.InstanceType,
-			GPUCount:      spec.GPUCount,
-			GPUType:       spec.GPUType,
-			Status:        status,
-			FailureCount:  failureCount,
-			RecoveryCount: recoveryCount,
-			Events:        events,
+			NodeID:         nodeID,
+			Provider:       spec.Provider,
+			Region:         spec.Region,
+			Zone:           spec.Zone,
+			InstanceType:   spec.InstanceType,
+			GPUCount:       spec.GPUCount,
+			GPUType:        spec.GPUType,
+			Status:         status,
+			FailureCount:   failureCount,
+			RecoveryCount:  recoveryCount,
+			ColdStartDelay: m.nodeColdStartDelays[nodeID],
+			Events:         events,
 		})
 	}
 

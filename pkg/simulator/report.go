@@ -96,6 +96,11 @@ type templateData struct {
 	StartupDuration  string
 	StartupBatchSize int
 	StartupJitter    int
+	HasColdStart     bool
+	ColdStartMin     string
+	ColdStartMax     string
+	ColdStartMean    string
+	ColdStartStdDev  string
 
 	HasChaos           bool
 	ChaosEnabled       bool
@@ -121,8 +126,12 @@ type templateData struct {
 	XIDDistData    template.JS
 	ProviderLabels template.JS
 	ProviderData   template.JS
+	RegionLabels   template.JS
+	RegionData     template.JS
+	TemplateLabels template.JS
+	TemplateData   template.JS
 
-	NodeReports   []NodeReport
+	NodeReports []NodeReport
 	NodesJSON     template.JS
 	LogsDirectory string
 }
@@ -253,6 +262,22 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 			data.StartupDuration = c.FleetGen.Startup.Duration.Duration().String()
 			data.StartupBatchSize = c.FleetGen.Startup.BatchSize
 			data.StartupJitter = c.FleetGen.Startup.JitterPercent
+			if c.FleetGen.Startup.ColdStartMin.Duration() > 0 || c.FleetGen.Startup.ColdStartMax.Duration() > 0 ||
+				c.FleetGen.Startup.ColdStartMean.Duration() > 0 || c.FleetGen.Startup.ColdStartStdDev.Duration() > 0 {
+				data.HasColdStart = true
+				if c.FleetGen.Startup.ColdStartMin.Duration() > 0 {
+					data.ColdStartMin = c.FleetGen.Startup.ColdStartMin.Duration().String()
+				}
+				if c.FleetGen.Startup.ColdStartMax.Duration() > 0 {
+					data.ColdStartMax = c.FleetGen.Startup.ColdStartMax.Duration().String()
+				}
+				if c.FleetGen.Startup.ColdStartMean.Duration() > 0 {
+					data.ColdStartMean = c.FleetGen.Startup.ColdStartMean.Duration().String()
+				}
+				if c.FleetGen.Startup.ColdStartStdDev.Duration() > 0 {
+					data.ColdStartStdDev = c.FleetGen.Startup.ColdStartStdDev.Duration().String()
+				}
+			}
 
 			var provLabels []string
 			var provData []int
@@ -262,6 +287,24 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 			}
 			data.ProviderLabels = toJSArray(provLabels)
 			data.ProviderData = toJSArray(provData)
+
+			var regLabels []string
+			var regData []int
+			for r, pct := range c.FleetGen.Regions {
+				regLabels = append(regLabels, r)
+				regData = append(regData, pct)
+			}
+			data.RegionLabels = toJSArray(regLabels)
+			data.RegionData = toJSArray(regData)
+
+			var tmplLabels []string
+			var tmplData []int
+			for _, t := range c.FleetGen.Templates {
+				tmplLabels = append(tmplLabels, t.Name)
+				tmplData = append(tmplData, t.Weight)
+			}
+			data.TemplateLabels = toJSArray(tmplLabels)
+			data.TemplateData = toJSArray(tmplData)
 		}
 
 		if c.Chaos != nil {
