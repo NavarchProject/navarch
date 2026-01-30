@@ -103,6 +103,45 @@ Common XID errors:
 
 When a node reports unhealthy status, Navarch can automatically cordon it to prevent new workloads.
 
+## Health status vs node status
+
+Navarch tracks two separate status types that serve different purposes.
+
+### Health status
+
+Health status reflects the hardware health reported by the node agent. It comes from health check results.
+
+| Status | Meaning |
+|--------|---------|
+| Healthy | All health checks pass. GPUs are working normally. |
+| Degraded | Partially functional. Some checks show warnings (high temperature, minor errors). |
+| Unhealthy | Critical failure detected. One or more checks failed (XID error, GPU offline). |
+
+Health status is computed from health check results. If any check reports unhealthy, the overall status is unhealthy. If any check reports degraded (and none are unhealthy), the overall status is degraded.
+
+### Node status
+
+Node status reflects the operational state of the node from the control plane's perspective.
+
+| Status | Meaning |
+|--------|---------|
+| Active | Available for workloads. Receiving heartbeats and passing health checks. |
+| Cordoned | Marked unschedulable by an administrator. Existing workloads continue. |
+| Draining | Evicting workloads before termination. No new workloads scheduled. |
+| Unhealthy | Failed health checks. Not usable for workloads. |
+| Terminated | Instance has been shut down. |
+
+### How they interact
+
+Health status affects node status through these transitions:
+
+- When a node reports **unhealthy health status**, its node status becomes **unhealthy**.
+- When an unhealthy node reports **healthy health status**, its node status becomes **active**.
+- When an unhealthy node reports **degraded health status**, its node status stays **unhealthy**. Partial recovery is not sufficient to restore the node to active.
+- Administrative states (cordoned, draining) are preserved when health checks pass, but unhealthy health status overrides them.
+
+This design ensures that nodes only return to active duty after fully recovering from failures.
+
 ## Instances vs Nodes
 
 Navarch tracks **instances** and **nodes** as separate concepts:

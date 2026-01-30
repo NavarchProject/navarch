@@ -62,6 +62,8 @@ Health checks detect GPU issues:
 
 To get started quickly, see the [getting started guide](getting-started.md).
 
+To understand the fundamental building blocks, see [core concepts](concepts.md).
+
 To understand how Navarch works and integrates with Kubernetes, see [architecture](architecture.md).
 
 To understand configuration options, see the [configuration reference](configuration.md).
@@ -71,6 +73,8 @@ To learn about pool management and autoscaling, see [pool management](pool-manag
 To set up a production deployment, see the [deployment guide](deployment.md).
 
 To use the command-line interface, see the [CLI reference](cli.md).
+
+To test scenarios without real hardware, see the [simulator guide](simulator.md).
 
 ## Requirements
 

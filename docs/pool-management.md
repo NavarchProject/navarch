@@ -257,13 +257,16 @@ This ensures your pools maintain capacity even when GPU hardware fails.
 
 ### Health recovery
 
-When a node that was previously unhealthy reports a healthy status, it automatically transitions back to active. This handles cases where transient errors (like recoverable XID codes) resolve without requiring node replacement.
+When a node that was previously unhealthy reports a fully healthy status, it automatically transitions back to active. This handles cases where transient errors (like recoverable XID codes) resolve without requiring node replacement.
 
 The health state machine:
 
 - **Active → Unhealthy**: Node reports unhealthy health check results.
-- **Unhealthy → Active**: Node reports healthy or degraded results after being unhealthy.
+- **Unhealthy → Active**: Node reports fully healthy results (not degraded).
+- **Unhealthy → Unhealthy**: Node reports degraded results (partial recovery is not sufficient).
 - **Unhealthy → Terminated**: Auto-replacement terminates the node (if `auto_replace: true` and threshold is reached).
+
+Note: Degraded health status keeps a node in the unhealthy state because partial recovery may indicate an underlying issue that could recur. Only a fully healthy status restores the node to active.
 
 ## Scaling behavior
 

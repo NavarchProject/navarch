@@ -134,7 +134,7 @@ func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRec
 		node.HealthStatus = overallStatus
 		if overallStatus == pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
 			node.Status = pb.NodeStatus_NODE_STATUS_UNHEALTHY
-		} else if wasUnhealthy {
+		} else if wasUnhealthy && overallStatus == pb.HealthStatus_HEALTH_STATUS_HEALTHY {
 			node.Status = pb.NodeStatus_NODE_STATUS_ACTIVE
 		}
 	}
