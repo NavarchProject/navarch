@@ -108,6 +108,7 @@ func (n *SimulatedNode) Stop() {
 }
 
 // InjectFailure adds a failure condition to the node via the injectable GPU.
+// This injects both legacy XID errors and new HealthEvents for compatibility.
 func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -117,15 +118,16 @@ func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 
 	switch failure.Type {
 	case "xid_error":
-		n.gpu.InjectXIDError(failure.GPUIndex, failure.XIDCode, failure.Message)
+		// Use new HealthEvent-based injection (also adds legacy XID error)
+		n.gpu.InjectXIDHealthEvent(failure.GPUIndex, failure.XIDCode, failure.Message)
 
 	case "temperature":
 		temp := 95
 		if failure.GPUIndex >= 0 {
-			n.gpu.InjectTemperatureSpike(failure.GPUIndex, temp)
+			n.gpu.InjectThermalHealthEvent(failure.GPUIndex, temp, failure.Message)
 		} else {
 			for i := 0; i < n.spec.GPUCount; i++ {
-				n.gpu.InjectTemperatureSpike(i, temp)
+				n.gpu.InjectThermalHealthEvent(i, temp, failure.Message)
 			}
 		}
 
@@ -137,6 +139,14 @@ func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 
 	case "device_error":
 		n.gpu.InjectDeviceError(failure.GPUIndex, errors.New(failure.Message))
+
+	case "memory_error":
+		// New failure type for ECC errors
+		n.gpu.InjectMemoryHealthEvent(failure.GPUIndex, gpu.EventTypeECCDBE, 0, 1, failure.Message)
+
+	case "nvlink_error":
+		// New failure type for NVLink errors
+		n.gpu.InjectNVLinkHealthEvent(failure.GPUIndex, 0, failure.Message)
 
 	case "network":
 		// Network failures are simulated by stopping heartbeats/health checks.
@@ -158,6 +168,7 @@ func (n *SimulatedNode) ClearFailures() {
 
 	n.failures = make([]InjectedFailure, 0)
 	n.gpu.ClearAllErrors()
+	n.gpu.ClearHealthEvents()
 	n.logger.Info("cleared all failures")
 }
 
@@ -182,13 +193,16 @@ func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 	switch f.Type {
 	case "xid_error":
 		n.gpu.ClearXIDError(f.GPUIndex, f.XIDCode)
+		n.gpu.ClearHealthEventsByType(gpu.EventTypeXID)
 	case "temperature":
 		if f.GPUIndex >= 0 {
 			n.gpu.ClearTemperatureSpike(f.GPUIndex)
+			n.gpu.ClearHealthEventsByGPU(f.GPUIndex)
 		} else {
 			for i := 0; i < n.spec.GPUCount; i++ {
 				n.gpu.ClearTemperatureSpike(i)
 			}
+			n.gpu.ClearHealthEventsByType(gpu.EventTypeThermal)
 		}
 	case "nvml_failure":
 		n.gpu.ClearNVMLError()
@@ -196,6 +210,11 @@ func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 		n.gpu.ClearBootError()
 	case "device_error":
 		n.gpu.ClearDeviceError(f.GPUIndex)
+	case "memory_error":
+		n.gpu.ClearHealthEventsByType(gpu.EventTypeECCDBE)
+		n.gpu.ClearHealthEventsByType(gpu.EventTypeECCSBE)
+	case "nvlink_error":
+		n.gpu.ClearHealthEventsByType(gpu.EventTypeNVLink)
 	}
 }
 

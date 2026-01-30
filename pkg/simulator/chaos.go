@@ -151,8 +151,13 @@ func (c *ChaosEngine) determineNodeStatus(node *SimulatedNode) string {
 	}
 	for _, f := range failures {
 		switch f.Type {
-		case "boot_failure", "nvml_failure", "network", "device_error":
+		case "boot_failure", "nvml_failure", "network", "device_error", "memory_error":
 			return "unhealthy"
+		case "xid_error":
+			// Check if it's a fatal XID
+			if info, ok := XIDCodes[f.XIDCode]; ok && info.Fatal {
+				return "unhealthy"
+			}
 		}
 	}
 	return "degraded"
@@ -219,6 +224,10 @@ func (c *ChaosEngine) injectRandomFailure() {
 		failure = c.generateBootFailure()
 	case "network":
 		failure = c.generateNetworkFailure()
+	case "memory_error":
+		failure = c.generateMemoryFailure()
+	case "nvlink_error":
+		failure = c.generateNVLinkFailure()
 	default:
 		failure = c.generateXIDFailure()
 	}
@@ -364,6 +373,36 @@ func (c *ChaosEngine) generateNetworkFailure() InjectedFailure {
 	return InjectedFailure{
 		Type:    "network",
 		Message: messages[c.rng.Intn(len(messages))],
+	}
+}
+
+func (c *ChaosEngine) generateMemoryFailure() InjectedFailure {
+	messages := []string{
+		"Double-bit ECC error detected",
+		"Uncorrectable memory error",
+		"Memory page retirement threshold exceeded",
+		"GPU memory corruption detected",
+	}
+
+	return InjectedFailure{
+		Type:     "memory_error",
+		GPUIndex: c.rng.Intn(8),
+		Message:  messages[c.rng.Intn(len(messages))],
+	}
+}
+
+func (c *ChaosEngine) generateNVLinkFailure() InjectedFailure {
+	messages := []string{
+		"NVLink error: CRC error on link",
+		"NVLink error: Replay error",
+		"NVLink error: Recovery error",
+		"NVLink error: Link training failed",
+	}
+
+	return InjectedFailure{
+		Type:     "nvlink_error",
+		GPUIndex: c.rng.Intn(8),
+		Message:  messages[c.rng.Intn(len(messages))],
 	}
 }
 
