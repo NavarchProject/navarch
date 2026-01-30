@@ -131,8 +131,8 @@ func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 			}
 		}
 
-	case "nvml_failure":
-		n.gpu.InjectNVMLError(errors.New(failure.Message))
+	case "nvml_failure", "backend_error":
+		n.gpu.InjectBackendError(errors.New(failure.Message))
 
 	case "boot_failure":
 		n.gpu.InjectBootError(errors.New(failure.Message))
@@ -192,7 +192,6 @@ func (n *SimulatedNode) RecoverFailure(failureType string) {
 func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 	switch f.Type {
 	case "xid_error":
-		n.gpu.ClearXIDError(f.GPUIndex, f.XIDCode)
 		n.gpu.ClearHealthEventsByType(gpu.EventTypeXID)
 	case "temperature":
 		if f.GPUIndex >= 0 {
@@ -204,8 +203,8 @@ func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 			}
 			n.gpu.ClearHealthEventsByType(gpu.EventTypeThermal)
 		}
-	case "nvml_failure":
-		n.gpu.ClearNVMLError()
+	case "nvml_failure", "backend_error":
+		n.gpu.ClearBackendError()
 	case "boot_failure":
 		n.gpu.ClearBootError()
 	case "device_error":

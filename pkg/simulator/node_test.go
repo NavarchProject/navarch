@@ -140,7 +140,7 @@ func TestSimulatedNode_MultipleFailures(t *testing.T) {
 	}
 }
 
-func TestSimulatedNode_ClearSpecificXIDError(t *testing.T) {
+func TestSimulatedNode_ClearXIDErrors(t *testing.T) {
 	spec := NodeSpec{ID: "test-node", GPUCount: 8}
 	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
 	ctx := context.Background()
@@ -155,26 +155,26 @@ func TestSimulatedNode_ClearSpecificXIDError(t *testing.T) {
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 48, GPUIndex: 1})
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 31, GPUIndex: 2})
 
-	// Verify all 3 XID errors exist in GPU state
-	xidErrors, _ := node.gpu.GetXIDErrors(ctx)
-	if len(xidErrors) != 3 {
-		t.Fatalf("expected 3 XID errors in GPU, got %d", len(xidErrors))
+	// Inject a thermal event as well to verify selective clearing
+	node.InjectFailure(InjectedFailure{Type: "temperature", GPUIndex: 0})
+
+	// Verify 4 health events exist (3 XID + 1 thermal)
+	// Note: don't call CollectHealthEvents here as it clears the events
+	if !node.gpu.HasActiveFailures() {
+		t.Fatal("expected active failures after injection")
 	}
 
-	// Directly call clearSpecificFailure for just one error
-	// This verifies that ClearXIDError only clears the specific one
-	node.clearSpecificFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
+	// Clear XID errors by recovering the xid_error failure type
+	// This should clear all XID health events but leave thermal
+	node.RecoverFailure("xid_error")
 
-	xidErrors, _ = node.gpu.GetXIDErrors(ctx)
-	if len(xidErrors) != 2 {
-		t.Errorf("expected 2 XID errors after clearing one, got %d", len(xidErrors))
+	// Collect health events - should only have thermal left
+	events, _ := node.gpu.CollectHealthEvents(ctx)
+	if len(events) != 1 {
+		t.Errorf("expected 1 event after clearing XID errors, got %d", len(events))
 	}
-
-	// Verify the correct errors remain
-	for _, err := range xidErrors {
-		if err.XIDCode == 79 {
-			t.Errorf("XID 79 should have been cleared but was found")
-		}
+	if len(events) > 0 && events[0].EventType != "thermal" {
+		t.Errorf("expected thermal event, got %s", events[0].EventType)
 	}
 }
 

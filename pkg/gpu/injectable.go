@@ -5,23 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 )
 
 // Injectable is a fake GPU manager that supports failure injection for testing.
-// It implements both Manager and HealthEventCollector interfaces.
+// It implements the Manager interface with CollectHealthEvents for CEL policy evaluation.
 type Injectable struct {
 	mu          sync.RWMutex
 	deviceCount int
 	devices     []*injectableDevice
-	xidErrors   []*XIDError
 	initialized bool
 
-	nvmlError    error
+	// Errors that affect all operations
+	backendError error
 	bootError    error
 	deviceErrors map[int]error
 
-	// Health events for the new DCGM-style interface
+	// Health events for CEL policy evaluation
 	healthEvents []HealthEvent
 }
 
@@ -94,8 +93,8 @@ func (g *Injectable) GetDeviceCount(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.nvmlError != nil {
-		return 0, g.nvmlError
+	if g.backendError != nil {
+		return 0, g.backendError
 	}
 
 	if !g.initialized {
@@ -109,8 +108,8 @@ func (g *Injectable) GetDeviceInfo(ctx context.Context, index int) (*DeviceInfo,
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.nvmlError != nil {
-		return nil, g.nvmlError
+	if g.backendError != nil {
+		return nil, g.backendError
 	}
 
 	if !g.initialized {
@@ -133,8 +132,8 @@ func (g *Injectable) GetDeviceHealth(ctx context.Context, index int) (*HealthInf
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.nvmlError != nil {
-		return nil, g.nvmlError
+	if g.backendError != nil {
+		return nil, g.backendError
 	}
 
 	if !g.initialized {
@@ -157,173 +156,13 @@ func (g *Injectable) GetDeviceHealth(ctx context.Context, index int) (*HealthInf
 	return &health, nil
 }
 
-func (g *Injectable) GetXIDErrors(ctx context.Context) ([]*XIDError, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if g.nvmlError != nil {
-		return nil, g.nvmlError
-	}
-
-	if !g.initialized {
-		return nil, errors.New("not initialized")
-	}
-
-	result := make([]*XIDError, len(g.xidErrors))
-	copy(result, g.xidErrors)
-	return result, nil
-}
-
-// InjectXIDError adds an XID error for testing.
-func (g *Injectable) InjectXIDError(gpuIndex, xidCode int, message string) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	deviceID := ""
-	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
-		deviceID = g.devices[gpuIndex].info.UUID
-	}
-
-	g.xidErrors = append(g.xidErrors, &XIDError{
-		Timestamp: time.Now().Format(time.RFC3339),
-		DeviceID:  deviceID,
-		XIDCode:   xidCode,
-		Message:   message,
-	})
-}
-
-// ClearXIDErrors removes all XID errors.
-func (g *Injectable) ClearXIDErrors() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.xidErrors = nil
-}
-
-// ClearXIDError removes a specific XID error by GPU index and code.
-func (g *Injectable) ClearXIDError(gpuIndex, xidCode int) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	deviceID := ""
-	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
-		deviceID = g.devices[gpuIndex].info.UUID
-	}
-
-	var remaining []*XIDError
-	removed := false
-	for _, err := range g.xidErrors {
-		// Only remove the first matching error to handle duplicates correctly
-		if !removed && err.DeviceID == deviceID && err.XIDCode == xidCode {
-			removed = true
-			continue
-		}
-		remaining = append(remaining, err)
-	}
-	g.xidErrors = remaining
-}
-
-// InjectTemperatureSpike sets a high temperature on a specific GPU.
-func (g *Injectable) InjectTemperatureSpike(gpuIndex, temperature int) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
-		g.devices[gpuIndex].temperatureSpike = temperature
-	}
-}
-
-// ClearTemperatureSpike resets temperature to normal.
-func (g *Injectable) ClearTemperatureSpike(gpuIndex int) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
-		g.devices[gpuIndex].temperatureSpike = 0
-	}
-}
-
-// InjectNVMLError makes all NVML operations return an error.
-func (g *Injectable) InjectNVMLError(err error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.nvmlError = err
-}
-
-// ClearNVMLError removes the global NVML error.
-func (g *Injectable) ClearNVMLError() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.nvmlError = nil
-}
-
-// InjectBootError makes initialization fail.
-func (g *Injectable) InjectBootError(err error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.bootError = err
-}
-
-// ClearBootError removes the boot error.
-func (g *Injectable) ClearBootError() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.bootError = nil
-}
-
-// InjectDeviceError makes a specific device return errors.
-func (g *Injectable) InjectDeviceError(gpuIndex int, err error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.deviceErrors[gpuIndex] = err
-}
-
-// ClearDeviceError removes an error from a specific device.
-func (g *Injectable) ClearDeviceError(gpuIndex int) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	delete(g.deviceErrors, gpuIndex)
-}
-
-// ClearAllErrors resets all injected errors.
-func (g *Injectable) ClearAllErrors() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.xidErrors = nil
-	g.nvmlError = nil
-	g.bootError = nil
-	g.deviceErrors = make(map[int]error)
-	for i := 0; i < g.deviceCount; i++ {
-		g.devices[i].temperatureSpike = 0
-	}
-}
-
-// HasActiveFailures returns true if any failures are currently injected.
-func (g *Injectable) HasActiveFailures() bool {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if len(g.xidErrors) > 0 || g.nvmlError != nil || g.bootError != nil || len(g.deviceErrors) > 0 {
-		return true
-	}
-
-	for _, d := range g.devices {
-		if d.temperatureSpike > 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
 // CollectHealthEvents returns and clears all pending health events.
-// This implements the HealthEventCollector interface.
 func (g *Injectable) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	if g.nvmlError != nil {
-		return nil, g.nvmlError
+	if g.backendError != nil {
+		return nil, g.backendError
 	}
 
 	if !g.initialized {
@@ -356,14 +195,6 @@ func (g *Injectable) InjectXIDHealthEvent(gpuIndex, xidCode int, message string)
 
 	event := NewXIDEvent(gpuIndex, gpuUUID, xidCode, message)
 	g.healthEvents = append(g.healthEvents, event)
-
-	// Also add to legacy xidErrors for backward compatibility
-	g.xidErrors = append(g.xidErrors, &XIDError{
-		Timestamp: event.Timestamp.Format(time.RFC3339),
-		DeviceID:  gpuUUID,
-		XIDCode:   xidCode,
-		Message:   message,
-	})
 }
 
 // InjectThermalHealthEvent adds a thermal event.
@@ -409,6 +240,69 @@ func (g *Injectable) InjectNVLinkHealthEvent(gpuIndex, linkID int, message strin
 	g.healthEvents = append(g.healthEvents, event)
 }
 
+// InjectTemperatureSpike sets a high temperature on a specific GPU.
+func (g *Injectable) InjectTemperatureSpike(gpuIndex, temperature int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		g.devices[gpuIndex].temperatureSpike = temperature
+	}
+}
+
+// ClearTemperatureSpike resets temperature to normal.
+func (g *Injectable) ClearTemperatureSpike(gpuIndex int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if gpuIndex >= 0 && gpuIndex < g.deviceCount {
+		g.devices[gpuIndex].temperatureSpike = 0
+	}
+}
+
+// InjectBackendError makes all backend operations return an error.
+// This simulates DCGM/driver failures.
+func (g *Injectable) InjectBackendError(err error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.backendError = err
+}
+
+// ClearBackendError removes the global backend error.
+func (g *Injectable) ClearBackendError() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.backendError = nil
+}
+
+// InjectBootError makes initialization fail.
+func (g *Injectable) InjectBootError(err error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.bootError = err
+}
+
+// ClearBootError removes the boot error.
+func (g *Injectable) ClearBootError() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.bootError = nil
+}
+
+// InjectDeviceError makes a specific device return errors.
+func (g *Injectable) InjectDeviceError(gpuIndex int, err error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.deviceErrors[gpuIndex] = err
+}
+
+// ClearDeviceError removes an error from a specific device.
+func (g *Injectable) ClearDeviceError(gpuIndex int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	delete(g.deviceErrors, gpuIndex)
+}
+
 // ClearHealthEvents removes all pending health events.
 func (g *Injectable) ClearHealthEvents() {
 	g.mu.Lock()
@@ -444,3 +338,34 @@ func (g *Injectable) ClearHealthEventsByGPU(gpuIndex int) {
 	g.healthEvents = remaining
 }
 
+// ClearAllErrors resets all injected errors and health events.
+func (g *Injectable) ClearAllErrors() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.healthEvents = nil
+	g.backendError = nil
+	g.bootError = nil
+	g.deviceErrors = make(map[int]error)
+	for i := 0; i < g.deviceCount; i++ {
+		g.devices[i].temperatureSpike = 0
+	}
+}
+
+// HasActiveFailures returns true if any failures are currently injected.
+func (g *Injectable) HasActiveFailures() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if len(g.healthEvents) > 0 || g.backendError != nil || g.bootError != nil || len(g.deviceErrors) > 0 {
+		return true
+	}
+
+	for _, d := range g.devices {
+		if d.temperatureSpike > 0 {
+			return true
+		}
+	}
+
+	return false
+}

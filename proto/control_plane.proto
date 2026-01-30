@@ -148,8 +148,13 @@ message ReportHealthRequest {
   // ID of the node reporting health.
   string node_id = 1;
 
-  // List of health check results.
+  // List of health check results (legacy format).
   repeated HealthCheckResult results = 2;
+
+  // Raw health events for CEL policy evaluation (new format).
+  // When present, the control plane evaluates these against the configured
+  // health policy to determine node health status.
+  repeated HealthEvent events = 3;
 }
 
 message ReportHealthResponse {
@@ -191,6 +196,84 @@ enum HealthStatus {
 
   // Health check failed, node should not accept workloads.
   HEALTH_STATUS_UNHEALTHY = 3;
+}
+
+// HealthEventType categorizes GPU health events.
+// See https://docs.nvidia.com/deploy/xid-errors/index.html for XID documentation.
+enum HealthEventType {
+  HEALTH_EVENT_TYPE_UNKNOWN = 0;
+
+  // XID error from NVIDIA GPU driver.
+  HEALTH_EVENT_TYPE_XID = 1;
+
+  // Thermal event (temperature warning or critical).
+  HEALTH_EVENT_TYPE_THERMAL = 2;
+
+  // Power event (power limit, power brake, etc).
+  HEALTH_EVENT_TYPE_POWER = 3;
+
+  // Memory event (general memory issues).
+  HEALTH_EVENT_TYPE_MEMORY = 4;
+
+  // NVLink error (multi-GPU communication).
+  HEALTH_EVENT_TYPE_NVLINK = 5;
+
+  // PCIe error (host-GPU communication).
+  HEALTH_EVENT_TYPE_PCIE = 6;
+
+  // Driver error (NVML, DCGM failures).
+  HEALTH_EVENT_TYPE_DRIVER_ERROR = 7;
+
+  // Single-bit ECC error (correctable).
+  HEALTH_EVENT_TYPE_ECC_SBE = 8;
+
+  // Double-bit ECC error (uncorrectable).
+  HEALTH_EVENT_TYPE_ECC_DBE = 9;
+}
+
+// HealthWatchSystem identifies the DCGM health watch system that generated an event.
+// See https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/feature-overview.html#health
+enum HealthWatchSystem {
+  HEALTH_WATCH_SYSTEM_UNKNOWN = 0;
+  HEALTH_WATCH_SYSTEM_PCIE = 1;
+  HEALTH_WATCH_SYSTEM_NVLINK = 2;
+  HEALTH_WATCH_SYSTEM_PMU = 3;
+  HEALTH_WATCH_SYSTEM_MCU = 4;
+  HEALTH_WATCH_SYSTEM_MEM = 5;
+  HEALTH_WATCH_SYSTEM_SM = 6;
+  HEALTH_WATCH_SYSTEM_INFOROM = 7;
+  HEALTH_WATCH_SYSTEM_THERMAL = 8;
+  HEALTH_WATCH_SYSTEM_POWER = 9;
+  HEALTH_WATCH_SYSTEM_DRIVER = 10;
+  HEALTH_WATCH_SYSTEM_NVSWITCH = 11;
+}
+
+// HealthEvent represents a raw GPU health event for CEL policy evaluation.
+// Events are collected by the node agent and sent to the control plane
+// where CEL policies determine the health classification.
+message HealthEvent {
+  // When the event occurred.
+  google.protobuf.Timestamp timestamp = 1;
+
+  // GPU index that reported the event (-1 for node-level events).
+  int32 gpu_index = 2;
+
+  // GPU UUID (empty for node-level events).
+  string gpu_uuid = 3;
+
+  // DCGM health watch system that generated the event.
+  HealthWatchSystem system = 4;
+
+  // Type of health event.
+  HealthEventType event_type = 5;
+
+  // Event-specific metrics for CEL policy evaluation.
+  // Common keys: xid_code (int), temperature (int), power_watts (double),
+  // ecc_sbe_count (int), ecc_dbe_count (int), link_id (int).
+  map<string, string> metrics = 6;
+
+  // Human-readable description of the event.
+  string message = 7;
 }
 
 // NodeStatus represents the overall state of a node in the fleet.

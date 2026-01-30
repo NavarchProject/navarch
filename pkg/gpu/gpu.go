@@ -20,15 +20,9 @@ type HealthInfo struct {
 	GPUUtilization int
 }
 
-// XIDError represents an XID error detected on a GPU.
-type XIDError struct {
-	Timestamp string
-	DeviceID  string
-	XIDCode   int
-	Message   string
-}
-
-// Manager provides access to GPU information and health metrics.
+// Manager provides access to GPU information and health monitoring.
+// Implementations collect health events that are evaluated by CEL policies
+// on the control plane to determine node health status.
 type Manager interface {
 	// Initialize prepares the GPU manager for use.
 	Initialize(ctx context.Context) error
@@ -45,7 +39,8 @@ type Manager interface {
 	// GetDeviceHealth returns current health metrics for a specific GPU device.
 	GetDeviceHealth(ctx context.Context, index int) (*HealthInfo, error)
 
-	// GetXIDErrors returns any XID errors detected since last check.
-	// This may read from dmesg or other system logs.
-	GetXIDErrors(ctx context.Context) ([]*XIDError, error)
+	// CollectHealthEvents returns health events since the last collection.
+	// Events are cleared after collection.
+	// These events are sent to the control plane for CEL policy evaluation.
+	CollectHealthEvents(ctx context.Context) ([]HealthEvent, error)
 }

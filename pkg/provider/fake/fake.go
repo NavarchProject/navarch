@@ -82,7 +82,7 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		Zone:             req.Zone,
 		InstanceType:     req.InstanceType,
 		Labels:           req.Labels,
-		GPU:              gpu.NewFake(p.config.GPUCount),
+		GPU:              gpu.NewInjectable(p.config.GPUCount, ""),
 	}
 
 	agent, err := node.New(agentCfg, agentLogger)

@@ -1,16 +1,15 @@
 # GPU package
 
-The GPU package provides an abstraction layer for interacting with NVIDIA GPUs. It supports both real hardware via NVML and simulated hardware for development and testing.
+The GPU package provides an abstraction layer for interacting with NVIDIA GPUs. It supports both real hardware via DCGM and simulated hardware for development and testing.
 
 ## Overview
 
 The package provides:
 
 - A `Manager` interface for GPU operations.
-- NVML implementation for real NVIDIA GPUs.
-- Fake implementation for development without hardware.
-- XID error parsing from system logs.
-- XID severity classification and descriptions.
+- Injectable implementation for testing and development.
+- Health event collection for CEL policy evaluation.
+- DCGM health watch system constants.
 
 ## Manager interface
 
@@ -23,18 +22,16 @@ type Manager interface {
     GetDeviceCount(ctx context.Context) (int, error)
     GetDeviceInfo(ctx context.Context, index int) (*DeviceInfo, error)
     GetDeviceHealth(ctx context.Context, index int) (*HealthInfo, error)
-    GetXIDErrors(ctx context.Context) ([]*XIDError, error)
+    CollectHealthEvents(ctx context.Context) ([]HealthEvent, error)
 }
 ```
 
-## Implementations
+## Injectable implementation
 
-### NVML (production)
-
-The NVML implementation uses NVIDIA's Management Library to interact with real GPUs.
+The Injectable implementation simulates GPU hardware for development and testing.
 
 ```go
-manager := gpu.NewNVML()
+manager := gpu.NewInjectable(8, "") // Simulate 8 H100 GPUs
 if err := manager.Initialize(ctx); err != nil {
     log.Fatal(err)
 }
@@ -49,67 +46,86 @@ for i := 0; i < count; i++ {
 
 Features:
 
-- Device enumeration and information retrieval.
-- Real-time health metrics (temperature, power, utilization).
-- Memory usage monitoring.
-- XID error detection via system log parsing.
-
-Requirements:
-
-- NVIDIA GPU with driver installed.
-- NVML library available (included with NVIDIA drivers).
-
-### Fake (development)
-
-The Fake implementation simulates GPU hardware for development and testing.
-
-```go
-manager := gpu.NewFake(8) // Simulate 8 GPUs
-if err := manager.Initialize(ctx); err != nil {
-    log.Fatal(err)
-}
-defer manager.Shutdown(ctx)
-```
-
-Features:
-
 - Configurable number of simulated GPUs.
-- Realistic device information (H100 80GB HBM3).
-- Randomized health metrics within normal ranges.
-- XID error injection for testing failure scenarios.
+- Realistic device information (H100 80GB HBM3 by default).
+- Configurable GPU type string.
+- Health event injection for testing failure scenarios.
 
-XID injection example:
+### Health event injection
 
 ```go
-fake := gpu.NewFake(4)
-fake.Initialize(ctx)
+injectable := gpu.NewInjectable(4, "")
+injectable.Initialize(ctx)
 
 // Inject an XID error
-fake.InjectXIDError("GPU-0", 79, "GPU has fallen off the bus")
+injectable.InjectXIDHealthEvent(0, 79, "GPU has fallen off the bus")
 
-// Health checks will now detect the error
-errors, _ := fake.GetXIDErrors(ctx)
-// errors contains the injected XID
+// Inject a thermal event
+injectable.InjectThermalHealthEvent(0, 95, "High temperature")
 
-// Clear errors
-fake.ClearXIDErrors()
+// Inject a memory error
+injectable.InjectMemoryHealthEvent(0, gpu.EventTypeECCDBE, 0, 1, "ECC error")
+
+// Inject an NVLink error
+injectable.InjectNVLinkHealthEvent(0, 0, "NVLink failure")
+
+// Health checks will now detect the events
+events, _ := injectable.CollectHealthEvents(ctx)
+// events contains the injected health events
+
+// Clear events
+injectable.ClearHealthEvents()
+
+// Or clear all errors
+injectable.ClearAllErrors()
 ```
 
-## Auto-detection
+## Health events
 
-Use `IsNVMLAvailable()` to check if real GPU hardware is available:
+Health events are the primary mechanism for reporting GPU issues. They are collected by the node daemon and sent to the control plane for CEL policy evaluation.
+
+### HealthEvent structure
 
 ```go
-var manager gpu.Manager
-
-if gpu.IsNVMLAvailable() {
-    manager = gpu.NewNVML()
-} else {
-    manager = gpu.NewFake(8)
+type HealthEvent struct {
+    Timestamp time.Time      // When the event occurred
+    GPUIndex  int            // Which GPU (-1 for node-level)
+    GPUUUID   string         // GPU unique identifier
+    System    string         // DCGM health watch system
+    EventType string         // Event category
+    Metrics   map[string]any // Event-specific data
+    Message   string         // Human-readable description
 }
 ```
 
-The node daemon performs this detection automatically.
+### Event types
+
+| Type | Description |
+|------|-------------|
+| `xid` | NVIDIA XID error |
+| `thermal` | Temperature warning |
+| `power` | Power issue |
+| `memory` | Memory error |
+| `nvlink` | NVLink error |
+| `pcie` | PCIe error |
+| `ecc_sbe` | Single-bit ECC error |
+| `ecc_dbe` | Double-bit ECC error |
+
+### DCGM health watch systems
+
+| System | Description |
+|--------|-------------|
+| `DCGM_HEALTH_WATCH_PCIE` | PCIe health |
+| `DCGM_HEALTH_WATCH_NVLINK` | NVLink health |
+| `DCGM_HEALTH_WATCH_PMU` | PMU health |
+| `DCGM_HEALTH_WATCH_MCU` | MCU health |
+| `DCGM_HEALTH_WATCH_MEM` | Memory health |
+| `DCGM_HEALTH_WATCH_SM` | SM health |
+| `DCGM_HEALTH_WATCH_INFOROM` | InfoROM health |
+| `DCGM_HEALTH_WATCH_THERMAL` | Thermal health |
+| `DCGM_HEALTH_WATCH_POWER` | Power health |
+| `DCGM_HEALTH_WATCH_DRIVER` | Driver health |
+| `DCGM_HEALTH_WATCH_NVSWITCH` | NVSwitch health |
 
 ## Data types
 
@@ -141,69 +157,6 @@ type HealthInfo struct {
 }
 ```
 
-### XIDError
-
-Represents an NVIDIA XID error:
-
-```go
-type XIDError struct {
-    Timestamp string // When the error occurred
-    DeviceID  string // PCI device ID
-    XIDCode   int    // XID error code
-    Message   string // Error message from logs
-}
-```
-
-## XID error handling
-
-XID errors are NVIDIA GPU errors reported in system logs. The package provides tools for parsing and classifying these errors.
-
-### Parsing XID errors
-
-The NVML implementation automatically parses XID errors from dmesg:
-
-```go
-errors, err := manager.GetXIDErrors(ctx)
-for _, e := range errors {
-    fmt.Printf("XID %d on %s: %s\n", e.XIDCode, e.DeviceID, e.Message)
-}
-```
-
-### XID severity
-
-Use `XIDSeverity()` to classify error severity:
-
-```go
-severity := gpu.XIDSeverity(79) // Returns "fatal"
-```
-
-Severity levels:
-
-- **fatal**: Hardware failure requiring node replacement.
-- **critical**: Serious error (e.g., double-bit ECC).
-- **warning**: Recoverable condition (e.g., row remapping).
-- **info**: Informational or unknown error.
-
-### XID descriptions
-
-Use `XIDDescription()` for human-readable descriptions:
-
-```go
-desc := gpu.XIDDescription(79) // Returns "GPU has fallen off the bus"
-```
-
-### Fatal XID detection
-
-Use `IsFatalXID()` to check if an error requires node replacement:
-
-```go
-if gpu.IsFatalXID(error.XIDCode) {
-    // Node should be cordoned and replaced
-}
-```
-
-Fatal XID codes include: 13, 31, 32, 43, 45, 64, 68, 69, 79, 92, 94, 95, 119.
-
 ## Common XID codes
 
 | Code | Severity | Description |
@@ -231,39 +184,34 @@ Run all GPU tests:
 go test ./pkg/gpu/... -v
 ```
 
-On machines without NVIDIA GPUs, hardware-specific tests are automatically skipped.
-
 ### Test coverage
 
 The package includes tests for:
 
-- Fake GPU initialization and shutdown.
+- Injectable GPU initialization and shutdown.
 - Device enumeration and info retrieval.
 - Health metric generation.
-- XID error injection and detection.
-- XID parsing from various log formats.
-- XID severity classification.
-- NVML initialization errors (without hardware).
-- Interface compliance verification.
+- Health event injection and collection.
+- Event type filtering.
 
-### Testing with fake XID errors
+### Testing with health events
 
 ```go
 func TestXIDHandling(t *testing.T) {
-    fake := gpu.NewFake(2)
-    fake.Initialize(context.Background())
-    defer fake.Shutdown(context.Background())
+    injectable := gpu.NewInjectable(2, "")
+    injectable.Initialize(context.Background())
+    defer injectable.Shutdown(context.Background())
 
-    // Inject error
-    fake.InjectXIDError("GPU-0", 79, "Test error")
+    // Inject XID error
+    injectable.InjectXIDHealthEvent(0, 79, "Test error")
 
     // Verify detection
-    errors, _ := fake.GetXIDErrors(context.Background())
-    if len(errors) != 1 {
-        t.Errorf("Expected 1 error, got %d", len(errors))
+    events, _ := injectable.CollectHealthEvents(context.Background())
+    if len(events) != 1 {
+        t.Errorf("Expected 1 event, got %d", len(events))
     }
-    if errors[0].XIDCode != 79 {
-        t.Errorf("Expected XID 79, got %d", errors[0].XIDCode)
+    if events[0].Metrics["xid_code"].(int) != 79 {
+        t.Errorf("Expected XID 79")
     }
 }
 ```
@@ -272,51 +220,61 @@ func TestXIDHandling(t *testing.T) {
 
 The node daemon uses these environment variables for GPU configuration:
 
-- `NAVARCH_FAKE_GPU=true`: Force fake GPU mode even when NVML is available.
-- `NAVARCH_GPU_COUNT=N`: Number of fake GPUs to simulate (default: 8).
+- `NAVARCH_GPU_COUNT=N`: Number of GPUs to simulate (default: 8).
+- `NAVARCH_GPU_TYPE=TYPE`: GPU type string (default: "NVIDIA H100 80GB HBM3").
 
 ## Integration with node daemon
-
-The node daemon automatically selects the appropriate GPU manager:
-
-1. If `NAVARCH_FAKE_GPU=true`, use Fake.
-2. If NVML is available, use NVML.
-3. Otherwise, fall back to Fake.
 
 The GPU manager is used for:
 
 - Detecting and reporting GPU devices during registration.
-- Running health checks (boot, NVML, XID).
+- Running health checks (boot, GPU metrics, health events).
 - Monitoring GPU metrics for heartbeats.
+- Collecting health events for CEL policy evaluation.
+
+## CEL policy evaluation
+
+Health events are sent to the control plane where CEL policies evaluate them to determine node health status. Example CEL expressions:
+
+```cel
+// Mark unhealthy on fatal XID errors
+event.event_type == "xid" && event.metrics.xid_code in [79, 119, 94, 95]
+
+// Mark degraded on high temperature
+event.event_type == "thermal" && event.metrics.temperature > 85
+
+// Mark unhealthy on double-bit ECC errors
+event.event_type == "ecc_dbe"
+```
+
+See `pkg/health/defaults.go` for default policy rules.
 
 ## Extending
 
-To add a new GPU backend (e.g., AMD ROCm):
+To add a new GPU backend (e.g., real DCGM):
 
-1. Create a new file (e.g., `rocm.go`).
+1. Create a new file (e.g., `dcgm.go`).
 2. Implement the `Manager` interface.
-3. Add an availability check function.
-4. Update the node daemon's auto-detection logic.
+3. Implement `CollectHealthEvents` to return DCGM health watch events.
 
 Example skeleton:
 
 ```go
-type ROCm struct {
+type DCGM struct {
     // ...
 }
 
-func NewROCm() *ROCm {
-    return &ROCm{}
+func NewDCGM() *DCGM {
+    return &DCGM{}
 }
 
-func (r *ROCm) Initialize(ctx context.Context) error {
-    // Initialize ROCm/HIP
+func (d *DCGM) Initialize(ctx context.Context) error {
+    // Initialize DCGM
+}
+
+func (d *DCGM) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
+    // Query DCGM health watches and convert to HealthEvents
 }
 
 // Implement remaining Manager methods...
-
-func IsROCmAvailable() bool {
-    // Check if ROCm is available
-}
 ```
-

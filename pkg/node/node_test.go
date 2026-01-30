@@ -52,11 +52,11 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("custom_gpu_manager", func(t *testing.T) {
-		fakeGPU := gpu.NewFake(4)
+		injectableGPU := gpu.NewInjectable(4, "")
 		cfg := Config{
 			ControlPlaneAddr: "http://localhost:50051",
 			NodeID:           "test-node",
-			GPU:              fakeGPU,
+			GPU:              injectableGPU,
 		}
 
 		n, err := New(cfg, nil)
@@ -64,7 +64,7 @@ func TestNew(t *testing.T) {
 			t.Fatalf("New failed: %v", err)
 		}
 
-		if n.gpu != fakeGPU {
+		if n.gpu != injectableGPU {
 			t.Error("Expected custom GPU manager to be used")
 		}
 	})
@@ -72,12 +72,12 @@ func TestNew(t *testing.T) {
 
 func TestDetectGPUs(t *testing.T) {
 	ctx := context.Background()
-	fakeGPU := gpu.NewFake(2)
+	injectableGPU := gpu.NewInjectable(2, "")
 
 	cfg := Config{
 		ControlPlaneAddr: "http://localhost:50051",
 		NodeID:           "test-node",
-		GPU:              fakeGPU,
+		GPU:              injectableGPU,
 	}
 
 	n, err := New(cfg, nil)
@@ -85,7 +85,7 @@ func TestDetectGPUs(t *testing.T) {
 		t.Fatalf("New failed: %v", err)
 	}
 
-	if err := fakeGPU.Initialize(ctx); err != nil {
+	if err := injectableGPU.Initialize(ctx); err != nil {
 		t.Fatalf("GPU Initialize failed: %v", err)
 	}
 
@@ -113,12 +113,12 @@ func TestDetectGPUs(t *testing.T) {
 
 func TestHealthChecks(t *testing.T) {
 	ctx := context.Background()
-	fakeGPU := gpu.NewFake(2)
+	injectableGPU := gpu.NewInjectable(2, "")
 
 	cfg := Config{
 		ControlPlaneAddr: "http://localhost:50051",
 		NodeID:           "test-node",
-		GPU:              fakeGPU,
+		GPU:              injectableGPU,
 	}
 
 	n, err := New(cfg, nil)
@@ -126,7 +126,7 @@ func TestHealthChecks(t *testing.T) {
 		t.Fatalf("New failed: %v", err)
 	}
 
-	if err := fakeGPU.Initialize(ctx); err != nil {
+	if err := injectableGPU.Initialize(ctx); err != nil {
 		t.Fatalf("GPU Initialize failed: %v", err)
 	}
 
@@ -140,35 +140,35 @@ func TestHealthChecks(t *testing.T) {
 		}
 	})
 
-	t.Run("nvml_check_healthy", func(t *testing.T) {
-		result := n.runNVMLCheck(ctx)
-		if result.CheckName != "nvml" {
-			t.Errorf("Expected check name 'nvml', got %s", result.CheckName)
+	t.Run("gpu_check_healthy", func(t *testing.T) {
+		result := n.runGPUCheck(ctx)
+		if result.CheckName != "gpu" {
+			t.Errorf("Expected check name 'gpu', got %s", result.CheckName)
 		}
 		if result.Status != 1 { // HEALTH_STATUS_HEALTHY
 			t.Errorf("Expected healthy status, got %d", result.Status)
 		}
 	})
 
-	t.Run("xid_check_healthy", func(t *testing.T) {
-		result := n.runXIDCheck(ctx)
-		if result.CheckName != "xid" {
-			t.Errorf("Expected check name 'xid', got %s", result.CheckName)
+	t.Run("health_event_check_healthy", func(t *testing.T) {
+		result := n.runHealthEventCheck(ctx)
+		if result.CheckName != "health_events" {
+			t.Errorf("Expected check name 'health_events', got %s", result.CheckName)
 		}
 		if result.Status != 1 { // HEALTH_STATUS_HEALTHY
 			t.Errorf("Expected healthy status, got %d", result.Status)
 		}
 	})
 
-	t.Run("xid_check_unhealthy", func(t *testing.T) {
-		fakeGPU.InjectXIDError("GPU-0", 79, "Test XID error")
+	t.Run("health_event_check_unhealthy_xid", func(t *testing.T) {
+		injectableGPU.InjectXIDHealthEvent(0, 79, "Test XID error")
 
-		result := n.runXIDCheck(ctx)
+		result := n.runHealthEventCheck(ctx)
 		if result.Status != 3 { // HEALTH_STATUS_UNHEALTHY
 			t.Errorf("Expected unhealthy status, got %d", result.Status)
 		}
 
-		fakeGPU.ClearXIDErrors()
+		injectableGPU.ClearHealthEvents()
 	})
 }
 

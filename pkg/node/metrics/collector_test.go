@@ -32,7 +32,7 @@ func (m *mockSystemReader) ReadMemoryUsage(ctx context.Context) (float64, error)
 
 func TestCollector_Collect_WithAllMetrics(t *testing.T) {
 	// Create a fake GPU manager
-	gpuManager := gpu.NewFake(2)
+	gpuManager := gpu.NewInjectable(2, "")
 	ctx := context.Background()
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
@@ -83,7 +83,7 @@ func TestCollector_Collect_WithAllMetrics(t *testing.T) {
 }
 
 func TestCollector_Collect_CPUError(t *testing.T) {
-	gpuManager := gpu.NewFake(1)
+	gpuManager := gpu.NewInjectable(1, "")
 	ctx := context.Background()
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
@@ -114,7 +114,7 @@ func TestCollector_Collect_CPUError(t *testing.T) {
 }
 
 func TestCollector_Collect_MemoryError(t *testing.T) {
-	gpuManager := gpu.NewFake(1)
+	gpuManager := gpu.NewInjectable(1, "")
 	ctx := context.Background()
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
@@ -177,7 +177,7 @@ func TestCollector_Collect_GPUNotInitialized(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a fake GPU manager but don't initialize it
-	gpuManager := gpu.NewFake(2)
+	gpuManager := gpu.NewInjectable(2, "")
 
 	systemReader := &mockSystemReader{
 		cpuUsage:    40.0,
@@ -206,7 +206,7 @@ func TestCollector_Collect_GPUNotInitialized(t *testing.T) {
 }
 
 func TestNewCollector_DefaultSystemReader(t *testing.T) {
-	gpuManager := gpu.NewFake(1)
+	gpuManager := gpu.NewInjectable(1, "")
 	collector := NewCollector(gpuManager, nil)
 
 	// Verify that a default system reader was created

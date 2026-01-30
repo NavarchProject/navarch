@@ -1,9 +1,6 @@
 package gpu
 
-import (
-	"context"
-	"time"
-)
+import "time"
 
 // DCGM Health Watch System constants.
 // These correspond to NVIDIA DCGM health watch systems.
@@ -66,15 +63,6 @@ type HealthEvent struct {
 	Message string `json:"message,omitempty"`
 }
 
-// HealthEventCollector extends the base Manager interface with event collection.
-// Implementations that support DCGM-style health events implement this interface.
-type HealthEventCollector interface {
-	Manager
-
-	// CollectHealthEvents returns health events since the last collection.
-	// Events are cleared after collection.
-	CollectHealthEvents(ctx context.Context) ([]HealthEvent, error)
-}
 
 // NewXIDEvent creates a HealthEvent for an XID error.
 func NewXIDEvent(gpuIndex int, gpuUUID string, xidCode int, message string) HealthEvent {

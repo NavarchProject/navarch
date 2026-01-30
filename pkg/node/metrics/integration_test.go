@@ -15,7 +15,7 @@ func TestCollector_Integration(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a fake GPU manager for testing
-	gpuManager := gpu.NewFake(4)
+	gpuManager := gpu.NewInjectable(4, "")
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestCollector_Integration(t *testing.T) {
 func TestCollector_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 
-	gpuManager := gpu.NewFake(2)
+	gpuManager := gpu.NewInjectable(2, "")
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestCollector_ConcurrentAccess(t *testing.T) {
 func TestCollector_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	gpuManager := gpu.NewFake(2)
+	gpuManager := gpu.NewInjectable(2, "")
 	if err := gpuManager.Initialize(ctx); err != nil {
 		t.Fatalf("failed to initialize GPU manager: %v", err)
 	}

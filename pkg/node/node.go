@@ -92,32 +92,23 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 	}, nil
 }
 
-// createGPUManager creates a GPU manager based on environment and hardware.
-// It uses NVML if available, otherwise falls back to a fake implementation.
+// createGPUManager creates a GPU manager.
+// For now, this returns an injectable fake GPU manager.
+// TODO: Implement DCGM backend for production use.
 func createGPUManager(logger *slog.Logger) gpu.Manager {
-	// Check if user explicitly wants fake GPUs
-	if os.Getenv("NAVARCH_FAKE_GPU") == "true" {
-		return createFakeGPU(logger)
-	}
-
-	// Try to use real NVML
-	if gpu.IsNVMLAvailable() {
-		logger.Info("using NVML GPU manager")
-		return gpu.NewNVML()
-	}
-
-	// Fall back to fake
-	logger.Info("NVML not available, using fake GPU manager")
-	return createFakeGPU(logger)
-}
-
-func createFakeGPU(logger *slog.Logger) gpu.Manager {
 	gpuCount := 8
 	if envCount := os.Getenv("NAVARCH_GPU_COUNT"); envCount != "" {
 		fmt.Sscanf(envCount, "%d", &gpuCount)
 	}
-	logger.Info("using fake GPU manager", slog.Int("device_count", gpuCount))
-	return gpu.NewFake(gpuCount)
+	gpuType := os.Getenv("NAVARCH_GPU_TYPE")
+	if gpuType == "" {
+		gpuType = "NVIDIA H100 80GB HBM3"
+	}
+	logger.Info("using injectable GPU manager",
+		slog.Int("device_count", gpuCount),
+		slog.String("gpu_type", gpuType),
+	)
+	return gpu.NewInjectable(gpuCount, gpuType)
 }
 
 func (n *Node) Start(ctx context.Context) error {
@@ -342,11 +333,11 @@ func (n *Node) runHealthChecks(ctx context.Context) error {
 	bootCheck := n.runBootCheck(ctx)
 	results = append(results, bootCheck)
 
-	nvmlCheck := n.runNVMLCheck(ctx)
-	results = append(results, nvmlCheck)
+	gpuCheck := n.runGPUCheck(ctx)
+	results = append(results, gpuCheck)
 
-	xidCheck := n.runXIDCheck(ctx)
-	results = append(results, xidCheck)
+	healthEventCheck := n.runHealthEventCheck(ctx)
+	results = append(results, healthEventCheck)
 
 	req := connect.NewRequest(&pb.ReportHealthRequest{
 		NodeId:  n.config.NodeID,
@@ -393,12 +384,12 @@ func (n *Node) runBootCheck(ctx context.Context) *pb.HealthCheckResult {
 	}
 }
 
-// runNVMLCheck verifies GPU health via NVML metrics.
-func (n *Node) runNVMLCheck(ctx context.Context) *pb.HealthCheckResult {
+// runGPUCheck verifies GPU health via metrics.
+func (n *Node) runGPUCheck(ctx context.Context) *pb.HealthCheckResult {
 	count, err := n.gpu.GetDeviceCount(ctx)
 	if err != nil {
 		return &pb.HealthCheckResult{
-			CheckName: "nvml",
+			CheckName: "gpu",
 			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
 			Message:   fmt.Sprintf("failed to get device count: %v", err),
 		}
@@ -408,7 +399,7 @@ func (n *Node) runNVMLCheck(ctx context.Context) *pb.HealthCheckResult {
 		health, err := n.gpu.GetDeviceHealth(ctx, i)
 		if err != nil {
 			return &pb.HealthCheckResult{
-				CheckName: "nvml",
+				CheckName: "gpu",
 				Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
 				Message:   fmt.Sprintf("failed to get health for GPU %d: %v", i, err),
 			}
@@ -416,7 +407,7 @@ func (n *Node) runNVMLCheck(ctx context.Context) *pb.HealthCheckResult {
 
 		if health.Temperature > 85 {
 			return &pb.HealthCheckResult{
-				CheckName: "nvml",
+				CheckName: "gpu",
 				Status:    pb.HealthStatus_HEALTH_STATUS_DEGRADED,
 				Message:   fmt.Sprintf("GPU %d temperature high: %d°C", i, health.Temperature),
 			}
@@ -424,35 +415,48 @@ func (n *Node) runNVMLCheck(ctx context.Context) *pb.HealthCheckResult {
 	}
 
 	return &pb.HealthCheckResult{
-		CheckName: "nvml",
+		CheckName: "gpu",
 		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
 		Message:   fmt.Sprintf("all %d GPUs healthy", count),
 	}
 }
 
-// runXIDCheck checks for GPU XID errors.
-func (n *Node) runXIDCheck(ctx context.Context) *pb.HealthCheckResult {
-	errors, err := n.gpu.GetXIDErrors(ctx)
+// runHealthEventCheck collects GPU health events and evaluates them.
+// This replaces the old XID-only check with a more comprehensive approach
+// that collects all health events for control plane CEL policy evaluation.
+func (n *Node) runHealthEventCheck(ctx context.Context) *pb.HealthCheckResult {
+	events, err := n.gpu.CollectHealthEvents(ctx)
 	if err != nil {
 		return &pb.HealthCheckResult{
-			CheckName: "xid",
+			CheckName: "health_events",
 			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
-			Message:   fmt.Sprintf("failed to get XID errors: %v", err),
+			Message:   fmt.Sprintf("failed to collect health events: %v", err),
 		}
 	}
 
-	if len(errors) > 0 {
+	if len(events) > 0 {
+		// Count XID events specifically
+		xidCount := 0
+		for _, e := range events {
+			if e.EventType == gpu.EventTypeXID {
+				xidCount++
+			}
+		}
+		status := pb.HealthStatus_HEALTH_STATUS_DEGRADED
+		if xidCount > 0 {
+			status = pb.HealthStatus_HEALTH_STATUS_UNHEALTHY
+		}
 		return &pb.HealthCheckResult{
-			CheckName: "xid",
-			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
-			Message:   fmt.Sprintf("detected %d XID error(s)", len(errors)),
+			CheckName: "health_events",
+			Status:    status,
+			Message:   fmt.Sprintf("detected %d health event(s)", len(events)),
 		}
 	}
 
 	return &pb.HealthCheckResult{
-		CheckName: "xid",
+		CheckName: "health_events",
 		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
-		Message:   "no XID errors detected",
+		Message:   "no health events detected",
 	}
 }
 
