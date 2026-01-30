@@ -466,3 +466,11 @@ func (p *Pool) Nodes() []*ManagedNode {
 	}
 	return nodes
 }
+
+// HasNode returns true if the pool contains a node with the given ID.
+func (p *Pool) HasNode(nodeID string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	_, ok := p.nodes[nodeID]
+	return ok
+}

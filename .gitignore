@@ -41,4 +41,10 @@ proto/protoconnect/
 
 # Cursor/AI workspace files
 .cursorrules
+.cursor/
 
+# Simulator generated artifacts
+stress-report*.json
+stress-report*.html
+stress-report*.log
+sim-runs/

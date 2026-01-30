@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1124,6 +1125,164 @@ func TestIssueCommand(t *testing.T) {
 		}
 		if resp.Msg.CommandId == "" {
 			t.Error("Expected command_id even without parameters")
+		}
+	})
+}
+
+// mockHealthObserver implements NodeHealthObserver for testing.
+type mockHealthObserver struct {
+	mu       sync.Mutex
+	calls    []string
+	callback func(nodeID string)
+}
+
+func (m *mockHealthObserver) OnNodeUnhealthy(ctx context.Context, nodeID string) {
+	m.mu.Lock()
+	m.calls = append(m.calls, nodeID)
+	cb := m.callback
+	m.mu.Unlock()
+	if cb != nil {
+		cb(nodeID)
+	}
+}
+
+func (m *mockHealthObserver) getCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	result := make([]string, len(m.calls))
+	copy(result, m.calls)
+	return result
+}
+
+func TestHealthObserver(t *testing.T) {
+	t.Run("observer_called_on_transition_to_unhealthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		called := make(chan string, 1)
+		observer := &mockHealthObserver{
+			callback: func(nodeID string) {
+				called <- nodeID
+			},
+		}
+		srv.SetHealthObserver(observer)
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Report unhealthy status
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "nvml",
+					Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+					Message:   "GPU failure",
+				},
+			},
+		})
+		_, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		// Wait for observer to be called
+		select {
+		case nodeID := <-called:
+			if nodeID != "node-1" {
+				t.Errorf("Expected node-1, got %s", nodeID)
+			}
+		case <-time.After(time.Second):
+			t.Error("Observer was not called within timeout")
+		}
+	})
+
+	t.Run("observer_not_called_when_already_unhealthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		observer := &mockHealthObserver{}
+		srv.SetHealthObserver(observer)
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// First unhealthy report
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "nvml",
+					Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
+					Message:   "GPU failure",
+				},
+			},
+		})
+		srv.ReportHealth(ctx, healthReq)
+
+		// Wait a bit for async call
+		time.Sleep(50 * time.Millisecond)
+
+		// Should have one call
+		if len(observer.getCalls()) != 1 {
+			t.Fatalf("Expected 1 call after first unhealthy, got %d", len(observer.getCalls()))
+		}
+
+		// Second unhealthy report (already unhealthy)
+		srv.ReportHealth(ctx, healthReq)
+
+		// Wait a bit for potential async call
+		time.Sleep(50 * time.Millisecond)
+
+		// Should still have only one call
+		if len(observer.getCalls()) != 1 {
+			t.Errorf("Expected 1 call (no duplicate), got %d", len(observer.getCalls()))
+		}
+	})
+
+	t.Run("observer_not_called_when_healthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		observer := &mockHealthObserver{}
+		srv.SetHealthObserver(observer)
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Report healthy status
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "nvml",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "All good",
+				},
+			},
+		})
+		srv.ReportHealth(ctx, healthReq)
+
+		// Wait a bit for potential async call
+		time.Sleep(50 * time.Millisecond)
+
+		if len(observer.getCalls()) != 0 {
+			t.Errorf("Expected no calls for healthy report, got %d", len(observer.getCalls()))
 		}
 	})
 }

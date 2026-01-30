@@ -14,6 +14,12 @@ import (
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
+// NodeHealthObserver is notified when node health status changes.
+// Implement this interface to react to health transitions (e.g., auto-replacement).
+type NodeHealthObserver interface {
+	OnNodeUnhealthy(ctx context.Context, nodeID string)
+}
+
 // Server implements the ControlPlaneService Connect service.
 type Server struct {
 	db              db.DB
@@ -21,6 +27,7 @@ type Server struct {
 	logger          *slog.Logger
 	metricsSource   *DBMetricsSource
 	instanceManager *InstanceManager
+	healthObserver  NodeHealthObserver
 }
 
 // Config holds configuration for the control plane server.
@@ -54,6 +61,11 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 		metricsSource:   metricsSource,
 		instanceManager: instanceManager,
 	}
+}
+
+// SetHealthObserver sets the observer to be notified on health status changes.
+func (s *Server) SetHealthObserver(observer NodeHealthObserver) {
+	s.healthObserver = observer
 }
 
 func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.RegisterNodeRequest]) (*connect.Response[pb.RegisterNodeResponse], error) {
@@ -125,7 +137,7 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
 
-	// Get node to determine current status
+	// Get node to determine current status before health check
 	node, err := s.db.GetNode(ctx, req.Msg.NodeId)
 	if err != nil {
 		s.logger.WarnContext(ctx, "received health report from unregistered node",
@@ -133,6 +145,7 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		)
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
+	wasUnhealthy := node.Status == pb.NodeStatus_NODE_STATUS_UNHEALTHY
 
 	healthRecord := &db.HealthCheckRecord{
 		NodeID:    req.Msg.NodeId,
@@ -157,6 +170,12 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 			slog.String("error", err.Error()),
 		)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to fetch node status: %w", err))
+	}
+
+	// Notify observer if node transitioned to unhealthy.
+	// Use background context since request context may be cancelled after response.
+	if !wasUnhealthy && node.Status == pb.NodeStatus_NODE_STATUS_UNHEALTHY && s.healthObserver != nil {
+		go s.healthObserver.OnNodeUnhealthy(context.Background(), req.Msg.NodeId)
 	}
 
 	return connect.NewResponse(&pb.ReportHealthResponse{

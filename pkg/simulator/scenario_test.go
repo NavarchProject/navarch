@@ -68,7 +68,7 @@ func TestScenario_Validate(t *testing.T) {
 		{
 			name:     "empty fleet",
 			scenario: Scenario{Name: "test"},
-			wantErr:  "fleet must have at least one node",
+			wantErr:  "fleet or stress.fleet_gen must be defined",
 		},
 		{
 			name: "missing node ID",
@@ -401,5 +401,74 @@ func containsAt(s, substr string, start int) bool {
 
 func unmarshalYAML(content string, v interface{}) error {
 	return yaml.Unmarshal([]byte(content), v)
+}
+
+func TestNodeSpec_BaseID(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		expected string
+	}{
+		{
+			name:     "original_id_no_generation",
+			id:       "gcp-us-central1-h100-8gpu-0001",
+			expected: "gcp-us-central1-h100-8gpu-0001",
+		},
+		{
+			name:     "first_generation",
+			id:       "gcp-us-central1-h100-8gpu-0001-gen1",
+			expected: "gcp-us-central1-h100-8gpu-0001",
+		},
+		{
+			name:     "second_generation",
+			id:       "gcp-us-central1-h100-8gpu-0001-gen2",
+			expected: "gcp-us-central1-h100-8gpu-0001",
+		},
+		{
+			name:     "high_generation_number",
+			id:       "node-gen42",
+			expected: "node",
+		},
+		{
+			name:     "id_containing_gen_in_middle",
+			id:       "node-generator-001",
+			expected: "node-generator-001",
+		},
+		{
+			name:     "id_containing_gen_without_number",
+			id:       "node-gen",
+			expected: "node-gen",
+		},
+		{
+			name:     "id_with_gen_and_non_digit_suffix",
+			id:       "node-genx",
+			expected: "node-genx",
+		},
+		{
+			name:     "multiple_gen_patterns",
+			id:       "gen-node-gen1",
+			expected: "gen-node",
+		},
+		{
+			name:     "empty_id",
+			id:       "",
+			expected: "",
+		},
+		{
+			name:     "just_gen_number",
+			id:       "gen1",
+			expected: "gen1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := NodeSpec{ID: tt.id}
+			got := spec.BaseID()
+			if got != tt.expected {
+				t.Errorf("BaseID() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
 }
 

@@ -1,6 +1,7 @@
 package simulator
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -67,8 +68,8 @@ func TestSimulatedNode_ClearFailures(t *testing.T) {
 	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
 
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79})
-	node.InjectFailure(InjectedFailure{Type: "nvml_failure"})
-	node.InjectFailure(InjectedFailure{Type: "boot_failure"})
+	node.InjectFailure(InjectedFailure{Type: "nvml_failure", Message: "test"})
+	node.InjectFailure(InjectedFailure{Type: "boot_failure", Message: "test"})
 
 	if len(node.GetFailures()) != 3 {
 		t.Fatal("expected 3 failures before clear")
@@ -86,7 +87,7 @@ func TestSimulatedNode_RecoverFailure(t *testing.T) {
 	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
 
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79})
-	node.InjectFailure(InjectedFailure{Type: "nvml_failure"})
+	node.InjectFailure(InjectedFailure{Type: "nvml_failure", Message: "test"})
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 48})
 
 	// Recover xid_error failures
@@ -108,9 +109,9 @@ func TestSimulatedNode_MultipleFailures(t *testing.T) {
 	// Inject multiple failures of different types
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
 	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 48, GPUIndex: 1})
-	node.InjectFailure(InjectedFailure{Type: "nvml_failure", GPUIndex: 2})
+	node.InjectFailure(InjectedFailure{Type: "nvml_failure", GPUIndex: 2, Message: "test"})
 	node.InjectFailure(InjectedFailure{Type: "temperature", GPUIndex: 3})
-	node.InjectFailure(InjectedFailure{Type: "boot_failure"})
+	node.InjectFailure(InjectedFailure{Type: "boot_failure", Message: "test"})
 
 	failures := node.GetFailures()
 	if len(failures) != 5 {
@@ -136,6 +137,44 @@ func TestSimulatedNode_MultipleFailures(t *testing.T) {
 	failures = node.GetFailures()
 	if len(failures) != 0 {
 		t.Errorf("after clear: %d failures, want 0", len(failures))
+	}
+}
+
+func TestSimulatedNode_ClearSpecificXIDError(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 8}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+	ctx := context.Background()
+
+	// Initialize GPU so we can query its state
+	if err := node.gpu.Initialize(ctx); err != nil {
+		t.Fatalf("failed to initialize GPU: %v", err)
+	}
+
+	// Inject multiple XID errors on different GPUs
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 48, GPUIndex: 1})
+	node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 31, GPUIndex: 2})
+
+	// Verify all 3 XID errors exist in GPU state
+	xidErrors, _ := node.gpu.GetXIDErrors(ctx)
+	if len(xidErrors) != 3 {
+		t.Fatalf("expected 3 XID errors in GPU, got %d", len(xidErrors))
+	}
+
+	// Directly call clearSpecificFailure for just one error
+	// This verifies that ClearXIDError only clears the specific one
+	node.clearSpecificFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0})
+
+	xidErrors, _ = node.gpu.GetXIDErrors(ctx)
+	if len(xidErrors) != 2 {
+		t.Errorf("expected 2 XID errors after clearing one, got %d", len(xidErrors))
+	}
+
+	// Verify the correct errors remain
+	for _, err := range xidErrors {
+		if err.XIDCode == 79 {
+			t.Errorf("XID 79 should have been cleared but was found")
+		}
 	}
 }
 
@@ -167,164 +206,40 @@ func TestSimulatedNode_Stop_BeforeStart(t *testing.T) {
 	}
 }
 
-func TestHash(t *testing.T) {
-	tests := []struct {
-		input string
-	}{
-		{"node-1"},
-		{"node-2"},
-		{"test-node"},
-		{""},
-		{"a"},
-	}
-
-	// hash should be deterministic
-	for _, tt := range tests {
-		h1 := hash(tt.input)
-		h2 := hash(tt.input)
-		if h1 != h2 {
-			t.Errorf("hash(%q) not deterministic: %d != %d", tt.input, h1, h2)
-		}
-		if h1 < 0 {
-			t.Errorf("hash(%q) returned negative value: %d", tt.input, h1)
-		}
-	}
-
-	// Different inputs should (usually) produce different hashes
-	h1 := hash("node-1")
-	h2 := hash("node-2")
-	if h1 == h2 {
-		t.Log("warning: hash collision between node-1 and node-2")
-	}
-}
-
-func TestGenerateBootCheck(t *testing.T) {
+func TestSimulatedNode_GPUFailureInjection(t *testing.T) {
 	spec := NodeSpec{ID: "test-node", GPUCount: 8}
 	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
 
-	t.Run("healthy", func(t *testing.T) {
-		result := node.generateBootCheck(nil)
-		if result.CheckName != "boot" {
-			t.Errorf("CheckName = %v, want boot", result.CheckName)
+	t.Run("xid_error injects to GPU", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 3})
+		if !node.GPU().HasActiveFailures() {
+			t.Error("GPU should have active failures after XID injection")
 		}
-		if result.Status.String() != "HEALTH_STATUS_HEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_HEALTHY", result.Status)
-		}
+		node.ClearFailures()
 	})
 
-	t.Run("with boot failure", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "boot_failure", Message: "Failed to boot"},
+	t.Run("temperature injects to GPU", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "temperature", GPUIndex: 2})
+		if !node.GPU().HasActiveFailures() {
+			t.Error("GPU should have active failures after temperature injection")
 		}
-		result := node.generateBootCheck(failures)
-		if result.Status.String() != "HEALTH_STATUS_UNHEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_UNHEALTHY", result.Status)
-		}
-		if result.Message != "Failed to boot" {
-			t.Errorf("Message = %v, want 'Failed to boot'", result.Message)
-		}
-	})
-}
-
-func TestGenerateNvmlCheck(t *testing.T) {
-	spec := NodeSpec{ID: "test-node", GPUCount: 8}
-	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
-
-	t.Run("healthy", func(t *testing.T) {
-		result := node.generateNvmlCheck(nil)
-		if result.CheckName != "nvml" {
-			t.Errorf("CheckName = %v, want nvml", result.CheckName)
-		}
-		if result.Status.String() != "HEALTH_STATUS_HEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_HEALTHY", result.Status)
-		}
+		node.ClearFailures()
 	})
 
-	t.Run("with nvml failure", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "nvml_failure", GPUIndex: 2, Message: "NVML init failed"},
+	t.Run("nvml_failure injects to GPU", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "nvml_failure", Message: "NVML init failed"})
+		if !node.GPU().HasActiveFailures() {
+			t.Error("GPU should have active failures after NVML error injection")
 		}
-		result := node.generateNvmlCheck(failures)
-		if result.Status.String() != "HEALTH_STATUS_UNHEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_UNHEALTHY", result.Status)
-		}
-		if result.Details["gpu_index"] != "2" {
-			t.Errorf("Details[gpu_index] = %v, want 2", result.Details["gpu_index"])
-		}
+		node.ClearFailures()
 	})
 
-	t.Run("with temperature failure", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "temperature", GPUIndex: 5, Message: "GPU overheating"},
-		}
-		result := node.generateNvmlCheck(failures)
-		if result.Status.String() != "HEALTH_STATUS_UNHEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_UNHEALTHY", result.Status)
-		}
-	})
-}
-
-func TestGenerateXidCheck(t *testing.T) {
-	spec := NodeSpec{ID: "test-node", GPUCount: 8}
-	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
-
-	t.Run("healthy", func(t *testing.T) {
-		result := node.generateXidCheck(nil)
-		if result.CheckName != "xid" {
-			t.Errorf("CheckName = %v, want xid", result.CheckName)
-		}
-		if result.Status.String() != "HEALTH_STATUS_HEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_HEALTHY", result.Status)
-		}
-	})
-
-	t.Run("with fatal xid error", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "xid_error", XIDCode: 79, GPUIndex: 3},
-		}
-		result := node.generateXidCheck(failures)
-		if result.Status.String() != "HEALTH_STATUS_UNHEALTHY" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_UNHEALTHY for fatal XID", result.Status)
-		}
-		if result.Details["xid_code"] != "79" {
-			t.Errorf("Details[xid_code] = %v, want 79", result.Details["xid_code"])
-		}
-		if result.Details["fatal"] != "true" {
-			t.Errorf("Details[fatal] = %v, want true", result.Details["fatal"])
-		}
-	})
-
-	t.Run("with recoverable xid error", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "xid_error", XIDCode: 31, GPUIndex: 1},
-		}
-		result := node.generateXidCheck(failures)
-		if result.Status.String() != "HEALTH_STATUS_DEGRADED" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_DEGRADED for recoverable XID", result.Status)
-		}
-		if result.Details["fatal"] != "false" {
-			t.Errorf("Details[fatal] = %v, want false", result.Details["fatal"])
-		}
-	})
-
-	t.Run("with unknown xid error", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "xid_error", XIDCode: 9999, GPUIndex: 0, Message: "Unknown error"},
-		}
-		result := node.generateXidCheck(failures)
-		// Unknown XID codes should be treated as degraded (not fatal)
-		if result.Status.String() != "HEALTH_STATUS_DEGRADED" {
-			t.Errorf("Status = %v, want HEALTH_STATUS_DEGRADED for unknown XID", result.Status)
-		}
-	})
-
-	t.Run("with custom message", func(t *testing.T) {
-		failures := []InjectedFailure{
-			{Type: "xid_error", XIDCode: 79, Message: "Custom message"},
-		}
-		result := node.generateXidCheck(failures)
-		if result.Message != "Custom message" {
-			t.Errorf("Message = %v, want 'Custom message'", result.Message)
+	t.Run("clear removes all GPU failures", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "xid_error", XIDCode: 79})
+		node.InjectFailure(InjectedFailure{Type: "temperature", GPUIndex: 0})
+		node.ClearFailures()
+		if node.GPU().HasActiveFailures() {
+			t.Error("GPU should have no active failures after clear")
 		}
 	})
 }
@@ -343,3 +258,132 @@ func TestFailureTimestamp(t *testing.T) {
 	}
 }
 
+func TestSimulatedNode_Spec(t *testing.T) {
+	spec := NodeSpec{
+		ID:           "test-node",
+		Provider:     "gcp",
+		Region:       "us-central1",
+		Zone:         "us-central1-a",
+		InstanceType: "a3-highgpu-8g",
+		GPUCount:     8,
+		GPUType:      "NVIDIA H100",
+		Labels:       map[string]string{"env": "test"},
+	}
+
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+	returnedSpec := node.Spec()
+
+	if returnedSpec.ID != spec.ID {
+		t.Errorf("Spec().ID = %v, want %v", returnedSpec.ID, spec.ID)
+	}
+	if returnedSpec.Provider != spec.Provider {
+		t.Errorf("Spec().Provider = %v, want %v", returnedSpec.Provider, spec.Provider)
+	}
+	if returnedSpec.GPUCount != spec.GPUCount {
+		t.Errorf("Spec().GPUCount = %v, want %v", returnedSpec.GPUCount, spec.GPUCount)
+	}
+}
+
+func TestSimulatedNode_AllFailureTypes(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 8}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+
+	t.Run("boot_failure", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "boot_failure", Message: "GPU not detected"})
+		if !node.GPU().HasActiveFailures() {
+			t.Error("GPU should have active failures after boot_failure injection")
+		}
+		node.RecoverFailure("boot_failure")
+		if node.GPU().HasActiveFailures() {
+			t.Error("GPU should not have active failures after recovery")
+		}
+	})
+
+	t.Run("device_error", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "device_error", GPUIndex: 2, Message: "device comm failure"})
+		if !node.GPU().HasActiveFailures() {
+			t.Error("GPU should have active failures after device_error injection")
+		}
+		node.RecoverFailure("device_error")
+		if node.GPU().HasActiveFailures() {
+			t.Error("GPU should not have active failures after recovery")
+		}
+	})
+
+	t.Run("network failure (no GPU effect)", func(t *testing.T) {
+		node.InjectFailure(InjectedFailure{Type: "network", Message: "connection lost"})
+		failures := node.GetFailures()
+		if len(failures) != 1 {
+			t.Errorf("expected 1 failure recorded, got %d", len(failures))
+		}
+		if failures[0].Type != "network" {
+			t.Errorf("failure type = %s, want network", failures[0].Type)
+		}
+		node.ClearFailures()
+	})
+}
+
+func TestSimulatedNode_TemperatureAllGPUs(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 4}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+
+	// Negative GPUIndex should affect all GPUs
+	node.InjectFailure(InjectedFailure{Type: "temperature", GPUIndex: -1})
+	if !node.GPU().HasActiveFailures() {
+		t.Error("GPU should have active failures after temperature injection on all GPUs")
+	}
+
+	node.RecoverFailure("temperature")
+	if node.GPU().HasActiveFailures() {
+		t.Error("GPU should not have active failures after recovery")
+	}
+}
+
+func TestSimulatedNode_RecoverSpecificFailureTypes(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 4}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+
+	testCases := []struct {
+		name        string
+		failureType string
+		failure     InjectedFailure
+	}{
+		{"xid_error", "xid_error", InjectedFailure{Type: "xid_error", XIDCode: 79, GPUIndex: 0}},
+		{"temperature", "temperature", InjectedFailure{Type: "temperature", GPUIndex: 1}},
+		{"nvml_failure", "nvml_failure", InjectedFailure{Type: "nvml_failure", Message: "test"}},
+		{"boot_failure", "boot_failure", InjectedFailure{Type: "boot_failure", Message: "test"}},
+		{"device_error", "device_error", InjectedFailure{Type: "device_error", GPUIndex: 2, Message: "test"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			node.InjectFailure(tc.failure)
+			if len(node.GetFailures()) != 1 {
+				t.Fatalf("expected 1 failure after injection, got %d", len(node.GetFailures()))
+			}
+			node.RecoverFailure(tc.failureType)
+			if len(node.GetFailures()) != 0 {
+				t.Errorf("expected 0 failures after recovery, got %d", len(node.GetFailures()))
+			}
+		})
+	}
+}
+
+func TestSimulatedNode_ControlPlaneAddrSet(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 2}
+	node := NewSimulatedNode(spec, "http://custom:9999", nil)
+
+	returnedSpec := node.Spec()
+	if returnedSpec.ControlPlaneAddr != "http://custom:9999" {
+		t.Errorf("ControlPlaneAddr = %s, want http://custom:9999", returnedSpec.ControlPlaneAddr)
+	}
+}
+
+func TestSimulatedNode_DefaultLogger(t *testing.T) {
+	spec := NodeSpec{ID: "test-node", GPUCount: 2}
+	node := NewSimulatedNode(spec, "http://localhost:8080", nil)
+
+	if node.logger == nil {
+		t.Error("logger should not be nil when created with nil logger")
+	}
+}
