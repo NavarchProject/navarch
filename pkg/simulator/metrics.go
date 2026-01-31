@@ -10,12 +10,15 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
 // StressMetrics collects metrics during stress testing.
 type StressMetrics struct {
 	mu        sync.RWMutex
 	logger    *slog.Logger
+	clock     clock.Clock
 	startTime time.Time
 
 	// Node metrics
@@ -143,10 +146,14 @@ type XIDCount struct {
 }
 
 // NewStressMetrics creates a new metrics collector.
-func NewStressMetrics(logger *slog.Logger) *StressMetrics {
+func NewStressMetrics(clk clock.Clock, logger *slog.Logger) *StressMetrics {
+	if clk == nil {
+		clk = clock.Real()
+	}
 	return &StressMetrics{
 		logger:              logger.With(slog.String("component", "stress-metrics")),
-		startTime:           time.Now(),
+		clock:               clk,
+		startTime:           clk.Now(),
 		failuresByType:      make(map[string]int64),
 		failuresByXID:       make(map[int]int64),
 		nodeStatus:          make(map[string]string),
@@ -177,7 +184,7 @@ func (m *StressMetrics) RecordNodeStart(nodeID string) {
 	m.mu.Lock()
 	m.nodeStatus[nodeID] = "healthy"
 	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
-		Timestamp: time.Now(),
+		Timestamp: m.clock.Now(),
 		Type:      "started",
 		Status:    "healthy",
 		Message:   "Node started successfully",
@@ -191,7 +198,7 @@ func (m *StressMetrics) RecordNodeFailedStart(nodeID string) {
 	atomic.AddInt64(&m.nodesFailed, 1)
 	m.mu.Lock()
 	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
-		Timestamp: time.Now(),
+		Timestamp: m.clock.Now(),
 		Type:      "start_failed",
 		Message:   "Node failed to start",
 	})
@@ -205,7 +212,7 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 	m.nodeStatus[nodeID] = status
 	if oldStatus != status {
 		m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
-			Timestamp: time.Now(),
+			Timestamp: m.clock.Now(),
 			Type:      "status_change",
 			Status:    status,
 			Message:   fmt.Sprintf("Status changed from %s to %s", oldStatus, status),
@@ -261,7 +268,7 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 	}
 
 	m.nodeEvents[event.NodeID] = append(m.nodeEvents[event.NodeID], NodeEvent{
-		Timestamp:   time.Now(),
+		Timestamp:   m.clock.Now(),
 		Type:        "failure",
 		FailureType: event.Type,
 		XIDCode:     event.XIDCode,
@@ -276,7 +283,7 @@ func (m *StressMetrics) RecordRecovery(nodeID, failureType string) {
 
 	m.mu.Lock()
 	m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
-		Timestamp:   time.Now(),
+		Timestamp:   m.clock.Now(),
 		Type:        "recovery",
 		FailureType: failureType,
 		Message:     fmt.Sprintf("Recovered from %s", failureType),
@@ -314,8 +321,8 @@ func (m *StressMetrics) RecordLatency(d time.Duration) {
 // TakeSample captures current metrics state.
 func (m *StressMetrics) TakeSample() {
 	sample := MetricSample{
-		Timestamp:       time.Now(),
-		ElapsedSeconds:  time.Since(m.startTime).Seconds(),
+		Timestamp:       m.clock.Now(),
+		ElapsedSeconds:  m.clock.Since(m.startTime).Seconds(),
 		TotalNodes:      int(atomic.LoadInt64(&m.nodesStarted) - atomic.LoadInt64(&m.nodesFailed)),
 		HealthyNodes:    int(atomic.LoadInt64(&m.nodesHealthy)),
 		UnhealthyNodes:  int(atomic.LoadInt64(&m.nodesUnhealthy)),
@@ -336,14 +343,14 @@ func (m *StressMetrics) StartSampling(ctx context.Context, interval time.Duratio
 		interval = 5 * time.Second
 	}
 
-	ticker := time.NewTicker(interval)
+	ticker := m.clock.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			m.TakeSample()
 		}
 	}
@@ -357,8 +364,8 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 	report := &StressReport{
 		Name:      name,
 		StartTime: m.startTime,
-		EndTime:   time.Now(),
-		Duration:  time.Since(m.startTime),
+		EndTime:   m.clock.Now(),
+		Duration:  m.clock.Since(m.startTime),
 		Timeline:  m.samples,
 	}
 
@@ -531,7 +538,7 @@ func (m *StressMetrics) WriteHTMLReport(report *StressReport, config *StressConf
 // GetCurrentStats returns current statistics as a map.
 func (m *StressMetrics) GetCurrentStats() map[string]interface{} {
 	return map[string]interface{}{
-		"elapsed":         time.Since(m.startTime).String(),
+		"elapsed":         m.clock.Since(m.startTime).String(),
 		"nodes_started":   atomic.LoadInt64(&m.nodesStarted),
 		"nodes_healthy":   atomic.LoadInt64(&m.nodesHealthy),
 		"nodes_unhealthy": atomic.LoadInt64(&m.nodesUnhealthy),
@@ -558,7 +565,7 @@ func (m *StressMetrics) GetStressResults() *StressResults {
 	}
 
 	return &StressResults{
-		Duration:          time.Since(m.startTime),
+		Duration:          m.clock.Since(m.startTime),
 		NodesStarted:      atomic.LoadInt64(&m.nodesStarted),
 		NodesFailed:       atomic.LoadInt64(&m.nodesFailed),
 		NodesHealthy:      atomic.LoadInt64(&m.nodesHealthy),

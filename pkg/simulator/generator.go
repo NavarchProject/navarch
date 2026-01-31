@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
 // FleetGenerator generates nodes based on configuration templates.
@@ -192,6 +194,7 @@ type NodeStarter struct {
 	config           StartupConfig
 	controlPlaneAddr string
 	logger           *slog.Logger
+	clock            clock.Clock
 	rng              *rand.Rand
 	runDir           *RunDir
 
@@ -203,14 +206,18 @@ type NodeStarter struct {
 }
 
 // NewNodeStarter creates a new node starter.
-func NewNodeStarter(config StartupConfig, controlPlaneAddr string, seed int64, logger *slog.Logger) *NodeStarter {
+func NewNodeStarter(config StartupConfig, controlPlaneAddr string, seed int64, clk clock.Clock, logger *slog.Logger) *NodeStarter {
 	if seed == 0 {
 		seed = time.Now().UnixNano()
+	}
+	if clk == nil {
+		clk = clock.Real()
 	}
 	return &NodeStarter{
 		config:           config,
 		controlPlaneAddr: controlPlaneAddr,
 		logger:           logger,
+		clock:            clk,
 		rng:              rand.New(rand.NewSource(seed)),
 		nodes:            make(map[string]*SimulatedNode),
 		coldStartDelays:  make(map[string]time.Duration),
@@ -303,7 +310,7 @@ func (s *NodeStarter) startLinear(ctx context.Context, specs []NodeSpec) (map[st
 
 		jitteredInterval := s.addJitter(interval)
 		if i > 0 {
-			time.Sleep(jitteredInterval)
+			s.clock.Sleep(jitteredInterval)
 		}
 
 		if err := s.startNode(ctx, spec); err != nil {
@@ -373,7 +380,7 @@ func (s *NodeStarter) startExponential(ctx context.Context, specs []NodeSpec) (m
 		batchSize *= 2 // Double batch size for next round
 
 		if len(remaining) > 0 {
-			time.Sleep(s.addJitter(roundInterval))
+			s.clock.Sleep(s.addJitter(roundInterval))
 		}
 		totalDuration += roundInterval
 	}
@@ -433,7 +440,7 @@ func (s *NodeStarter) startWave(ctx context.Context, specs []NodeSpec) (map[stri
 		)
 
 		if i+batchSize < len(specs) {
-			time.Sleep(s.addJitter(batchInterval))
+			s.clock.Sleep(s.addJitter(batchInterval))
 		}
 	}
 
@@ -457,16 +464,16 @@ func (s *NodeStarter) startNode(ctx context.Context, spec NodeSpec) error {
 			slog.String("node_id", spec.ID),
 			slog.Duration("delay", delay),
 		)
-		timer := time.NewTimer(delay)
+		timer := s.clock.NewTimer(delay)
 		defer timer.Stop()
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-timer.C:
+		case <-timer.C():
 		}
 	}
 
-	node := NewSimulatedNode(spec, s.controlPlaneAddr, logger)
+	node := NewSimulatedNodeWithClock(spec, s.controlPlaneAddr, s.clock, logger)
 	if err := node.Start(ctx); err != nil {
 		atomic.AddInt64(&s.failed, 1)
 		return err

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node"
 	pb "github.com/NavarchProject/navarch/proto"
@@ -18,6 +19,7 @@ type SimulatedNode struct {
 	spec   NodeSpec
 	node   *node.Node
 	gpu    *gpu.Injectable
+	clock  clock.Clock
 	logger *slog.Logger
 
 	mu       sync.RWMutex
@@ -37,8 +39,16 @@ type InjectedFailure struct {
 
 // NewSimulatedNode creates a new simulated node using the real node package.
 func NewSimulatedNode(spec NodeSpec, controlPlaneAddr string, logger *slog.Logger) *SimulatedNode {
+	return NewSimulatedNodeWithClock(spec, controlPlaneAddr, nil, logger)
+}
+
+// NewSimulatedNodeWithClock creates a new simulated node with a custom clock.
+func NewSimulatedNodeWithClock(spec NodeSpec, controlPlaneAddr string, clk clock.Clock, logger *slog.Logger) *SimulatedNode {
 	if logger == nil {
 		logger = slog.Default()
+	}
+	if clk == nil {
+		clk = clock.Real()
 	}
 
 	spec.ControlPlaneAddr = controlPlaneAddr
@@ -47,6 +57,7 @@ func NewSimulatedNode(spec NodeSpec, controlPlaneAddr string, logger *slog.Logge
 	return &SimulatedNode{
 		spec:     spec,
 		gpu:      gpuManager,
+		clock:    clk,
 		logger:   logger.With(slog.String("node_id", spec.ID)),
 		failures: make([]InjectedFailure, 0),
 	}
@@ -69,6 +80,7 @@ func (n *SimulatedNode) Start(ctx context.Context) error {
 		InstanceType:     n.spec.InstanceType,
 		Labels:           n.spec.Labels,
 		GPU:              n.gpu,
+		Clock:            n.clock,
 	}
 
 	realNode, err := node.New(cfg, n.logger)
@@ -114,7 +126,7 @@ func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	failure.Since = time.Now()
+	failure.Since = n.clock.Now()
 	n.failures = append(n.failures, failure)
 
 	switch failure.Type {

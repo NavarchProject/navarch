@@ -138,7 +138,7 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 	}
 	defer r.stopControlPlane()
 
-	time.Sleep(100 * time.Millisecond)
+	r.clock.Sleep(100 * time.Millisecond)
 
 	r.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
@@ -151,10 +151,10 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 		return events[i].At.Duration() < events[j].At.Duration()
 	})
 
-	startTime := time.Now()
+	startTime := r.clock.Now()
 
 	for i, event := range events {
-		elapsed := time.Since(startTime)
+		elapsed := r.clock.Since(startTime)
 		waitTime := event.At.Duration() - elapsed
 		if waitTime > 0 {
 			r.logger.Debug("waiting for next event",
@@ -164,7 +164,7 @@ func (r *Runner) runRegularScenario(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(waitTime):
+			case <-r.clock.After(waitTime):
 			}
 		}
 
@@ -222,7 +222,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		r.logger = slog.New(fileHandler)
 
 		fmt.Fprintf(logFile, "=== STRESS TEST LOG: %s ===\n", r.scenario.Name)
-		fmt.Fprintf(logFile, "Started: %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(logFile, "Started: %s\n", r.clock.Now().Format(time.RFC3339))
 		fmt.Fprintf(logFile, "Duration: %s, Nodes: %d, Seed: %d\n\n",
 			duration, nodeCount, r.seed)
 	}
@@ -248,13 +248,13 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 	r.logger.Info("initializing stress test")
 
-	r.metrics = NewStressMetrics(r.logger)
+	r.metrics = NewStressMetrics(r.clock, r.logger)
 
 	if err := r.startControlPlane(ctx); err != nil {
 		return fmt.Errorf("failed to start control plane: %w", err)
 	}
 	defer r.stopControlPlane()
-	time.Sleep(100 * time.Millisecond)
+	r.clock.Sleep(100 * time.Millisecond)
 
 	r.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
@@ -302,7 +302,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		})
 	}
 
-	starter := NewNodeStarter(r.startupConfig, r.controlPlaneAddr, r.seed, r.logger)
+	starter := NewNodeStarter(r.startupConfig, r.controlPlaneAddr, r.seed, r.clock, r.logger)
 	if r.runDir != nil {
 		starter.SetRunDir(r.runDir)
 	}
@@ -335,6 +335,7 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 			func() map[string]*SimulatedNode { return r.nodes },
 			r.metrics,
 			r.seed,
+			r.clock,
 			r.logger,
 		)
 		r.chaos.Start(ctx)
@@ -347,19 +348,22 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 	console.PrintRunning(duration)
 
-	progressTicker := time.NewTicker(time.Second)
+	progressTicker := r.clock.NewTicker(time.Second)
 	defer progressTicker.Stop()
 
-	startTime := time.Now()
-	testCtx, cancel := context.WithTimeout(ctx, duration)
-	defer cancel()
+	startTime := r.clock.Now()
+	// Use clock-aware deadline instead of context.WithTimeout
+	deadline := startTime.Add(duration)
 
 	for {
-		select {
-		case <-testCtx.Done():
+		if r.clock.Now().After(deadline) {
 			goto finished
-		case <-progressTicker.C:
-			elapsed := time.Since(startTime)
+		}
+		select {
+		case <-ctx.Done():
+			goto finished
+		case <-progressTicker.C():
+			elapsed := r.clock.Since(startTime)
 			remaining := duration - elapsed
 			if remaining < 0 {
 				remaining = 0
@@ -388,7 +392,7 @@ finished:
 
 	if stress.LogFile != "" && logFile != nil {
 		fmt.Fprintf(logFile, "\n=== TEST COMPLETED ===\n")
-		fmt.Fprintf(logFile, "End time: %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(logFile, "End time: %s\n", r.clock.Now().Format(time.RFC3339))
 		fmt.Fprintf(logFile, "Total failures: %d, Cascading: %d, Recoveries: %d\n",
 			r.metrics.GetCurrentStats()["total_failures"],
 			r.metrics.GetCurrentStats()["cascading"],
@@ -437,16 +441,16 @@ func (r *Runner) runEventsInBackground(ctx context.Context) {
 		return events[i].At.Duration() < events[j].At.Duration()
 	})
 
-	startTime := time.Now()
+	startTime := r.clock.Now()
 
 	for _, event := range events {
-		elapsed := time.Since(startTime)
+		elapsed := r.clock.Since(startTime)
 		waitTime := event.At.Duration() - elapsed
 		if waitTime > 0 {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(waitTime):
+			case <-r.clock.After(waitTime):
 			}
 		}
 
@@ -500,6 +504,7 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 
 func (r *Runner) stopControlPlane() {
 	if r.httpServer != nil {
+		// Use real time for HTTP shutdown since it's not part of simulation
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		r.httpServer.Shutdown(ctx)
@@ -554,14 +559,14 @@ func (r *Runner) handleUnhealthyNode(ctx context.Context, nodeID string, recover
 	select {
 	case <-ctx.Done():
 		return
-	case <-time.After(coldStart):
+	case <-r.clock.After(coldStart):
 	}
 
 	newSpec := spec
 	newSpec.ID = fmt.Sprintf("%s-gen%d", spec.BaseID(), spec.Generation+1)
 	newSpec.Generation = spec.Generation + 1
 
-	newNode := NewSimulatedNode(newSpec, r.controlPlaneAddr, r.logger)
+	newNode := NewSimulatedNodeWithClock(newSpec, r.controlPlaneAddr, r.clock, r.logger)
 	if err := newNode.Start(ctx); err != nil {
 		r.logger.Error("failed to start replacement node",
 			slog.String("node_id", newSpec.ID),
@@ -620,7 +625,7 @@ func (r *Runner) startFleet(ctx context.Context) error {
 		if r.metrics != nil {
 			r.metrics.RegisterNode(spec)
 		}
-		node := NewSimulatedNode(spec, r.controlPlaneAddr, r.logger)
+		node := NewSimulatedNodeWithClock(spec, r.controlPlaneAddr, r.clock, r.logger)
 		if err := node.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start node %s: %w", spec.ID, err)
 		}
@@ -715,16 +720,16 @@ func (r *Runner) waitForStatus(ctx context.Context, event Event) error {
 
 	expectedStatus := parseNodeStatus(event.Params.ExpectedStatus)
 
-	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(500 * time.Millisecond)
+	deadline := r.clock.Now().Add(timeout)
+	ticker := r.clock.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
-			if time.Now().After(deadline) {
+		case <-ticker.C():
+			if r.clock.Now().After(deadline) {
 				return fmt.Errorf("timeout waiting for node %s to reach status %s", event.Target, event.Params.ExpectedStatus)
 			}
 

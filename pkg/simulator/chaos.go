@@ -9,12 +9,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
 // ChaosEngine manages failure injection with realistic patterns.
 type ChaosEngine struct {
 	config  *ChaosConfig
 	rng     *rand.Rand
+	clock   clock.Clock
 	logger  *slog.Logger
 	nodes   func() map[string]*SimulatedNode // Node accessor
 	metrics *StressMetrics
@@ -40,13 +43,17 @@ type FailureEvent struct {
 }
 
 // NewChaosEngine creates a new chaos engine.
-func NewChaosEngine(config *ChaosConfig, nodeAccessor func() map[string]*SimulatedNode, metrics *StressMetrics, seed int64, logger *slog.Logger) *ChaosEngine {
+func NewChaosEngine(config *ChaosConfig, nodeAccessor func() map[string]*SimulatedNode, metrics *StressMetrics, seed int64, clk clock.Clock, logger *slog.Logger) *ChaosEngine {
 	if seed == 0 {
 		seed = time.Now().UnixNano()
+	}
+	if clk == nil {
+		clk = clock.Real()
 	}
 	return &ChaosEngine{
 		config:            config,
 		rng:               rand.New(rand.NewSource(seed)),
+		clock:             clk,
 		logger:            logger.With(slog.String("component", "chaos-engine")),
 		nodes:             nodeAccessor,
 		metrics:           metrics,
@@ -111,7 +118,7 @@ func (c *ChaosEngine) InjectFailure(nodeID string, failure InjectedFailure) erro
 	node.InjectFailure(failure)
 
 	event := FailureEvent{
-		Timestamp: time.Now(),
+		Timestamp: c.clock.Now(),
 		NodeID:    nodeID,
 		Type:      failure.Type,
 		XIDCode:   failure.XIDCode,
@@ -168,14 +175,14 @@ func (c *ChaosEngine) failureInjectionLoop(ctx context.Context) {
 		return
 	}
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := c.clock.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			c.maybeInjectFailure()
 		}
 	}
@@ -473,13 +480,13 @@ func (c *ChaosEngine) maybeTriggerCascade(sourceNodeID string, failure InjectedF
 		delay := minDelay + time.Duration(c.rng.Int63n(int64(maxDelay-minDelay)))
 
 		go func(target *SimulatedNode, d int, delay time.Duration) {
-			time.Sleep(delay)
+			c.clock.Sleep(delay)
 
 			cascadeFailure := c.generateXIDFailure()
 			target.InjectFailure(cascadeFailure)
 
 			event := FailureEvent{
-				Timestamp:   time.Now(),
+				Timestamp:   c.clock.Now(),
 				NodeID:      target.ID(),
 				Type:        cascadeFailure.Type,
 				XIDCode:     cascadeFailure.XIDCode,
@@ -565,7 +572,7 @@ func (c *ChaosEngine) scheduleRecovery(nodeID, failureType string) {
 		recoveryNs = int64(10 * time.Second) // Minimum recovery time
 	}
 
-	recoveryTime := time.Now().Add(time.Duration(recoveryNs))
+	recoveryTime := c.clock.Now().Add(time.Duration(recoveryNs))
 
 	c.mu.Lock()
 	c.pendingRecoveries[nodeID+":"+failureType] = recoveryTime
@@ -577,21 +584,21 @@ func (c *ChaosEngine) recoveryLoop(ctx context.Context) {
 		return
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := c.clock.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			c.processRecoveries()
 		}
 	}
 }
 
 func (c *ChaosEngine) processRecoveries() {
-	now := time.Now()
+	now := c.clock.Now()
 	nodes := c.nodes()
 
 	c.mu.Lock()
@@ -638,16 +645,16 @@ func (c *ChaosEngine) scheduledOutageLoop(ctx context.Context) {
 		return
 	}
 
-	startTime := time.Now()
+	startTime := c.clock.Now()
 
 	for _, outage := range c.config.ScheduledOutages {
 		go func(o ScheduledOutage) {
-			waitTime := o.StartTime.Duration() - time.Since(startTime)
+			waitTime := o.StartTime.Duration() - c.clock.Since(startTime)
 			if waitTime > 0 {
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.After(waitTime):
+				case <-c.clock.After(waitTime):
 				}
 			}
 
@@ -684,7 +691,7 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 		node.InjectFailure(failure)
 
 		event := FailureEvent{
-			Timestamp: time.Now(),
+			Timestamp: c.clock.Now(),
 			NodeID:    node.ID(),
 			Type:      outage.FailureType,
 			Message:   failure.Message,
@@ -708,7 +715,7 @@ func (c *ChaosEngine) executeOutage(ctx context.Context, outage ScheduledOutage)
 	select {
 	case <-ctx.Done():
 		return
-	case <-time.After(outage.Duration.Duration()):
+	case <-c.clock.After(outage.Duration.Duration()):
 	}
 
 	c.logger.Info("outage ended, recovering nodes",
