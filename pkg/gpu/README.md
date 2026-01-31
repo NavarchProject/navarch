@@ -53,6 +53,23 @@ Features:
 
 ### Health event injection
 
+The Injectable implementation supports timestamp control for deterministic tests using `*At` variants:
+
+```go
+injectable := gpu.NewInjectable(4, "")
+injectable.Initialize(ctx)
+
+// Inject with current time (uses time.Now())
+injectable.InjectXIDHealthEvent(0, 79, "GPU has fallen off the bus")
+
+// Inject with specific timestamp (for deterministic tests)
+ts := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+injectable.InjectXIDHealthEventAt(0, 79, "GPU has fallen off the bus", ts)
+injectable.InjectThermalHealthEventAt(0, 95, "High temperature", ts)
+injectable.InjectMemoryHealthEventAt(0, gpu.EventTypeECCDBE, 0, 1, "ECC error", ts)
+injectable.InjectNVLinkHealthEventAt(0, 0, "NVLink failure", ts)
+```
+
 ```go
 injectable := gpu.NewInjectable(4, "")
 injectable.Initialize(ctx)

@@ -246,6 +246,28 @@ func (a *MyMLAutoscaler) Recommend(ctx context.Context, state pool.PoolState) (p
 
 All autoscalers respect the cooldown period in `PoolState`. During cooldown, they return the current node count unchanged. This prevents rapid scaling oscillations.
 
+## Clock injection
+
+Pools accept a `clock.Clock` for time operations. Use `clock.NewFakeClock` in tests for deterministic behavior:
+
+```go
+import "github.com/NavarchProject/navarch/pkg/clock"
+
+fakeClock := clock.NewFakeClock(time.Now())
+
+p, _ := pool.NewWithOptions(pool.NewPoolOptions{
+    Config: pool.Config{
+        Name:           "test-pool",
+        CooldownPeriod: 5 * time.Minute,
+    },
+    Providers: []pool.ProviderConfig{...},
+    Clock:     fakeClock,
+})
+
+// Advance time to test cooldown
+fakeClock.Advance(5 * time.Minute)
+```
+
 ## Example: complete pool setup
 
 ```go

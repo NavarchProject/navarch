@@ -30,10 +30,16 @@ The `InMemDB` implementation stores all data in memory with proper synchronizati
 ```go
 import (
     "github.com/NavarchProject/navarch/pkg/controlplane/db"
+    "github.com/NavarchProject/navarch/pkg/clock"
 )
 
 // Create in-memory database
 database := db.NewInMemDB()
+defer database.Close()
+
+// Or with clock injection for deterministic tests
+fakeClock := clock.NewFakeClock(time.Now())
+database := db.NewInMemDBWithClock(fakeClock)
 defer database.Close()
 
 // Register a node
