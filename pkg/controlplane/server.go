@@ -39,7 +39,8 @@ type Config struct {
 	HealthCheckIntervalSeconds int32
 	HeartbeatIntervalSeconds   int32
 	EnabledHealthChecks        []string
-	Clock                      clock.Clock // Clock for time operations. If nil, uses real time.
+	HealthPolicy               *health.Policy // Health policy for CEL evaluation. If nil, uses default.
+	Clock                      clock.Clock    // Clock for time operations. If nil, uses real time.
 }
 
 // DefaultConfig returns a sensible default configuration.
@@ -66,8 +67,12 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 
 	metricsSource := NewDBMetricsSourceWithClock(database, clk, logger)
 
-	// Create health evaluator with default policy
-	evaluator, err := health.NewEvaluator(health.DefaultPolicy())
+	// Create health evaluator
+	policy := cfg.HealthPolicy
+	if policy == nil {
+		policy = health.DefaultPolicy()
+	}
+	evaluator, err := health.NewEvaluator(policy)
 	if err != nil {
 		logger.Error("failed to create health evaluator, CEL policies disabled", slog.String("error", err.Error()))
 		evaluator = nil

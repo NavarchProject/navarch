@@ -225,13 +225,11 @@ func TestEvaluator_UpdatePolicy(t *testing.T) {
 				Name:      "xid-79-degraded",
 				Condition: `event.event_type == "xid" && event.metrics.xid_code == 79`,
 				Result:    ResultDegraded,
-				Priority:  100,
 			},
 			{
 				Name:      "default",
 				Condition: "true",
 				Result:    ResultHealthy,
-				Priority:  0,
 			},
 		},
 	}
@@ -289,25 +287,23 @@ func TestEvaluator_Policy(t *testing.T) {
 
 func TestEvaluator_CustomPolicy(t *testing.T) {
 	// Test a custom policy with application-specific rules
+	// Rules are evaluated in definition order (first match wins)
 	policy := &Policy{
 		Rules: []Rule{
 			{
 				Name:      "any-xid-is-fatal",
 				Condition: `event.event_type == "xid"`,
 				Result:    ResultUnhealthy,
-				Priority:  100,
 			},
 			{
 				Name:      "temperature-over-80",
 				Condition: `event.event_type == "thermal" && event.metrics.temperature > 80`,
 				Result:    ResultDegraded,
-				Priority:  50,
 			},
 			{
 				Name:      "default",
 				Condition: "true",
 				Result:    ResultHealthy,
-				Priority:  0,
 			},
 		},
 	}

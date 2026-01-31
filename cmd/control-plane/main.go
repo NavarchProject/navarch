@@ -17,6 +17,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
+	"github.com/NavarchProject/navarch/pkg/health"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 	"github.com/NavarchProject/navarch/pkg/provider/fake"
@@ -60,10 +61,23 @@ func main() {
 		logger.With(slog.String("component", "instance-manager")),
 	)
 
+	// Load health policy
+	var healthPolicy *health.Policy
+	if cfg.Server.HealthPolicy != "" {
+		var err error
+		healthPolicy, err = health.LoadPolicy(cfg.Server.HealthPolicy)
+		if err != nil {
+			logger.Error("failed to load health policy", slog.String("path", cfg.Server.HealthPolicy), slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		logger.Info("loaded health policy", slog.String("path", cfg.Server.HealthPolicy), slog.Int("rules", len(healthPolicy.Rules)))
+	}
+
 	srv := controlplane.NewServer(database, controlplane.Config{
 		HealthCheckIntervalSeconds: int32(cfg.Server.HealthCheckInterval.Seconds()),
 		HeartbeatIntervalSeconds:   int32(cfg.Server.HeartbeatInterval.Seconds()),
 		EnabledHealthChecks:        []string{"boot", "nvml", "xid"},
+		HealthPolicy:               healthPolicy,
 	}, instanceManager, logger)
 
 	var poolManager *controlplane.PoolManager

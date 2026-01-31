@@ -6,6 +6,7 @@ server:
   address: ":50051"
   heartbeat_interval: 30s
   health_check_interval: 60s
+  # health_policy: ./health-policy.yaml  # Optional: custom CEL health policy
 
 providers:
   lambda:

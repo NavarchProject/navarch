@@ -8,19 +8,17 @@ import (
 
 func TestParsePolicy(t *testing.T) {
 	yaml := `
+version: v1
 rules:
   - name: fatal-xid
     condition: 'event.event_type == "xid" && event.metrics.xid_code == 79'
     result: unhealthy
-    priority: 100
   - name: thermal-warning
     condition: 'event.metrics.temperature > 85'
     result: degraded
-    priority: 50
   - name: default
     condition: 'true'
     result: healthy
-    priority: 0
 `
 	policy, err := ParsePolicy([]byte(yaml))
 	if err != nil {
@@ -36,9 +34,6 @@ rules:
 	}
 	if policy.Rules[0].Result != ResultUnhealthy {
 		t.Errorf("Rules[0].Result = %q, want 'unhealthy'", policy.Rules[0].Result)
-	}
-	if policy.Rules[0].Priority != 100 {
-		t.Errorf("Rules[0].Priority = %d, want 100", policy.Rules[0].Priority)
 	}
 }
 
@@ -126,17 +121,16 @@ func TestLoadPolicy_FileNotFound(t *testing.T) {
 func TestPolicy_SortedRules(t *testing.T) {
 	policy := &Policy{
 		Rules: []Rule{
-			{Name: "low", Priority: 10},
-			{Name: "high", Priority: 100},
-			{Name: "medium", Priority: 50},
-			{Name: "also-high", Priority: 100},
+			{Name: "first", Condition: "true", Result: ResultHealthy},
+			{Name: "second", Condition: "true", Result: ResultHealthy},
+			{Name: "third", Condition: "true", Result: ResultHealthy},
 		},
 	}
 
 	sorted := policy.SortedRules()
 
-	// Should be sorted by priority descending
-	expected := []string{"high", "also-high", "medium", "low"}
+	// Rules should be returned in definition order
+	expected := []string{"first", "second", "third"}
 	for i, name := range expected {
 		if sorted[i].Name != name {
 			t.Errorf("sorted[%d].Name = %q, want %q", i, sorted[i].Name, name)
@@ -144,26 +138,25 @@ func TestPolicy_SortedRules(t *testing.T) {
 	}
 
 	// Original should be unchanged
-	if policy.Rules[0].Name != "low" {
+	if policy.Rules[0].Name != "first" {
 		t.Error("Original rules should not be modified")
 	}
 }
 
-func TestPolicy_SortedRules_StableSort(t *testing.T) {
-	// Rules with same priority should maintain original order
+func TestPolicy_SortedRules_PreservesOrder(t *testing.T) {
+	// Rules should maintain definition order (first match wins)
 	policy := &Policy{
 		Rules: []Rule{
-			{Name: "first", Priority: 100},
-			{Name: "second", Priority: 100},
-			{Name: "third", Priority: 100},
+			{Name: "specific-rule", Condition: `event.event_type == "xid"`, Result: ResultUnhealthy},
+			{Name: "general-rule", Condition: "true", Result: ResultHealthy},
 		},
 	}
 
 	sorted := policy.SortedRules()
 
-	if sorted[0].Name != "first" || sorted[1].Name != "second" || sorted[2].Name != "third" {
-		t.Errorf("Same-priority rules should maintain order: got %s, %s, %s",
-			sorted[0].Name, sorted[1].Name, sorted[2].Name)
+	if sorted[0].Name != "specific-rule" || sorted[1].Name != "general-rule" {
+		t.Errorf("Rules should maintain definition order: got %s, %s",
+			sorted[0].Name, sorted[1].Name)
 	}
 }
 
@@ -244,24 +237,21 @@ func TestDefaultPolicy(t *testing.T) {
 		t.Errorf("DefaultPolicy() is invalid: %v", err)
 	}
 
-	// Should have a default-healthy rule
+	// Should have a default rule (catch-all at the end)
 	hasDefault := false
 	for _, rule := range policy.Rules {
-		if rule.Name == "default-healthy" {
+		if rule.Name == "default" {
 			hasDefault = true
-			if rule.Condition != "true" {
-				t.Error("default-healthy rule should have 'true' condition")
+			if rule.Condition != `"true"` && rule.Condition != "true" {
+				t.Errorf("default rule condition = %q, want 'true'", rule.Condition)
 			}
 			if rule.Result != ResultHealthy {
-				t.Error("default-healthy rule should return healthy")
-			}
-			if rule.Priority != 0 {
-				t.Errorf("default-healthy priority = %d, want 0", rule.Priority)
+				t.Error("default rule should return healthy")
 			}
 		}
 	}
 	if !hasDefault {
-		t.Error("DefaultPolicy should have a default-healthy rule")
+		t.Error("DefaultPolicy should have a default rule")
 	}
 
 	// Should have fatal-xid rule
@@ -272,13 +262,24 @@ func TestDefaultPolicy(t *testing.T) {
 			if rule.Result != ResultUnhealthy {
 				t.Error("fatal-xid rule should return unhealthy")
 			}
-			if rule.Priority != 100 {
-				t.Errorf("fatal-xid priority = %d, want 100", rule.Priority)
-			}
 		}
 	}
 	if !hasFatalXID {
 		t.Error("DefaultPolicy should have a fatal-xid rule")
+	}
+
+	// Fatal-xid should come before default (rules are evaluated in order)
+	fatalIdx, defaultIdx := -1, -1
+	for i, rule := range policy.Rules {
+		if rule.Name == "fatal-xid" {
+			fatalIdx = i
+		}
+		if rule.Name == "default" {
+			defaultIdx = i
+		}
+	}
+	if fatalIdx >= defaultIdx {
+		t.Error("fatal-xid rule should come before default rule")
 	}
 }
 

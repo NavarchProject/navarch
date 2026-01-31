@@ -22,6 +22,7 @@ type ServerConfig struct {
 	HeartbeatInterval    time.Duration `yaml:"heartbeat_interval,omitempty"`
 	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty"`
 	AutoscaleInterval    time.Duration `yaml:"autoscale_interval,omitempty"`
+	HealthPolicy         string        `yaml:"health_policy,omitempty"` // Path to health policy YAML file
 }
 
 // ProviderCfg configures a cloud provider.

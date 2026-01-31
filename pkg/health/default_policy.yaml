@@ -1,0 +1,115 @@
+# Default Navarch health policy
+#
+# Rules are evaluated in order; the first matching rule determines the result.
+# Place more specific rules before general ones.
+#
+# Available event fields:
+#   event.event_type  - string: xid, thermal, ecc_dbe, ecc_sbe, nvlink, pcie, power
+#   event.system      - string: DCGM health watch system identifier
+#   event.gpu_index   - int: GPU index (0-based, -1 for node-level)
+#   event.metrics     - map: event-specific metrics (xid_code, temperature, etc.)
+#   event.message     - string: human-readable description
+#
+# See: https://docs.nvidia.com/deploy/xid-errors/index.html
+
+version: v1
+
+metadata:
+  name: default
+  description: Default GPU health policy based on NVIDIA XID documentation
+
+rules:
+  # Fatal XID errors - unrecoverable, triggers node replacement
+  - name: fatal-xid
+    description: XID errors indicating unrecoverable GPU failure
+    condition: |
+      event.event_type == "xid" && event.metrics.xid_code in [
+        13,   // Graphics Engine Exception
+        31,   // GPU memory page fault
+        32,   // Invalid or corrupted push buffer stream
+        43,   // GPU stopped processing
+        45,   // Preemptive cleanup, due to previous errors
+        48,   // Double Bit ECC Error
+        61,   // Internal micro-controller breakpoint/warning
+        62,   // Internal micro-controller halt
+        63,   // ECC page retirement or row remapping event
+        64,   // ECC page retirement or row remapping recording failure
+        68,   // Video processor exception
+        69,   // Graphics Engine class error
+        74,   // NVLink Error
+        79,   // GPU has fallen off the bus
+        92,   // High single-bit ECC error rate
+        94,   // Contained ECC error
+        95,   // Uncontained ECC error
+        100,  // Timeout waiting for semaphore
+        119,  // GSP RPC timeout
+        120   // GSP error
+      ]
+    result: unhealthy
+
+  # Recoverable XID errors - alerts but no replacement
+  - name: recoverable-xid
+    description: XID errors that may recover without node replacement
+    condition: event.event_type == "xid"
+    result: degraded
+
+  # Double-bit ECC errors - uncorrectable memory errors
+  - name: ecc-dbe
+    description: Uncorrectable ECC errors in GPU memory
+    condition: |
+      event.event_type == "ecc_dbe" ||
+      (event.system == "DCGM_HEALTH_WATCH_MEM" &&
+       has(event.metrics.ecc_dbe_count) &&
+       event.metrics.ecc_dbe_count > 0)
+    result: unhealthy
+
+  # High single-bit ECC rate - correctable but concerning
+  - name: ecc-sbe-high
+    description: High rate of correctable ECC errors
+    condition: |
+      event.event_type == "ecc_sbe" &&
+      has(event.metrics.ecc_sbe_count) &&
+      event.metrics.ecc_sbe_count > 100
+    result: degraded
+
+  # Critical temperature - thermal shutdown imminent
+  - name: thermal-critical
+    description: GPU temperature at critical threshold
+    condition: |
+      event.event_type == "thermal" &&
+      has(event.metrics.temperature) &&
+      event.metrics.temperature >= 95
+    result: unhealthy
+
+  # High temperature - thermal throttling likely
+  - name: thermal-warning
+    description: GPU temperature elevated, throttling likely
+    condition: |
+      event.event_type == "thermal" &&
+      has(event.metrics.temperature) &&
+      event.metrics.temperature >= 85
+    result: degraded
+
+  # NVLink errors - affects multi-GPU workloads
+  - name: nvlink-error
+    description: NVLink interconnect errors
+    condition: event.event_type == "nvlink" || event.system == "DCGM_HEALTH_WATCH_NVLINK"
+    result: degraded
+
+  # PCIe errors - connectivity issues
+  - name: pcie-error
+    description: PCIe bus errors
+    condition: event.event_type == "pcie" || event.system == "DCGM_HEALTH_WATCH_PCIE"
+    result: degraded
+
+  # Power issues
+  - name: power-warning
+    description: GPU power delivery issues
+    condition: event.event_type == "power" || event.system == "DCGM_HEALTH_WATCH_POWER"
+    result: degraded
+
+  # Default - no matching rule means healthy
+  - name: default
+    description: No issues detected
+    condition: "true"
+    result: healthy
