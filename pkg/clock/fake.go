@@ -445,9 +445,18 @@ func (t *fakeTimer) Reset(d time.Duration) bool {
 		t.id = t.clock.addWaiter(t.deadline, nil, t.fire)
 	} else {
 		t.id = t.clock.addWaiter(t.deadline, t.ch, nil)
+		// If timer wasn't active (already fired or stopped), increment waiting
+		// for the new waiter. If it was active, waiting is already counted.
+		if !wasActive {
+			t.clock.waiting.Add(1)
+		}
 	}
 	t.stopped = false
 	t.clock.mu.Unlock()
+
+	if !wasActive && t.fn == nil {
+		t.clock.signalAdvance()
+	}
 
 	return wasActive
 }

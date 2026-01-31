@@ -374,6 +374,44 @@ func TestFakeClock_NewTimer_Reset(t *testing.T) {
 	}
 }
 
+func TestFakeClock_NewTimer_Reset_WaiterCount(t *testing.T) {
+	// This test verifies that Reset correctly updates the waiting counter
+	// when resetting a timer that has already fired.
+	c := NewFakeClock(time.Now())
+
+	timer := c.NewTimer(1 * time.Minute)
+
+	// Timer created - should have 1 waiter
+	if got := c.WaiterCount(); got != 1 {
+		t.Errorf("after NewTimer, WaiterCount() = %d, want 1", got)
+	}
+
+	// Fire the timer
+	c.Advance(2 * time.Minute)
+	<-timer.C()
+
+	// Timer fired - should have 0 waiters
+	if got := c.WaiterCount(); got != 0 {
+		t.Errorf("after timer fired, WaiterCount() = %d, want 0", got)
+	}
+
+	// Reset the fired timer
+	timer.Reset(1 * time.Minute)
+
+	// Reset timer should increment waiting counter
+	if got := c.WaiterCount(); got != 1 {
+		t.Errorf("after Reset, WaiterCount() = %d, want 1", got)
+	}
+
+	// Fire again
+	c.Advance(2 * time.Minute)
+	<-timer.C()
+
+	if got := c.WaiterCount(); got != 0 {
+		t.Errorf("after second fire, WaiterCount() = %d, want 0", got)
+	}
+}
+
 func TestFakeClock_NewTicker(t *testing.T) {
 	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	c := NewFakeClock(start)
