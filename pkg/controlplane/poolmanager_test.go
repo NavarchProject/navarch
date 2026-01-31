@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -163,8 +164,10 @@ func TestPoolManager_ScalePool(t *testing.T) {
 }
 
 func TestPoolManager_StartStop(t *testing.T) {
+	fakeClock := clock.NewFakeClock(time.Now())
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 100 * time.Millisecond,
+		Clock:              fakeClock,
 	}, nil, nil, nil)
 
 	prov := &mockProvider{}
@@ -178,24 +181,34 @@ func TestPoolManager_StartStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pm.Start(ctx)
 
-	time.Sleep(50 * time.Millisecond)
+	// Advance time to trigger a few evaluation cycles
+	fakeClock.Advance(50 * time.Millisecond)
 
 	cancel()
 	pm.Stop()
 }
 
 func TestPoolManager_AutoscalerLoop(t *testing.T) {
+	fakeClock := clock.NewFakeClock(time.Now())
 	metrics := &mockMetrics{utilization: 90}
 	pm := NewPoolManager(PoolManagerConfig{
 		EvaluationInterval: 50 * time.Millisecond,
+		Clock:              fakeClock,
 	}, metrics, nil, nil)
 
 	prov := &mockProvider{}
-	p, _ := pool.NewSimple(pool.Config{
-		Name:     "autoscale-test",
-		MinNodes: 0,
-		MaxNodes: 10,
-	}, prov, "mock")
+	p, _ := pool.NewWithOptions(pool.NewPoolOptions{
+		Config: pool.Config{
+			Name:     "autoscale-test",
+			MinNodes: 0,
+			MaxNodes: 10,
+		},
+		Providers: []pool.ProviderConfig{
+			{Name: "mock", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+		Clock:            fakeClock,
+	})
 
 	autoscaler := pool.NewReactiveAutoscaler(80, 20)
 
@@ -204,7 +217,12 @@ func TestPoolManager_AutoscalerLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pm.Start(ctx)
 
-	time.Sleep(150 * time.Millisecond)
+	// Advance time to trigger evaluation cycles
+	for i := 0; i < 3; i++ {
+		fakeClock.Advance(50 * time.Millisecond)
+		// Brief yield to let goroutine process the tick
+		time.Sleep(time.Millisecond)
+	}
 
 	cancel()
 	pm.Stop()

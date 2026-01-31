@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	pb "github.com/NavarchProject/navarch/proto"
 )
@@ -303,7 +304,8 @@ func TestInstanceManager_Stats(t *testing.T) {
 
 // TestInstanceManager_StaleInstanceDetection tests the stale instance detection loop
 func TestInstanceManager_StaleInstanceDetection(t *testing.T) {
-	database := db.NewInMemDB()
+	fakeClock := clock.NewFakeClock(time.Now())
+	database := db.NewInMemDBWithClock(fakeClock)
 	defer database.Close()
 
 	// Use very short timeout for testing
@@ -311,6 +313,7 @@ func TestInstanceManager_StaleInstanceDetection(t *testing.T) {
 		RegistrationTimeout:      100 * time.Millisecond,
 		StaleCheckInterval:       50 * time.Millisecond,
 		RetainTerminatedDuration: time.Hour,
+		Clock:                    fakeClock,
 	}
 
 	im := NewInstanceManager(database, config, nil)
@@ -330,8 +333,11 @@ func TestInstanceManager_StaleInstanceDetection(t *testing.T) {
 	im.Start(ctx)
 	defer im.Stop()
 
-	// Wait for stale detection to trigger
-	time.Sleep(200 * time.Millisecond)
+	// Advance time past stale check interval and registration timeout
+	for i := 0; i < 4; i++ {
+		fakeClock.Advance(50 * time.Millisecond)
+		time.Sleep(time.Millisecond) // Brief yield for goroutine to process
+	}
 
 	// Verify instance was marked as failed
 	instance, err := im.GetInstance(ctx, "i-stale")
@@ -666,13 +672,15 @@ func TestInstanceLifecycle_ProvisioningFailure(t *testing.T) {
 
 // TestInstanceManager_MultipleStartCalls tests that calling Start() multiple times is safe
 func TestInstanceManager_MultipleStartCalls(t *testing.T) {
-	database := db.NewInMemDB()
+	fakeClock := clock.NewFakeClock(time.Now())
+	database := db.NewInMemDBWithClock(fakeClock)
 	defer database.Close()
 
 	config := InstanceManagerConfig{
 		RegistrationTimeout:      100 * time.Millisecond,
 		StaleCheckInterval:       50 * time.Millisecond,
 		RetainTerminatedDuration: time.Hour,
+		Clock:                    fakeClock,
 	}
 
 	im := NewInstanceManager(database, config, nil)
@@ -693,8 +701,11 @@ func TestInstanceManager_MultipleStartCalls(t *testing.T) {
 	im.Start(ctx) // Second call should be no-op
 	im.Start(ctx) // Third call should be no-op
 
-	// Wait for stale detection
-	time.Sleep(200 * time.Millisecond)
+	// Advance time past stale detection threshold
+	for i := 0; i < 4; i++ {
+		fakeClock.Advance(50 * time.Millisecond)
+		time.Sleep(time.Millisecond)
+	}
 
 	// Stop should work correctly even after multiple Start() calls
 	im.Stop()
@@ -725,13 +736,15 @@ func TestInstanceManager_StopBeforeStart(t *testing.T) {
 
 // TestInstanceManager_Restart tests that the manager can be restarted after Stop()
 func TestInstanceManager_Restart(t *testing.T) {
-	database := db.NewInMemDB()
+	fakeClock := clock.NewFakeClock(time.Now())
+	database := db.NewInMemDBWithClock(fakeClock)
 	defer database.Close()
 
 	config := InstanceManagerConfig{
 		RegistrationTimeout:      100 * time.Millisecond,
 		StaleCheckInterval:       50 * time.Millisecond,
 		RetainTerminatedDuration: time.Hour,
+		Clock:                    fakeClock,
 	}
 
 	im := NewInstanceManager(database, config, nil)
@@ -747,7 +760,10 @@ func TestInstanceManager_Restart(t *testing.T) {
 	im.TrackProvisioningComplete(ctx, "i-1")
 
 	im.Start(ctx)
-	time.Sleep(200 * time.Millisecond)
+	for i := 0; i < 4; i++ {
+		fakeClock.Advance(50 * time.Millisecond)
+		time.Sleep(time.Millisecond)
+	}
 	im.Stop()
 
 	if staleCount != 1 {
@@ -759,7 +775,10 @@ func TestInstanceManager_Restart(t *testing.T) {
 	im.TrackProvisioningComplete(ctx, "i-2")
 
 	im.Start(ctx)
-	time.Sleep(200 * time.Millisecond)
+	for i := 0; i < 4; i++ {
+		fakeClock.Advance(50 * time.Millisecond)
+		time.Sleep(time.Millisecond)
+	}
 	im.Stop()
 
 	if staleCount != 2 {

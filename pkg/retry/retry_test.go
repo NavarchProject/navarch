@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
 func TestDo_SuccessOnFirstAttempt(t *testing.T) {
@@ -77,22 +79,29 @@ func TestDo_MaxAttemptsExceeded(t *testing.T) {
 
 func TestDo_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	fakeClock := clock.NewFakeClock(time.Now())
 	cfg := Config{
 		MaxAttempts:  10,
 		InitialDelay: 100 * time.Millisecond,
+		Clock:        fakeClock,
 	}
 
 	attempts := 0
+	done := make(chan error, 1)
 	go func() {
-		time.Sleep(50 * time.Millisecond)
-		cancel()
+		done <- Do(ctx, cfg, func(ctx context.Context) error {
+			attempts++
+			return errors.New("error")
+		})
 	}()
 
-	err := Do(ctx, cfg, func(ctx context.Context) error {
-		attempts++
-		return errors.New("error")
-	})
+	// Wait for retry to start waiting on clock
+	fakeClock.BlockUntilWaiters(1)
 
+	// Cancel context while waiting
+	cancel()
+
+	err := <-done
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled in error chain, got %v", err)
 	}

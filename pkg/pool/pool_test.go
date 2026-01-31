@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
 
@@ -352,12 +353,20 @@ func TestPool_HealthTracking(t *testing.T) {
 
 func TestPool_Cooldown(t *testing.T) {
 	prov := newMockProvider()
-	pool, _ := NewSimple(Config{
-		Name:           "test-pool",
-		MinNodes:       0,
-		MaxNodes:       10,
-		CooldownPeriod: 100 * time.Millisecond,
-	}, prov, "mock")
+	fakeClock := clock.NewFakeClock(time.Now())
+	pool, _ := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:           "test-pool",
+			MinNodes:       0,
+			MaxNodes:       10,
+			CooldownPeriod: 100 * time.Millisecond,
+		},
+		Providers: []ProviderConfig{
+			{Name: "mock", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+		Clock:            fakeClock,
+	})
 
 	ctx := context.Background()
 
@@ -373,8 +382,8 @@ func TestPool_Cooldown(t *testing.T) {
 		t.Error("Second ScaleUp() should fail during cooldown")
 	}
 
-	// Wait for cooldown
-	time.Sleep(150 * time.Millisecond)
+	// Advance clock past cooldown
+	fakeClock.Advance(150 * time.Millisecond)
 
 	// Now it should succeed
 	_, err = pool.ScaleUp(ctx, 1)
