@@ -51,6 +51,17 @@ type StressMetrics struct {
 	nodeEvents          map[string][]NodeEvent
 	nodeSpecs           map[string]NodeSpec
 	nodeColdStartDelays map[string]time.Duration
+
+	// Policy rule tracking
+	policyRuleHits map[string]*PolicyRuleHit
+}
+
+// PolicyRuleHit tracks how many times a policy rule was triggered.
+type PolicyRuleHit struct {
+	Name     string `json:"name"`
+	Hits     int64  `json:"hits"`
+	Result   string `json:"result"`
+	Priority int    `json:"priority"`
 }
 
 // NodeEvent represents an event that occurred on a specific node.
@@ -61,6 +72,8 @@ type NodeEvent struct {
 	Message     string    `json:"message,omitempty"`
 	FailureType string    `json:"failure_type,omitempty"`
 	XIDCode     int       `json:"xid_code,omitempty"`
+	PolicyRule  string    `json:"policy_rule,omitempty"`
+	RuleResult  string    `json:"rule_result,omitempty"`
 }
 
 // MetricSample represents a point-in-time metric snapshot.
@@ -78,16 +91,17 @@ type MetricSample struct {
 
 // StressReport is the final stress test report.
 type StressReport struct {
-	Name          string         `json:"name"`
-	StartTime     time.Time      `json:"start_time"`
-	EndTime       time.Time      `json:"end_time"`
-	Duration      time.Duration  `json:"duration"`
-	Configuration ReportConfig   `json:"configuration"`
-	Summary       ReportSummary  `json:"summary"`
-	Failures      FailureReport  `json:"failures"`
-	Timeline      []MetricSample `json:"timeline"`
-	Nodes         []NodeReport   `json:"nodes"`
-	LogsDirectory string         `json:"logs_directory,omitempty"`
+	Name           string            `json:"name"`
+	StartTime      time.Time         `json:"start_time"`
+	EndTime        time.Time         `json:"end_time"`
+	Duration       time.Duration     `json:"duration"`
+	Configuration  ReportConfig      `json:"configuration"`
+	Summary        ReportSummary     `json:"summary"`
+	Failures       FailureReport     `json:"failures"`
+	Timeline       []MetricSample    `json:"timeline"`
+	Nodes          []NodeReport      `json:"nodes"`
+	PolicyRuleHits []*PolicyRuleHit  `json:"policy_rule_hits,omitempty"`
+	LogsDirectory  string            `json:"logs_directory,omitempty"`
 }
 
 // NodeReport contains per-node statistics and event history.
@@ -161,6 +175,24 @@ func NewStressMetrics(clk clock.Clock, logger *slog.Logger) *StressMetrics {
 		nodeSpecs:           make(map[string]NodeSpec),
 		nodeColdStartDelays: make(map[string]time.Duration),
 		samples:             make([]MetricSample, 0, 1000),
+		policyRuleHits:      make(map[string]*PolicyRuleHit),
+	}
+}
+
+// RecordPolicyRuleHit records that a policy rule was triggered.
+func (m *StressMetrics) RecordPolicyRuleHit(ruleName, result string, priority int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if hit, ok := m.policyRuleHits[ruleName]; ok {
+		hit.Hits++
+	} else {
+		m.policyRuleHits[ruleName] = &PolicyRuleHit{
+			Name:     ruleName,
+			Hits:     1,
+			Result:   result,
+			Priority: priority,
+		}
 	}
 }
 
@@ -255,6 +287,19 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 		m.failuresByXID[event.XIDCode]++
 	}
 
+	// Track which policy rule would fire for this failure
+	ruleName, result, priority := inferPolicyRule(event)
+	if hit, ok := m.policyRuleHits[ruleName]; ok {
+		hit.Hits++
+	} else {
+		m.policyRuleHits[ruleName] = &PolicyRuleHit{
+			Name:     ruleName,
+			Hits:     1,
+			Result:   result,
+			Priority: priority,
+		}
+	}
+
 	message := fmt.Sprintf("Failure: %s", event.Type)
 	if event.IsCascade {
 		message += " (cascading)"
@@ -273,8 +318,49 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 		FailureType: event.Type,
 		XIDCode:     event.XIDCode,
 		Message:     message,
+		PolicyRule:  ruleName,
+		RuleResult:  result,
 	})
 	m.mu.Unlock()
+}
+
+// inferPolicyRule determines which policy rule would fire for a given failure.
+// This mirrors the logic in pkg/health/defaults.go.
+func inferPolicyRule(event FailureEvent) (name, result string, priority int) {
+	switch event.Type {
+	case "xid_error":
+		// Check if it's a fatal XID code
+		isFatal := false
+		for _, code := range []int{13, 31, 32, 43, 45, 48, 61, 62, 63, 64, 68, 69, 74, 79, 92, 94, 95, 100, 119, 120} {
+			if event.XIDCode == code {
+				isFatal = true
+				break
+			}
+		}
+		if isFatal {
+			return "fatal-xid", "unhealthy", 100
+		}
+		return "recoverable-xid", "degraded", 90
+
+	case "memory_error":
+		return "ecc-dbe", "unhealthy", 100
+
+	case "temperature":
+		// Assume critical temperature since chaos engine injects failures
+		return "thermal-critical", "unhealthy", 100
+
+	case "nvlink_error":
+		return "nvlink-error", "degraded", 60
+
+	case "pcie_error":
+		return "pcie-error", "degraded", 60
+
+	case "power_error":
+		return "power-warning", "degraded", 50
+
+	default:
+		return "default-healthy", "healthy", 0
+	}
 }
 
 // RecordRecovery records a node recovery.
@@ -384,8 +470,22 @@ func (m *StressMetrics) GenerateReport(name string, config *StressConfig) *Stres
 	report.Summary = m.computeSummary()
 	report.Failures = m.computeFailureReport()
 	report.Nodes = m.computeNodeReports()
+	report.PolicyRuleHits = m.computePolicyRuleHits()
 
 	return report
+}
+
+// computePolicyRuleHits returns sorted policy rule hit data.
+func (m *StressMetrics) computePolicyRuleHits() []*PolicyRuleHit {
+	var hits []*PolicyRuleHit
+	for _, hit := range m.policyRuleHits {
+		hits = append(hits, hit)
+	}
+	// Sort by hits descending
+	sort.Slice(hits, func(i, j int) bool {
+		return hits[i].Hits > hits[j].Hits
+	})
+	return hits
 }
 
 // computeNodeReports generates per-node reports.

@@ -131,9 +131,38 @@ type templateData struct {
 	TemplateLabels template.JS
 	TemplateData   template.JS
 
-	NodeReports []NodeReport
+	// Policy rule evaluation
+	PolicyRuleHits   []policyRuleHitData
+	PolicyRuleLabels template.JS
+	PolicyRuleData   template.JS
+	PolicyRuleColors template.JS
+
+	NodeReports   []NodeReport
 	NodesJSON     template.JS
 	LogsDirectory string
+}
+
+type policyRuleHitData struct {
+	Name       string
+	Hits       int64
+	Result     string
+	Priority   int
+	Expression string
+}
+
+// policyRuleExpressions maps rule names to their CEL expressions.
+// From pkg/health/defaults.go.
+var policyRuleExpressions = map[string]string{
+	"fatal-xid":        `event.event_type == "xid" && event.metrics.xid_code in [13, 31, 32, 43, 45, 48, 61, 62, 63, 64, 68, 69, 74, 79, 92, 94, 95, 100, 119, 120]`,
+	"recoverable-xid":  `event.event_type == "xid" && !(event.metrics.xid_code in [...])`,
+	"ecc-dbe":          `event.event_type == "ecc_dbe" || (event.system == "DCGM_HEALTH_WATCH_MEM" && event.metrics.ecc_dbe_count > 0)`,
+	"ecc-sbe-high":     `event.event_type == "ecc_sbe" && event.metrics.ecc_sbe_count > 100`,
+	"thermal-critical": `event.event_type == "thermal" && event.metrics.temperature >= 95`,
+	"thermal-warning":  `event.event_type == "thermal" && event.metrics.temperature >= 85`,
+	"nvlink-error":     `event.event_type == "nvlink" || event.system == "DCGM_HEALTH_WATCH_NVLINK"`,
+	"pcie-error":       `event.event_type == "pcie" || event.system == "DCGM_HEALTH_WATCH_PCIE"`,
+	"power-warning":    `event.event_type == "power" || event.system == "DCGM_HEALTH_WATCH_POWER"`,
+	"default-healthy":  `true`,
 }
 
 type fleetTemplateData struct {
@@ -370,6 +399,37 @@ func (g *HTMLReportGenerator) prepareTemplateData() templateData {
 	data.NodeReports = r.Nodes
 	data.NodesJSON = toJSArray(r.Nodes)
 	data.LogsDirectory = r.LogsDirectory
+
+	// Policy rule hits
+	if len(r.PolicyRuleHits) > 0 {
+		var ruleLabels []string
+		var ruleData []int64
+		var ruleColors []string
+		for _, hit := range r.PolicyRuleHits {
+			expr := policyRuleExpressions[hit.Name]
+			data.PolicyRuleHits = append(data.PolicyRuleHits, policyRuleHitData{
+				Name:       hit.Name,
+				Hits:       hit.Hits,
+				Result:     hit.Result,
+				Priority:   hit.Priority,
+				Expression: expr,
+			})
+			ruleLabels = append(ruleLabels, hit.Name)
+			ruleData = append(ruleData, hit.Hits)
+			// Color based on result
+			switch hit.Result {
+			case "unhealthy":
+				ruleColors = append(ruleColors, "#e00")
+			case "degraded":
+				ruleColors = append(ruleColors, "#f5a623")
+			default:
+				ruleColors = append(ruleColors, "#0070f3")
+			}
+		}
+		data.PolicyRuleLabels = toJSArray(ruleLabels)
+		data.PolicyRuleData = toJSArray(ruleData)
+		data.PolicyRuleColors = toJSArray(ruleColors)
+	}
 
 	return data
 }

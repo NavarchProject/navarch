@@ -179,7 +179,6 @@ func (c *FakeClock) NewTicker(d time.Duration) Ticker {
 // NewTimer creates a new Timer that fires after d.
 func (c *FakeClock) NewTimer(d time.Duration) Timer {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	ft := &fakeTimer{
 		clock:    c,
@@ -189,10 +188,16 @@ func (c *FakeClock) NewTimer(d time.Duration) Timer {
 
 	if d <= 0 {
 		ft.ch <- c.now
+		c.mu.Unlock()
 		return ft
 	}
 
 	ft.id = c.addWaiter(ft.deadline, ft.ch, nil)
+	c.mu.Unlock()
+
+	c.waiting.Add(1)
+	c.signalAdvance()
+
 	return ft
 }
 
@@ -419,6 +424,12 @@ func (t *fakeTimer) Stop() bool {
 	t.clock.mu.Lock()
 	removed := t.clock.removeWaiter(t.id)
 	t.clock.mu.Unlock()
+
+	// Decrement waiting counter if we removed a channel-based timer
+	// (fn-based timers from AfterFunc don't increment waiting)
+	if removed && t.fn == nil {
+		t.clock.waiting.Add(-1)
+	}
 
 	return removed
 }

@@ -5,300 +5,349 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Name}} | Stress Test Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: '#333333',
+                        'border-subtle': '#222222',
+                        surface: { DEFAULT: '#0a0a0a', secondary: '#111111', hover: '#1a1a1a' },
+                        accent: { DEFAULT: '#0070f3', success: '#50e3c2', warning: '#f5a623', danger: '#e00', purple: '#7928ca', pink: '#ff0080' },
+                    },
+                    fontFamily: {
+                        mono: ['Geist Mono', 'SF Mono', 'SFMono-Regular', 'ui-monospace', 'Menlo', 'Consolas', 'monospace'],
+                        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
     <style>
         :root {
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --bg-hover: #30363d;
-            --border: #30363d;
-            --border-subtle: #21262d;
-            --text-primary: #e6edf3;
-            --text-secondary: #8b949e;
-            --text-muted: #6e7681;
-            --accent: #58a6ff;
-            --accent-dim: #58a6ff20;
-            --success: #3fb950;
-            --success-dim: #3fb95018;
-            --warning: #d29922;
-            --warning-dim: #d2992218;
-            --danger: #f85149;
-            --danger-dim: #f8514918;
-            --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            --bg-primary: #000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111;
+            --bg-hover: #1a1a1a;
+            --border: #333;
+            --border-subtle: #222;
+            --text-primary: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-muted: #666;
+            --accent: #fff;
+            --success: #50e3c2;
+            --warning: #f5a623;
+            --danger: #e00;
+            --blue: #0070f3;
+            --radius: 8px;
+            --shadow-sm: 0 0 0 1px var(--border);
+            --mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
+            --sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
+        /* Base styles */
         body {
             font-family: var(--sans);
             background: var(--bg-primary);
             color: var(--text-primary);
-            line-height: 1.5;
-            font-size: 13px;
+            line-height: 1.6;
+            font-size: 14px;
             -webkit-font-smoothing: antialiased;
         }
-        
-        .container { max-width: 1600px; margin: 0 auto; padding: 16px; }
-        
-        /* Header - Compact command bar style */
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Header - Clean and minimal */
         .header {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
-            padding: 12px 16px;
-            margin: -16px -16px 16px -16px;
+            padding: 20px 24px;
+            margin: -24px -24px 24px -24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 24px;
             flex-wrap: wrap;
+            box-shadow: var(--shadow-sm);
         }
         .header-left { display: flex; align-items: center; gap: 16px; }
         .header h1 {
-            font-family: var(--mono);
-            font-size: 14px;
+            font-size: 18px;
             font-weight: 600;
             color: var(--text-primary);
             letter-spacing: -0.02em;
         }
         .header-badge {
-            font-family: var(--mono);
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 500;
-            padding: 3px 8px;
-            border-radius: 3px;
-            background: var(--accent-dim);
-            color: var(--accent);
-            border: 1px solid var(--accent);
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.02em;
         }
         .header-meta {
             display: flex;
-            gap: 20px;
-            font-family: var(--mono);
-            font-size: 11px;
+            gap: 24px;
+            font-size: 13px;
             color: var(--text-secondary);
         }
         .header-meta span { display: flex; align-items: center; gap: 6px; }
-        .header-meta .label { color: var(--text-muted); }
-        .header-meta .value { color: var(--text-primary); }
+        .header-meta .label { color: var(--text-muted); font-size: 12px; }
+        .header-meta .value { color: var(--text-primary); font-weight: 500; font-family: var(--mono); font-size: 12px; }
 
-        /* Tabs - Terminal style */
+        /* Tabs - Vercel underline style */
         .tabs {
             display: flex;
             gap: 0;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 3px;
-            margin-bottom: 16px;
-            width: fit-content;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border);
         }
         .tab {
-            padding: 6px 16px;
+            padding: 12px 16px;
             cursor: pointer;
-            color: var(--text-secondary);
+            color: var(--text-muted);
             border: none;
             background: none;
-            font-size: 12px;
-            font-family: var(--mono);
-            font-weight: 500;
-            border-radius: 3px;
-            transition: all 0.15s;
+            font-size: 14px;
+            font-weight: 400;
+            border-radius: 0;
+            transition: color 0.15s ease;
+            position: relative;
         }
-        .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .tab:hover { color: var(--text-primary); }
         .tab.active {
-            color: var(--bg-primary);
-            background: var(--accent);
+            color: var(--text-primary);
+        }
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--text-primary);
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* Stats grid - Dense metric cards */
+        /* Stats grid - Vercel card style */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 8px;
-            margin-bottom: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1px;
+            margin-bottom: 32px;
+            background: var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
         }
         .stat-card {
             background: var(--bg-secondary);
-            border-radius: 4px;
-            padding: 12px;
-            border: 1px solid var(--border);
-            position: relative;
+            padding: 20px;
+            border: none;
+            box-shadow: none;
+            transition: background 0.15s ease;
         }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            border-radius: 4px 0 0 4px;
-        }
-        .stat-card.success::before { background: var(--success); }
-        .stat-card.warning::before { background: var(--warning); }
-        .stat-card.danger::before { background: var(--danger); }
-        .stat-card.info::before { background: var(--accent); }
+        .stat-card:hover { background: var(--bg-tertiary); }
+        .stat-card::before { display: none; }
         .stat-label {
-            font-size: 10px;
-            color: var(--text-muted);
+            font-size: 12px;
+            color: #666;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            font-weight: 500;
+            font-weight: 400;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
         }
         .stat-value {
-            font-family: var(--mono);
-            font-size: 24px;
-            font-weight: 600;
-            margin-top: 2px;
-            letter-spacing: -0.02em;
+            font-family: var(--sans);
+            font-size: 28px;
+            font-weight: 500;
+            letter-spacing: -0.03em;
+            color: var(--text-primary);
         }
         .stat-card.success .stat-value { color: var(--success); }
         .stat-card.warning .stat-value { color: var(--warning); }
         .stat-card.danger .stat-value { color: var(--danger); }
-        .stat-card.info .stat-value { color: var(--accent); }
+        .stat-card.info .stat-value { color: var(--text-primary); }
+
+        /* Info icon tooltips */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #222;
+            color: #666;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: help;
+            margin-left: 6px;
+            vertical-align: middle;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .stat-card:hover .info-icon {
+            background: #444;
+            color: #999;
+        }
+        .stat-tooltip {
+            position: fixed;
+            max-width: 280px;
+            padding: 10px 14px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #a1a1a1;
+            z-index: 1000;
+            pointer-events: none;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .stat-tooltip.visible { opacity: 1; }
 
         /* Charts */
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+            gap: 20px;
         }
         .chart-card {
             background: var(--bg-secondary);
-            border-radius: 4px;
-            padding: 16px;
+            border-radius: var(--radius);
+            padding: 24px;
             border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
         .chart-card h3 {
-            font-family: var(--mono);
-            font-size: 11px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
+            letter-spacing: 0.04em;
+            margin-bottom: 16px;
         }
-        .chart-container { position: relative; height: 240px; }
-        .chart-container.small { height: 180px; }
+        .chart-container { position: relative; height: 260px; }
+        .chart-container.small { height: 200px; }
 
-        /* Tables - Dense data display */
+        /* Tables */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            font-family: var(--mono);
-            font-size: 12px;
+            font-size: 13px;
         }
         .data-table th, .data-table td {
-            padding: 8px 12px;
+            padding: 12px 16px;
             text-align: left;
             border-bottom: 1px solid var(--border-subtle);
         }
         .data-table th {
             background: var(--bg-tertiary);
             color: var(--text-muted);
-            font-weight: 500;
-            font-size: 10px;
+            font-weight: 600;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
         }
         .data-table tr:hover { background: var(--bg-hover); }
         .data-table td { color: var(--text-secondary); }
 
-        /* Badges - Minimal */
+        /* Badges - Rounded pills */
         .badge {
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 2px;
-            font-family: var(--mono);
-            font-size: 10px;
-            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.03em;
         }
-        .badge.fatal { background: var(--danger-dim); color: var(--danger); border: 1px solid var(--danger); }
-        .badge.recoverable { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
-        .badge.enabled { background: var(--success-dim); color: var(--success); border: 1px solid var(--success); }
-        .badge.disabled { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border); }
+        .badge.fatal { background: var(--danger-dim); color: var(--danger); }
+        .badge.recoverable { background: var(--success-dim); color: var(--success); }
+        .badge.enabled { background: var(--success-dim); color: var(--success); }
+        .badge.disabled { background: var(--bg-tertiary); color: var(--text-muted); }
 
         /* Config sections */
         .config-section {
             background: var(--bg-secondary);
-            border-radius: 4px;
-            padding: 16px;
+            border-radius: var(--radius);
+            padding: 24px;
             border: 1px solid var(--border);
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
         }
         .config-section h3 {
-            font-family: var(--mono);
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border-subtle);
         }
         .config-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
+            gap: 20px;
         }
         .config-item {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 10px 0;
             border-bottom: 1px solid var(--border-subtle);
         }
         .config-item:last-child { border-bottom: none; }
-        .config-label { color: var(--text-muted); font-size: 12px; }
+        .config-label { color: var(--text-muted); font-size: 13px; }
         .config-value {
             color: var(--text-primary);
             font-family: var(--mono);
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
         }
 
         .config-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
         }
 
         /* Section headers */
         .section-header {
-            font-family: var(--mono);
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin: 20px 0 12px 0;
-            padding-bottom: 8px;
+            letter-spacing: 0.06em;
+            margin: 32px 0 16px 0;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
         }
 
         .footer {
-            margin-top: 32px;
-            padding-top: 16px;
+            margin-top: 48px;
+            padding-top: 24px;
             border-top: 1px solid var(--border);
             text-align: center;
             color: var(--text-muted);
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 0.05em;
+            font-size: 12px;
         }
 
-        /* Timeline Track View - Dense terminal style */
+        /* Timeline Track View */
         .timeline-container {
             background: var(--bg-secondary);
-            border-radius: 4px;
+            border-radius: var(--radius);
             border: 1px solid var(--border);
             overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
         .timeline-header {
             display: flex;
@@ -309,56 +358,55 @@
             z-index: 10;
         }
         .timeline-labels {
-            min-width: 160px;
-            max-width: 160px;
-            padding: 4px 8px;
-            font-family: var(--mono);
-            font-weight: 500;
+            min-width: 180px;
+            max-width: 180px;
+            padding: 8px 12px;
+            font-weight: 600;
             color: var(--text-muted);
-            font-size: 10px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             border-right: 1px solid var(--border);
         }
         .timeline-ruler {
             flex: 1;
             display: flex;
             align-items: center;
-            padding: 4px 0;
+            padding: 8px 0;
             overflow-x: auto;
         }
         .timeline-tick {
             flex: 1;
             text-align: center;
             font-family: var(--mono);
-            font-size: 9px;
+            font-size: 10px;
             color: var(--text-muted);
             border-left: 1px solid var(--border-subtle);
-            padding: 0 2px;
-            min-width: 50px;
+            padding: 0 4px;
+            min-width: 60px;
         }
         .timeline-body {
-            max-height: 65vh;
+            max-height: 60vh;
             overflow-y: auto;
         }
         .timeline-row {
             display: flex;
             border-bottom: 1px solid var(--border-subtle);
-            min-height: 18px;
+            min-height: 28px;
         }
         .timeline-row:hover { background: var(--bg-hover); }
         .timeline-row.has-failures { background: var(--danger-dim); }
         .timeline-node-label {
-            min-width: 160px;
-            max-width: 160px;
-            padding: 1px 8px;
+            min-width: 180px;
+            max-width: 180px;
+            padding: 4px 12px;
             font-family: var(--mono);
-            font-size: 10px;
+            font-size: 11px;
             color: var(--text-secondary);
             border-right: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -371,147 +419,148 @@
         .timeline-track {
             flex: 1;
             position: relative;
-            height: 18px;
+            height: 28px;
         }
         .timeline-segment {
             position: absolute;
-            top: 2px;
-            height: 14px;
-            border-radius: 1px;
+            top: 4px;
+            height: 20px;
+            border-radius: 3px;
         }
-        .timeline-segment.healthy { background: #238636; }
-        .timeline-segment.degraded { background: #9e6a03; }
-        .timeline-segment.unhealthy { background: #da3633; }
-        .timeline-segment.pending { background: var(--bg-tertiary); }
+        .timeline-segment.healthy { background: #0070f3; }
+        .timeline-segment.degraded { background: #f5a623; }
+        .timeline-segment.unhealthy { background: #e00; }
+        .timeline-segment.pending { background: var(--bg-hover); }
         .timeline-event {
             position: absolute;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             cursor: pointer;
             z-index: 5;
+            border: 2px solid var(--bg-secondary);
         }
-        .timeline-event.failure { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
-        .timeline-event.recovery { background: var(--success); box-shadow: 0 0 4px var(--success); }
-        .timeline-event.status_change { background: var(--accent); }
+        .timeline-event.failure { background: #e00; }
+        .timeline-event.recovery { background: #50e3c2; }
+        .timeline-event.status_change { background: #666; }
         .timeline-controls {
             display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 12px;
+            margin-bottom: 16px;
             align-items: center;
             flex-wrap: wrap;
         }
         .timeline-legend {
             display: flex;
-            gap: 12px;
-            padding: 6px 10px;
+            gap: 16px;
+            padding: 8px 16px;
             background: var(--bg-secondary);
-            border-radius: 3px;
+            border-radius: var(--radius);
             border: 1px solid var(--border);
         }
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 4px;
-            font-family: var(--mono);
-            font-size: 10px;
+            gap: 6px;
+            font-size: 12px;
             color: var(--text-muted);
         }
         .legend-color {
-            width: 10px;
-            height: 10px;
-            border-radius: 1px;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
         }
-        .legend-color.healthy { background: #238636; }
-        .legend-color.degraded { background: #9e6a03; }
-        .legend-color.unhealthy { background: #da3633; }
+        .legend-color.healthy { background: #0070f3; }
+        .legend-color.degraded { background: #f5a623; }
+        .legend-color.unhealthy { background: #e00; }
         .legend-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
         }
-        .legend-dot.failure { background: var(--danger); }
-        .legend-dot.recovery { background: var(--success); }
+        .legend-dot.failure { background: #e00; }
+        .legend-dot.recovery { background: #50e3c2; }
         .timeline-tooltip {
             position: fixed;
-            background: var(--bg-tertiary);
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 3px;
-            padding: 8px 10px;
-            font-family: var(--mono);
-            font-size: 11px;
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            font-size: 13px;
             color: var(--text-primary);
             z-index: 1000;
             pointer-events: none;
-            max-width: 300px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            max-width: 320px;
+            box-shadow: var(--shadow-md);
         }
         .zoom-controls {
             display: flex;
-            gap: 2px;
+            gap: 4px;
         }
         .zoom-btn {
-            padding: 3px 8px;
-            background: var(--bg-tertiary);
+            padding: 6px 12px;
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 2px;
+            border-radius: 6px;
             color: var(--text-secondary);
             cursor: pointer;
             font-family: var(--mono);
-            font-size: 11px;
+            font-size: 12px;
+            transition: all 0.15s ease;
         }
-        .zoom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .zoom-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
-        /* Node List - Terminal-style split view */
+        /* Node List - Split view */
         .nodes-container {
             display: flex;
-            gap: 12px;
-            height: 70vh;
+            gap: 16px;
+            height: 65vh;
         }
         .nodes-sidebar {
-            width: 300px;
-            min-width: 300px;
+            width: 320px;
+            min-width: 320px;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 4px;
+            border-radius: var(--radius);
             display: flex;
             flex-direction: column;
+            box-shadow: var(--shadow-sm);
         }
         .nodes-sidebar-header {
-            padding: 8px;
+            padding: 12px;
             border-bottom: 1px solid var(--border);
             background: var(--bg-tertiary);
+            border-radius: var(--radius) var(--radius) 0 0;
         }
         .nodes-sidebar-header input {
             width: 100%;
-            padding: 5px 8px;
-            background: var(--bg-primary);
+            padding: 8px 12px;
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 2px;
+            border-radius: 6px;
             color: var(--text-primary);
-            font-family: var(--mono);
-            font-size: 11px;
+            font-size: 13px;
         }
         .nodes-sidebar-header input:focus {
             outline: none;
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
         }
         .nodes-sidebar-filters {
             display: flex;
-            gap: 4px;
-            margin-top: 6px;
+            gap: 8px;
+            margin-top: 8px;
         }
         .nodes-sidebar-filters select {
             flex: 1;
-            padding: 4px 6px;
-            background: var(--bg-primary);
+            padding: 6px 10px;
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 2px;
+            border-radius: 6px;
             color: var(--text-secondary);
-            font-family: var(--mono);
-            font-size: 10px;
+            font-size: 12px;
         }
         .nodes-sidebar-list {
             flex: 1;
@@ -520,19 +569,20 @@
         .node-list-item {
             display: flex;
             align-items: center;
-            padding: 4px 8px;
+            padding: 10px 12px;
             cursor: pointer;
             border-bottom: 1px solid var(--border-subtle);
-            gap: 6px;
+            gap: 10px;
+            transition: background 0.15s ease;
         }
         .node-list-item:hover { background: var(--bg-hover); }
         .node-list-item.selected {
             background: var(--accent-dim);
-            border-left: 2px solid var(--accent);
+            border-left: 3px solid var(--accent);
         }
         .node-list-item .status-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             flex-shrink: 0;
         }
@@ -545,36 +595,37 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             font-family: var(--mono);
-            font-size: 10px;
+            font-size: 12px;
             color: var(--text-secondary);
         }
         .node-list-item .failure-badge {
             background: var(--danger-dim);
             color: var(--danger);
-            padding: 1px 4px;
-            border-radius: 2px;
+            padding: 2px 8px;
+            border-radius: 100px;
             font-family: var(--mono);
-            font-size: 9px;
+            font-size: 11px;
             font-weight: 600;
         }
         .nodes-detail {
             flex: 1;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 4px;
+            border-radius: var(--radius);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            box-shadow: var(--shadow-sm);
         }
         .nodes-detail-header {
-            padding: 12px;
+            padding: 16px;
             background: var(--bg-tertiary);
             border-bottom: 1px solid var(--border);
         }
         .nodes-detail-content {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 16px;
         }
         .nodes-detail-empty {
             display: flex;
@@ -582,38 +633,36 @@
             justify-content: center;
             height: 100%;
             color: var(--text-muted);
-            font-family: var(--mono);
-            font-size: 11px;
+            font-size: 13px;
         }
         .node-info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 6px;
-            margin-bottom: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
         }
         .node-info-item {
             background: var(--bg-tertiary);
-            padding: 8px;
-            border-radius: 3px;
-            border: 1px solid var(--border-subtle);
+            padding: 12px;
+            border-radius: 6px;
         }
         .node-info-item label {
             display: block;
-            font-family: var(--mono);
-            font-size: 9px;
+            font-size: 11px;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 2px;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
         }
         .node-info-item span {
             font-family: var(--mono);
-            font-size: 11px;
+            font-size: 13px;
             color: var(--text-primary);
+            font-weight: 500;
         }
         .node-events-list {
             background: var(--bg-primary);
-            border-radius: 3px;
+            border-radius: 6px;
             border: 1px solid var(--border);
             max-height: 350px;
             overflow-y: auto;
@@ -621,39 +670,39 @@
         .node-event-item {
             display: flex;
             align-items: flex-start;
-            padding: 6px 8px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border-subtle);
-            font-size: 11px;
-            gap: 8px;
+            font-size: 13px;
+            gap: 10px;
         }
         .node-event-item:last-child { border-bottom: none; }
         .node-event-time {
             font-family: var(--mono);
             color: var(--text-muted);
-            font-size: 10px;
+            font-size: 11px;
             white-space: nowrap;
-            min-width: 70px;
+            min-width: 75px;
         }
         .node-event-icon {
-            width: 14px;
+            width: 16px;
             text-align: center;
-            font-size: 10px;
+            font-size: 12px;
         }
         .node-event-msg {
             flex: 1;
             font-family: var(--mono);
             color: var(--text-secondary);
-            font-size: 11px;
+            font-size: 12px;
         }
         .nodes-sidebar-stats {
-            padding: 6px 8px;
+            padding: 10px 12px;
             background: var(--bg-tertiary);
             border-top: 1px solid var(--border);
-            font-family: var(--mono);
-            font-size: 10px;
+            font-size: 12px;
             color: var(--text-muted);
+            border-radius: 0 0 var(--radius) var(--radius);
         }
-        
+
         /* Utility classes */
         .mono { font-family: var(--mono); }
         .text-muted { color: var(--text-muted); }
@@ -661,17 +710,18 @@
         .text-success { color: var(--success); }
         .text-danger { color: var(--danger); }
         .text-warning { color: var(--warning); }
-        
+
         /* Scrollbar styling */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-primary); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-        
+
         /* Input focus states */
         input:focus, select:focus {
             outline: none;
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
         }
     </style>
 </head>
@@ -702,36 +752,36 @@
         <div id="results" class="tab-content active">
             <div class="section-header">Key Metrics</div>
             <div class="stats-grid">
-                <div class="stat-card success">
-                    <div class="stat-label">Nodes Started</div>
+                <div class="stat-card success" data-tooltip="Total number of simulated GPU nodes that successfully started and connected to the control plane.">
+                    <div class="stat-label">Nodes Started <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.NodesStarted}}</div>
                 </div>
-                <div class="stat-card success">
-                    <div class="stat-label">Peak Healthy</div>
+                <div class="stat-card success" data-tooltip="Maximum number of nodes in healthy state at any point during the simulation.">
+                    <div class="stat-label">Peak Healthy <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.PeakHealthy}}</div>
                 </div>
-                <div class="stat-card warning">
-                    <div class="stat-label">Min Healthy</div>
+                <div class="stat-card warning" data-tooltip="Lowest number of healthy nodes observed. Low values indicate sustained fleet degradation.">
+                    <div class="stat-label">Min Healthy <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.MinHealthy}}</div>
                 </div>
-                <div class="stat-card info">
-                    <div class="stat-label">Avg Healthy</div>
+                <div class="stat-card info" data-tooltip="Average number of healthy nodes across all sample intervals. Good indicator of overall fleet stability.">
+                    <div class="stat-label">Avg Healthy <span class="info-icon">?</span></div>
                     <div class="stat-value">{{printf "%.1f" .AvgHealthy}}</div>
                 </div>
-                <div class="stat-card danger">
-                    <div class="stat-label">Total Failures</div>
+                <div class="stat-card danger" data-tooltip="Total failure events injected (XID errors, thermal issues, NVML failures, etc).">
+                    <div class="stat-label">Total Failures <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.TotalFailures}}</div>
                 </div>
-                <div class="stat-card danger">
-                    <div class="stat-label">Cascading Failures</div>
+                <div class="stat-card danger" data-tooltip="Failures triggered by other failures (e.g., one GPU error causing related nodes to fail). High cascades indicate correlated failure scenarios.">
+                    <div class="stat-label">Cascading <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.CascadingFailures}}</div>
                 </div>
-                <div class="stat-card success">
-                    <div class="stat-label">Total Recoveries</div>
+                <div class="stat-card success" data-tooltip="Nodes that recovered from failure state automatically (based on recovery probability config).">
+                    <div class="stat-label">Recoveries <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.TotalRecoveries}}</div>
                 </div>
-                <div class="stat-card warning">
-                    <div class="stat-label">Outages</div>
+                <div class="stat-card warning" data-tooltip="Scheduled maintenance windows or targeted failure scenarios that affected multiple nodes.">
+                    <div class="stat-label">Outages <span class="info-icon">?</span></div>
                     <div class="stat-value">{{.TotalOutages}}</div>
                 </div>
             </div>
@@ -796,6 +846,69 @@
                 </table>
             </div>
             {{end}}
+
+            {{if .HasFleetGen}}
+            <div class="section-header">Fleet Overview</div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>GPU Type Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="gpuTypeChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Region Health</h3>
+                    <div id="regionHeatmap"></div>
+                </div>
+            </div>
+            {{end}}
+
+            {{if .PolicyRuleHits}}
+            <div class="section-header">Policy Rule Evaluation</div>
+            <div class="chart-card" style="margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <h3>Rules Triggered</h3>
+                    <a href="https://github.com/NavarchProject/navarch/blob/main/pkg/health/defaults.go" target="_blank"
+                       style="font-size: 12px; color: var(--blue); text-decoration: none;">View policy source →</a>
+                </div>
+                <div style="height: 120px;">
+                    <canvas id="policyRulesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>CEL Expression Reference</h3>
+                <p class="text-xs text-zinc-500 mb-3">
+                    Policy rules are evaluated using <a href="https://github.com/google/cel-spec" target="_blank" class="text-blue-500 hover:underline">CEL (Common Expression Language)</a>.
+                    Configure custom rules in your health policy config.
+                </p>
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="w-[140px]">Rule</th>
+                                <th class="w-[60px]">Hits</th>
+                                <th class="w-[90px]">Result</th>
+                                <th>CEL Expression</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .PolicyRuleHits}}
+                            <tr>
+                                <td class="font-mono font-medium">{{.Name}}</td>
+                                <td><strong>{{.Hits}}</strong></td>
+                                <td>
+                                    {{if eq .Result "unhealthy"}}<span class="badge fatal">{{.Result}}</span>
+                                    {{else if eq .Result "degraded"}}<span class="badge recoverable">{{.Result}}</span>
+                                    {{else}}<span class="badge enabled">{{.Result}}</span>{{end}}
+                                </td>
+                                <td class="font-mono text-[11px] text-zinc-400 break-all">{{.Expression}}</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {{end}}
         </div>
 
         <!-- Timeline Tab -->
@@ -808,9 +921,9 @@
                     <div class="legend-item"><div class="legend-dot failure"></div><span>failure</span></div>
                     <div class="legend-item"><div class="legend-dot recovery"></div><span>recovery</span></div>
                 </div>
-                <input type="text" id="timelineSearch" placeholder="filter..." 
-                       style="padding: 4px 8px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 2px; color: var(--text-primary); width: 120px; font-family: var(--mono); font-size: 10px;">
-                <select id="timelineFilter" style="padding: 4px 6px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 2px; color: var(--text-secondary); font-family: var(--mono); font-size: 10px;">
+                <input type="text" id="timelineSearch" placeholder="Filter nodes..."
+                       class="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-zinc-200 w-[150px] text-sm">
+                <select id="timelineFilter" class="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-zinc-400 text-sm">
                     <option value="">all nodes</option>
                     <option value="has_events">with events</option>
                     <option value="unhealthy">unhealthy</option>
@@ -818,10 +931,10 @@
                 </select>
                 <div class="zoom-controls">
                     <button class="zoom-btn" onclick="zoomTimeline(-1)">−</button>
-                    <span style="padding: 0 6px; color: var(--text-muted); font-family: var(--mono); font-size: 10px;" id="zoomLevel">100%</span>
+                    <span class="px-2.5 text-zinc-500 font-mono text-xs" id="zoomLevel">100%</span>
                     <button class="zoom-btn" onclick="zoomTimeline(1)">+</button>
                 </div>
-                <span style="color: var(--text-muted); font-family: var(--mono); font-size: 10px;"><span id="timelineVisibleNodes">0</span> nodes</span>
+                <span style="color: var(--text-muted); font-size: 13px;"><span id="timelineVisibleNodes">0</span> nodes</span>
             </div>
             
             <div class="timeline-container">
@@ -906,7 +1019,7 @@
                         {{if .LogsDirectory}}
                         <div class="config-item">
                             <span class="config-label">Logs Directory</span>
-                            <a href="{{.LogsDirectory}}" target="_blank" class="config-value" style="font-family: monospace; font-size: 0.85em; color: #58a6ff; text-decoration: none;">{{.LogsDirectory}} ↗</a>
+                            <a href="{{.LogsDirectory}}" target="_blank" class="config-value" style="color: var(--accent); text-decoration: none;">{{.LogsDirectory}} ↗</a>
                         </div>
                         {{end}}
                     </div>
@@ -947,20 +1060,19 @@
 
                 {{if .FleetTemplates}}
                 <!-- Stacked bar showing template distribution -->
-                <div style="margin-top: 16px;">
-                    <div style="display: flex; height: 32px; border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                <div style="margin-top: 20px;">
+                    <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 16px; background: var(--bg-tertiary);">
                         {{range $i, $t := .FleetTemplates}}
-                        <div style="flex: {{$t.Weight}}; background: {{if eq $i 0}}var(--accent){{else if eq $i 1}}var(--success){{else if eq $i 2}}var(--warning){{else}}var(--danger){{end}}; display: flex; align-items: center; justify-content: center; min-width: 40px;" title="{{$t.Name}}: {{$t.Weight}}%">
-                            <span style="font-family: var(--mono); font-size: 11px; color: white; font-weight: 500;">{{$t.Weight}}%</span>
-                        </div>
+                        <div style="flex: {{$t.Weight}}; background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};" title="{{$t.Name}}: {{$t.Weight}}%"></div>
                         {{end}}
                     </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 24px; font-size: 13px;">
                         {{range $i, $t := .FleetTemplates}}
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <div style="width: 10px; height: 10px; border-radius: 2px; background: {{if eq $i 0}}var(--accent){{else if eq $i 1}}var(--success){{else if eq $i 2}}var(--warning){{else}}var(--danger){{end}};"></div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 8px; height: 8px; border-radius: 2px; background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};"></div>
                             <span style="color: var(--text-secondary);">{{$t.Name}}</span>
-                            <span style="color: var(--text-muted); font-family: var(--mono);">{{$t.GPUCount}}× GPU</span>
+                            <span style="color: var(--text-muted); font-family: var(--mono); font-size: 12px;">{{$t.GPUCount}}× GPU</span>
+                            <span style="color: var(--text-muted); font-size: 12px;">{{$t.Weight}}%</span>
                         </div>
                         {{end}}
                     </div>
@@ -968,11 +1080,11 @@
                 {{end}}
 
                 {{if .FleetRegions}}
-                <div style="margin-top: 16px;">
-                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Regions</div>
+                <div style="margin-top: 24px;">
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Regions</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                         {{range .FleetRegions}}
-                        <span style="background: var(--bg-tertiary); padding: 4px 8px; border-radius: 3px; font-family: var(--mono); font-size: 11px; color: var(--text-secondary);">{{.Key}} <span style="color: var(--text-muted);">{{.Value}}%</span></span>
+                        <span style="background: var(--bg-tertiary); padding: 6px 10px; border-radius: 6px; font-family: var(--mono); font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border);">{{.Key}} <span style="color: var(--text-muted);">{{.Value}}%</span></span>
                         {{end}}
                     </div>
                 </div>
@@ -999,7 +1111,7 @@
                     </div>
                     <div>
                         {{if .FailureTypeWeights}}
-                        <h4 style="color: #8b949e; font-size: 0.9em; margin-bottom: 10px;">Failure Type Weights</h4>
+                        <h4 style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600;">Failure Type Weights</h4>
                         {{range .FailureTypeWeights}}
                         <div class="config-item">
                             <span class="config-label">{{.Key}}</span>
@@ -1011,9 +1123,9 @@
                 </div>
 
                 {{if .XIDDistribution}}
-                <div class="charts-grid" style="margin-top: 20px;">
+                <div class="charts-grid" style="margin-top: 24px;">
                     <div>
-                        <h4 style="color: #8b949e; font-size: 0.9em; margin-bottom: 10px;">XID Error Distribution (Configured Weights)</h4>
+                        <h4 style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600;">XID Error Distribution (Configured Weights)</h4>
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -1144,11 +1256,11 @@
     </div>
 
     <script>
-        // Chart.js global config for dark theme
-        Chart.defaults.color = '#8b949e';
-        Chart.defaults.borderColor = '#30363d';
-        Chart.defaults.font.family = "ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace";
-        Chart.defaults.font.size = 10;
+        // Chart.js global config for dark Vercel theme
+        Chart.defaults.color = '#666666';
+        Chart.defaults.borderColor = '#222222';
+        Chart.defaults.font.family = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
+        Chart.defaults.font.size = 11;
 
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -1157,16 +1269,19 @@
             event.target.classList.add('active');
         }
 
-        // Color palette
+        // Color palette - Vercel inspired
         const colors = {
-            success: '#3fb950',
-            warning: '#d29922',
-            danger: '#f85149',
-            accent: '#58a6ff',
-            successDim: 'rgba(63, 185, 80, 0.15)',
-            warningDim: 'rgba(210, 153, 34, 0.15)',
-            dangerDim: 'rgba(248, 81, 73, 0.15)',
-            accentDim: 'rgba(88, 166, 255, 0.15)',
+            success: '#50e3c2',
+            warning: '#f5a623',
+            danger: '#e00',
+            accent: '#fff',
+            blue: '#0070f3',
+            purple: '#7928ca',
+            pink: '#ff0080',
+            successDim: 'rgba(80, 227, 194, 0.15)',
+            warningDim: 'rgba(245, 166, 35, 0.15)',
+            dangerDim: 'rgba(238, 0, 0, 0.15)',
+            accentDim: 'rgba(255, 255, 255, 0.1)',
         };
 
         // Node Health Timeline - stacked area chart
@@ -1175,9 +1290,9 @@
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: colors.success, backgroundColor: 'rgba(63, 185, 80, 0.6)', fill: 'origin', tension: 0.2, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: colors.warning, backgroundColor: 'rgba(210, 153, 34, 0.6)', fill: '-1', tension: 0.2, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: colors.danger, backgroundColor: 'rgba(248, 81, 73, 0.6)', fill: '-1', tension: 0.2, borderWidth: 1.5, pointRadius: 0 }
+                    { label: 'Healthy', data: {{.HealthyData}}, borderColor: colors.success, backgroundColor: 'rgba(80, 227, 194, 0.2)', fill: 'origin', tension: 0.3, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Degraded', data: {{.DegradedData}}, borderColor: colors.warning, backgroundColor: 'rgba(245, 166, 35, 0.2)', fill: '-1', tension: 0.3, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Unhealthy', data: {{.UnhealthyData}}, borderColor: colors.danger, backgroundColor: 'rgba(238, 0, 0, 0.2)', fill: '-1', tension: 0.3, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
             options: {
@@ -1185,10 +1300,10 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    y: { stacked: true, beginAtZero: true, grid: { color: '#21262d' } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: '#222' } },
                     x: { grid: { display: false } }
                 },
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 20, usePointStyle: true, pointStyle: 'circle' } } }
             }
         });
 
@@ -1198,8 +1313,8 @@
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Failures', data: {{.FailuresData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Recoveries', data: {{.RecoveriesData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0 }
+                    { label: 'Failures', data: {{.FailuresData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Recoveries', data: {{.RecoveriesData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
             options: {
@@ -1207,21 +1322,21 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: '#21262d' } },
+                    y: { beginAtZero: true, grid: { color: '#222' } },
                     x: { grid: { display: false } }
                 },
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } } }
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 20, usePointStyle: true, pointStyle: 'circle' } } }
             }
         });
 
-        // Failure Type Distribution
+        // Failure Type Distribution - Vercel gradient palette
         new Chart(document.getElementById('failureTypeChart'), {
             type: 'doughnut',
             data: {
                 labels: {{.FailureTypeLabels}},
-                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#ff4444', '#ffaa00', '#00d9ff', '#00ff88', '#a855f7', '#ec4899', '#60a5fa', '#4ade80', '#f97316', '#ef4444'], borderWidth: 0 }]
+                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666', '#0070f3', '#7928ca'], borderWidth: 0 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 8 } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } } } }
         });
 
         // XID Distribution (Results)
@@ -1229,14 +1344,14 @@
             type: 'bar',
             data: {
                 labels: {{.XIDLabels}},
-                datasets: [{ label: 'Count', data: {{.XIDData}}, backgroundColor: colors.accent, borderRadius: 2 }]
+                datasets: [{ label: 'Count', data: {{.XIDData}}, backgroundColor: '#333', borderRadius: 4 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 indexAxis: 'y',
                 scales: {
-                    x: { beginAtZero: true, grid: { color: '#21262d' } },
+                    x: { beginAtZero: true, grid: { color: '#222' } },
                     y: { grid: { display: false } }
                 },
                 plugins: { legend: { display: false } }
@@ -1249,12 +1364,169 @@
             type: 'doughnut',
             data: {
                 labels: {{.XIDDistLabels}},
-                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#ff4444', '#ffaa00', '#00d9ff', '#00ff88', '#a855f7', '#ec4899', '#60a5fa', '#4ade80', '#f97316', '#ef4444'], borderWidth: 0 }]
+                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666', '#0070f3', '#7928ca'], borderWidth: 0 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 8 } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } } } }
         });
         {{end}}
-        
+
+        // GPU Type Distribution Chart
+        {{if .HasFleetGen}}
+        const gpuTypeCtx = document.getElementById('gpuTypeChart');
+        if (gpuTypeCtx) {
+            new Chart(gpuTypeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{.TemplateLabels}},
+                    datasets: [{ data: {{.TemplateData}}, backgroundColor: ['#fff', '#888', '#555', '#0070f3', '#7928ca', '#50e3c2', '#f5a623', '#e00'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } } } }
+            });
+        }
+
+        // Region Heatmap - Compact grid style
+        const heatmapContainer = document.getElementById('regionHeatmap');
+        if (heatmapContainer) {
+            const nodes = {{.NodesJSON}};
+
+            // Group by region, then by zone
+            const regions = {};
+            nodes.forEach(node => {
+                if (!regions[node.region]) regions[node.region] = {};
+                if (!regions[node.region][node.zone]) {
+                    regions[node.region][node.zone] = { healthy: 0, degraded: 0, unhealthy: 0, total: 0 };
+                }
+                regions[node.region][node.zone][node.status]++;
+                regions[node.region][node.zone].total++;
+            });
+
+            // Calculate region totals
+            Object.keys(regions).forEach(region => {
+                let totals = { healthy: 0, degraded: 0, unhealthy: 0, total: 0 };
+                Object.values(regions[region]).forEach(zone => {
+                    totals.healthy += zone.healthy;
+                    totals.degraded += zone.degraded;
+                    totals.unhealthy += zone.unhealthy;
+                    totals.total += zone.total;
+                });
+                regions[region]._totals = totals;
+            });
+
+            // Get zone color based on health
+            function getZoneColor(zone) {
+                if (zone.unhealthy > 0) return '#e00';
+                if (zone.degraded > 0) return '#f5a623';
+                return '#0070f3';
+            }
+
+            // Build compact grid HTML with Tailwind classes
+            let html = '';
+            Object.keys(regions).sort().forEach(region => {
+                const totals = regions[region]._totals;
+                const healthPct = Math.round((totals.healthy / totals.total) * 100);
+                const zones = Object.keys(regions[region]).filter(z => z !== '_totals').sort();
+
+                html += '<div class="flex items-center py-3 border-b border-zinc-800">';
+
+                // Region name
+                html += '<div class="min-w-[140px] font-mono text-sm text-zinc-200">' + region + '</div>';
+
+                // Zone cells
+                html += '<div class="flex gap-1 flex-1">';
+                zones.forEach(zoneName => {
+                    const zone = regions[region][zoneName];
+                    const zoneColor = getZoneColor(zone);
+                    const shortZone = zoneName.replace(region + '-', '');
+                    html += '<div class="zone-cell w-8 h-8 rounded cursor-pointer flex items-center justify-center" style="background:' + zoneColor + '" ';
+                    html += 'data-zone="' + zoneName + '" data-region="' + region + '" ';
+                    html += 'data-healthy="' + zone.healthy + '" data-degraded="' + zone.degraded + '" data-unhealthy="' + zone.unhealthy + '" data-total="' + zone.total + '">';
+                    html += '<span class="text-[10px] text-black/70 font-semibold">' + shortZone.slice(-1) + '</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+
+                // Summary stats
+                const pctColor = healthPct === 100 ? 'text-emerald-400' : healthPct >= 80 ? 'text-blue-500' : 'text-amber-500';
+                html += '<div class="min-w-[180px] flex items-center justify-end gap-4">';
+                html += '<span class="font-mono text-xs text-zinc-500">' + totals.total + ' nodes</span>';
+                html += '<span class="font-mono text-xs font-medium ' + pctColor + '">' + healthPct + '%</span>';
+
+                // Mini bar
+                const barColor = healthPct === 100 ? '#50e3c2' : healthPct >= 80 ? '#0070f3' : healthPct >= 50 ? '#f5a623' : '#e00';
+                html += '<div class="w-[60px] h-1 bg-zinc-700 rounded overflow-hidden">';
+                html += '<div class="h-full" style="width:' + healthPct + '%;background:' + barColor + '"></div>';
+                html += '</div>';
+                html += '</div>';
+
+                html += '</div>';
+            });
+
+            // Add legend
+            html += '<div class="flex gap-4 pt-3 text-xs text-zinc-500">';
+            html += '<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>healthy</span>';
+            html += '<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>degraded</span>';
+            html += '<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-600"></span>unhealthy</span>';
+            html += '</div>';
+
+            heatmapContainer.innerHTML = html;
+
+            // Add hover tooltips for zone cells
+            const zoneTooltip = document.createElement('div');
+            zoneTooltip.className = 'fixed bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2.5 text-xs z-[1000] pointer-events-none hidden shadow-lg';
+            document.body.appendChild(zoneTooltip);
+
+            heatmapContainer.querySelectorAll('.zone-cell').forEach(cell => {
+                cell.addEventListener('mouseenter', (e) => {
+                    const zone = cell.dataset.zone;
+                    const h = cell.dataset.healthy;
+                    const d = cell.dataset.degraded;
+                    const u = cell.dataset.unhealthy;
+                    const t = cell.dataset.total;
+                    zoneTooltip.innerHTML = '<div class="font-medium mb-1.5 text-zinc-200">' + zone + '</div>' +
+                        '<div class="text-zinc-400">' + t + ' nodes</div>' +
+                        '<div class="mt-1 flex gap-2">' +
+                        '<span class="text-blue-500">' + h + ' healthy</span>' +
+                        '<span class="text-amber-500">' + d + ' degraded</span>' +
+                        '<span class="text-red-500">' + u + ' unhealthy</span></div>';
+                    zoneTooltip.classList.remove('hidden');
+                    zoneTooltip.style.left = (e.clientX + 10) + 'px';
+                    zoneTooltip.style.top = (e.clientY + 10) + 'px';
+                });
+                cell.addEventListener('mouseleave', () => {
+                    zoneTooltip.classList.add('hidden');
+                });
+                cell.addEventListener('mousemove', (e) => {
+                    zoneTooltip.style.left = (e.clientX + 10) + 'px';
+                    zoneTooltip.style.top = (e.clientY + 10) + 'px';
+                });
+            });
+        }
+        {{end}}
+
+        // Policy Rules Chart
+        {{if .PolicyRuleHits}}
+        const policyCtx = document.getElementById('policyRulesChart');
+        if (policyCtx) {
+            new Chart(policyCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{.PolicyRuleLabels}},
+                    datasets: [{ label: 'Hits', data: {{.PolicyRuleData}}, backgroundColor: {{.PolicyRuleColors}}, borderRadius: 4 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#222' } },
+                        y: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        {{end}}
+
         // Timeline management
         const timelineNodes = {{.NodesJSON}};
         const testDuration = "{{.Duration}}";
@@ -1378,11 +1650,15 @@
             let color = event.type === 'failure' ? colors.danger : 
                        event.type === 'recovery' ? colors.success : colors.accent;
             
-            let html = '<div style="margin-bottom: 6px; font-weight: 600; color: ' + color + '; font-size: 10px; letter-spacing: 0.05em;">' + typeLabel + '</div>';
-            html += '<div style="margin-bottom: 3px; color: #888;"><span style="color: #555;">node</span> ' + nodeId + '</div>';
-            html += '<div style="margin-bottom: 3px; color: #888;"><span style="color: #555;">time</span> ' + time + '</div>';
-            if (event.message) html += '<div style="margin-bottom: 3px; color: #e5e5e5;">' + event.message + '</div>';
-            if (event.xid_code) html += '<div style="color: ' + colors.danger + ';"><span style="color: #555;">xid</span> ' + event.xid_code + '</div>';
+            let html = '<div style="margin-bottom: 8px; font-weight: 600; color: ' + color + '; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;">' + typeLabel + '</div>';
+            html += '<div style="margin-bottom: 4px; color: var(--text-secondary);"><span style="color: var(--text-muted);">node</span> ' + nodeId + '</div>';
+            html += '<div style="margin-bottom: 4px; color: var(--text-secondary);"><span style="color: var(--text-muted);">time</span> ' + time + '</div>';
+            if (event.message) html += '<div style="margin-bottom: 4px; color: var(--text-primary);">' + event.message + '</div>';
+            if (event.xid_code) html += '<div style="margin-bottom: 4px; color: ' + colors.danger + ';"><span style="color: var(--text-muted);">xid</span> ' + event.xid_code + '</div>';
+            if (event.policy_rule) {
+                let ruleColor = event.rule_result === 'unhealthy' ? colors.danger : event.rule_result === 'degraded' ? colors.warning : colors.blue;
+                html += '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);"><span style="color: var(--text-muted);">rule</span> <span style="color: ' + ruleColor + '; font-family: var(--mono); font-size: 11px;">' + event.policy_rule + '</span> → <span style="color: ' + ruleColor + ';">' + event.rule_result + '</span></div>';
+            }
             
             tooltip.innerHTML = html;
             tooltip.style.display = 'block';
@@ -1462,9 +1738,9 @@
                               node.status === 'degraded' ? colors.warning : colors.danger;
             
             let html = '<div class="nodes-detail-header">';
-            html += '<div style="display: flex; align-items: center; gap: 8px;">';
-            html += '<span style="width: 8px; height: 8px; border-radius: 50%; background: ' + statusColor + ';"></span>';
-            html += '<code style="margin: 0; color: #e5e5e5; font-size: 12px;">' + node.node_id + '</code>';
+            html += '<div style="display: flex; align-items: center; gap: 10px;">';
+            html += '<span style="width: 10px; height: 10px; border-radius: 50%; background: ' + statusColor + ';"></span>';
+            html += '<code style="margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 600;">' + node.node_id + '</code>';
             html += '<span class="badge ' + (node.status === 'healthy' ? 'enabled' : node.status === 'degraded' ? 'recoverable' : 'fatal') + '">' + node.status + '</span>';
             html += '</div></div>';
             
@@ -1482,13 +1758,13 @@
             html += '</div>';
             
             if (node.log_file) {
-                html += '<div style="margin-bottom: 12px;">';
-                html += '<label style="display: block; font-family: var(--mono); font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Log File</label>';
-                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 11px; color: ' + colors.accent + '; word-break: break-all; background: #0a0a0a; padding: 6px 8px; border-radius: 2px; text-decoration: none; font-family: var(--mono); border: 1px solid #2a2a2a;">' + node.log_file + ' ↗</a>';
+                html += '<div style="margin-bottom: 16px;">';
+                html += '<label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">Log File</label>';
+                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 12px; color: var(--accent); word-break: break-all; background: var(--bg-tertiary); padding: 10px 12px; border-radius: 6px; text-decoration: none; font-family: var(--mono);">' + node.log_file + ' ↗</a>';
                 html += '</div>';
             }
-            
-            html += '<div style="font-family: var(--mono); font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Events (' + (node.events ? node.events.length : 0) + ')</div>';
+
+            html += '<div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; font-weight: 600;">Events (' + (node.events ? node.events.length : 0) + ')</div>';
             html += '<div class="node-events-list">';
             
             if (node.events && node.events.length > 0) {
@@ -1506,10 +1782,14 @@
                     html += '<span class="node-event-icon" style="color: ' + color + ';">' + icon + '</span>';
                     html += '<span class="node-event-msg">' + event.message;
                     if (event.xid_code) html += ' <span style="color: ' + colors.danger + ';">[XID ' + event.xid_code + ']</span>';
+                    if (event.policy_rule) {
+                        let ruleColor = event.rule_result === 'unhealthy' ? colors.danger : event.rule_result === 'degraded' ? colors.warning : '#0070f3';
+                        html += ' <span style="background: ' + ruleColor + '22; color: ' + ruleColor + '; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-family: var(--mono);">' + event.policy_rule + ' → ' + event.rule_result + '</span>';
+                    }
                     html += '</span></div>';
                 });
             } else {
-                html += '<div style="padding: 12px; color: #555; text-align: center; font-family: var(--mono); font-size: 10px;">No events recorded</div>';
+                html += '<div style="padding: 20px; color: var(--text-muted); text-align: center; font-size: 13px;">No events recorded</div>';
             }
             
             html += '</div></div>';
@@ -1560,6 +1840,24 @@
             else if (e.key === '2') showTab('timeline');
             else if (e.key === '3') showTab('nodes');
             else if (e.key === '4') showTab('config');
+        });
+
+        // Stat card info tooltips
+        const statTooltip = document.createElement('div');
+        statTooltip.className = 'stat-tooltip';
+        document.body.appendChild(statTooltip);
+
+        document.querySelectorAll('.stat-card[data-tooltip]').forEach(card => {
+            card.addEventListener('mouseenter', (e) => {
+                statTooltip.textContent = card.dataset.tooltip;
+                statTooltip.classList.add('visible');
+                const rect = card.getBoundingClientRect();
+                statTooltip.style.left = rect.left + 'px';
+                statTooltip.style.top = (rect.bottom + 8) + 'px';
+            });
+            card.addEventListener('mouseleave', () => {
+                statTooltip.classList.remove('visible');
+            });
         });
     </script>
 </body>

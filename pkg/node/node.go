@@ -255,6 +255,10 @@ func (n *Node) detectGPUs(ctx context.Context) ([]*pb.GPUInfo, error) {
 
 // heartbeatLoop sends periodic heartbeats to the control plane.
 func (n *Node) heartbeatLoop(ctx context.Context) {
+	n.logger.InfoContext(ctx, "starting heartbeat loop",
+		slog.Duration("interval", n.heartbeatInterval),
+	)
+
 	ticker := n.clock.NewTicker(n.heartbeatInterval)
 	defer ticker.Stop()
 
@@ -270,6 +274,7 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			n.logger.InfoContext(ctx, "heartbeat loop stopped")
 			return
 		case <-ticker.C():
 			err := retry.Do(ctx, retryCfg, func(ctx context.Context) error {
@@ -286,6 +291,8 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 
 // sendHeartbeat sends a heartbeat to the control plane.
 func (n *Node) sendHeartbeat(ctx context.Context) error {
+	start := n.clock.Now()
+
 	// Collect metrics from system and GPUs
 	nodeMetrics, err := n.metricsCollector.Collect(ctx)
 	if err != nil {
@@ -294,12 +301,6 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 		)
 		nodeMetrics = &pb.NodeMetrics{}
 	}
-
-	n.logger.DebugContext(ctx, "collected metrics",
-		slog.Float64("cpu_percent", nodeMetrics.CpuUsagePercent),
-		slog.Float64("memory_percent", nodeMetrics.MemoryUsagePercent),
-		slog.Int("gpu_count", len(nodeMetrics.GpuMetrics)),
-	)
 
 	req := connect.NewRequest(&pb.HeartbeatRequest{
 		NodeId:  n.config.NodeID,
@@ -311,21 +312,47 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 		return err
 	}
 
-	if resp.Msg.Acknowledged {
-		n.logger.DebugContext(ctx, "heartbeat acknowledged")
+	duration := n.clock.Since(start)
+
+	// Build GPU summary for logging
+	var maxTemp int32
+	var avgUtil float64
+	if len(nodeMetrics.GpuMetrics) > 0 {
+		for _, g := range nodeMetrics.GpuMetrics {
+			if g.Temperature > maxTemp {
+				maxTemp = g.Temperature
+			}
+			avgUtil += float64(g.UtilizationPercent)
+		}
+		avgUtil /= float64(len(nodeMetrics.GpuMetrics))
 	}
+
+	n.logger.InfoContext(ctx, "heartbeat sent",
+		slog.Float64("cpu_percent", nodeMetrics.CpuUsagePercent),
+		slog.Float64("memory_percent", nodeMetrics.MemoryUsagePercent),
+		slog.Int("gpu_count", len(nodeMetrics.GpuMetrics)),
+		slog.Float64("gpu_avg_util", avgUtil),
+		slog.Int("gpu_max_temp", int(maxTemp)),
+		slog.Bool("acknowledged", resp.Msg.Acknowledged),
+		slog.Duration("duration", duration),
+	)
 
 	return nil
 }
 
 // healthCheckLoop runs health checks periodically and reports results.
 func (n *Node) healthCheckLoop(ctx context.Context) {
+	n.logger.InfoContext(ctx, "starting health check loop",
+		slog.Duration("interval", n.healthCheckInterval),
+	)
+
 	ticker := n.clock.NewTicker(n.healthCheckInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			n.logger.InfoContext(ctx, "health check loop stopped")
 			return
 		case <-ticker.C():
 			if err := n.runHealthChecks(ctx); err != nil {
@@ -339,6 +366,7 @@ func (n *Node) healthCheckLoop(ctx context.Context) {
 
 // runHealthChecks runs all health checks and reports results to the control plane.
 func (n *Node) runHealthChecks(ctx context.Context) error {
+	start := n.clock.Now()
 	var results []*pb.HealthCheckResult
 
 	bootCheck := n.runBootCheck(ctx)
@@ -350,6 +378,16 @@ func (n *Node) runHealthChecks(ctx context.Context) error {
 	// Collect health events and generate check result
 	healthEventCheck, rawEvents := n.runHealthEventCheck(ctx)
 	results = append(results, healthEventCheck)
+
+	// Log health events if any were detected
+	for _, event := range rawEvents {
+		n.logger.WarnContext(ctx, "health event detected",
+			slog.String("system", gpu.SystemString(event.System)),
+			slog.String("event_type", gpu.EventTypeString(event.EventType)),
+			slog.Int("gpu_index", event.GPUIndex),
+			slog.String("message", event.Message),
+		)
+	}
 
 	// Convert raw events to proto format for CEL policy evaluation on control plane
 	var protoEvents []*pb.HealthEvent
@@ -368,11 +406,28 @@ func (n *Node) runHealthChecks(ctx context.Context) error {
 		return err
 	}
 
-	if resp.Msg.Acknowledged {
-		n.logger.DebugContext(ctx, "health report acknowledged",
-			slog.String("node_status", resp.Msg.NodeStatus.String()),
-		)
+	duration := n.clock.Since(start)
+
+	// Determine overall health for logging
+	overallStatus := "healthy"
+	for _, r := range results {
+		if r.Status == pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
+			overallStatus = "unhealthy"
+			break
+		}
+		if r.Status == pb.HealthStatus_HEALTH_STATUS_DEGRADED {
+			overallStatus = "degraded"
+		}
 	}
+
+	n.logger.InfoContext(ctx, "health check completed",
+		slog.String("boot", bootCheck.Status.String()),
+		slog.String("gpu", gpuCheck.Status.String()),
+		slog.Int("events", len(rawEvents)),
+		slog.String("overall", overallStatus),
+		slog.String("node_status", resp.Msg.NodeStatus.String()),
+		slog.Duration("duration", duration),
+	)
 
 	return nil
 }
@@ -467,12 +522,17 @@ func (n *Node) runHealthEventCheck(ctx context.Context) (*pb.HealthCheckResult, 
 
 // commandPollLoop polls for commands from the control plane.
 func (n *Node) commandPollLoop(ctx context.Context) {
+	n.logger.InfoContext(ctx, "starting command poll loop",
+		slog.Duration("interval", n.commandPollInterval),
+	)
+
 	ticker := n.clock.NewTicker(n.commandPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			n.logger.InfoContext(ctx, "command poll loop stopped")
 			return
 		case <-ticker.C():
 			if err := n.pollCommands(ctx); err != nil {
@@ -495,7 +555,18 @@ func (n *Node) pollCommands(ctx context.Context) error {
 		return err
 	}
 
+	if len(resp.Msg.Commands) > 0 {
+		n.logger.InfoContext(ctx, "received commands",
+			slog.Int("count", len(resp.Msg.Commands)),
+		)
+	}
+
 	for _, cmd := range resp.Msg.Commands {
+		n.logger.InfoContext(ctx, "executing command",
+			slog.String("command_id", cmd.CommandId),
+			slog.String("command_type", cmd.Type.String()),
+		)
+
 		// Execute the command
 		if err := n.commandDispatcher.Dispatch(ctx, cmd); err != nil {
 			n.logger.ErrorContext(ctx, "command execution failed",
@@ -507,6 +578,11 @@ func (n *Node) pollCommands(ctx context.Context) error {
 			n.acknowledgeCommand(ctx, cmd.CommandId, "failed", err.Error())
 			continue
 		}
+
+		n.logger.InfoContext(ctx, "command executed successfully",
+			slog.String("command_id", cmd.CommandId),
+			slog.String("command_type", cmd.Type.String()),
+		)
 
 		// Acknowledge successful completion
 		n.acknowledgeCommand(ctx, cmd.CommandId, "completed", "")
