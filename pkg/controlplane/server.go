@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
+	"github.com/NavarchProject/navarch/pkg/gpu"
+	"github.com/NavarchProject/navarch/pkg/health"
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
@@ -28,6 +30,7 @@ type Server struct {
 	metricsSource   *DBMetricsSource
 	instanceManager *InstanceManager
 	healthObserver  NodeHealthObserver
+	healthEvaluator *health.Evaluator
 }
 
 // Config holds configuration for the control plane server.
@@ -54,12 +57,21 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 		logger = slog.Default()
 	}
 	metricsSource := NewDBMetricsSource(database, logger)
+
+	// Create health evaluator with default policy
+	evaluator, err := health.NewEvaluator(health.DefaultPolicy())
+	if err != nil {
+		logger.Error("failed to create health evaluator, CEL policies disabled", slog.String("error", err.Error()))
+		evaluator = nil
+	}
+
 	return &Server{
 		db:              database,
 		config:          cfg,
 		logger:          logger,
 		metricsSource:   metricsSource,
 		instanceManager: instanceManager,
+		healthEvaluator: evaluator,
 	}
 }
 
@@ -131,6 +143,7 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 	s.logger.DebugContext(ctx, "health report received",
 		slog.String("node_id", req.Msg.NodeId),
 		slog.Int("check_count", len(req.Msg.Results)),
+		slog.Int("event_count", len(req.Msg.Events)),
 	)
 
 	if req.Msg.NodeId == "" {
@@ -147,10 +160,19 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 	}
 	wasUnhealthy := node.Status == pb.NodeStatus_NODE_STATUS_UNHEALTHY
 
+	// Evaluate health events with CEL policies if present
+	results := req.Msg.Results
+	if len(req.Msg.Events) > 0 && s.healthEvaluator != nil {
+		evalResult := s.evaluateHealthEvents(ctx, req.Msg.Events)
+		if evalResult != nil {
+			results = append(results, evalResult)
+		}
+	}
+
 	healthRecord := &db.HealthCheckRecord{
 		NodeID:    req.Msg.NodeId,
 		Timestamp: time.Now(),
-		Results:   req.Msg.Results,
+		Results:   results,
 	}
 
 	if err := s.db.RecordHealthCheck(ctx, healthRecord); err != nil {
@@ -182,6 +204,50 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 		Acknowledged: true,
 		NodeStatus:   node.Status,
 	}), nil
+}
+
+// evaluateHealthEvents evaluates raw health events against CEL policies.
+func (s *Server) evaluateHealthEvents(ctx context.Context, protoEvents []*pb.HealthEvent) *pb.HealthCheckResult {
+	// Convert proto events to internal format
+	events := gpu.HealthEventsFromProto(protoEvents)
+
+	result, err := s.healthEvaluator.Evaluate(ctx, events)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to evaluate health events",
+			slog.String("error", err.Error()),
+		)
+		return nil
+	}
+
+	// Convert evaluation result to health check result
+	var status pb.HealthStatus
+	switch result.Status {
+	case health.ResultHealthy:
+		status = pb.HealthStatus_HEALTH_STATUS_HEALTHY
+	case health.ResultDegraded:
+		status = pb.HealthStatus_HEALTH_STATUS_DEGRADED
+	case health.ResultUnhealthy:
+		status = pb.HealthStatus_HEALTH_STATUS_UNHEALTHY
+	default:
+		status = pb.HealthStatus_HEALTH_STATUS_UNKNOWN
+	}
+
+	msg := fmt.Sprintf("CEL policy evaluation: %s", result.Status)
+	if result.MatchedRule != "" {
+		msg = fmt.Sprintf("CEL policy: %s (rule: %s)", result.Status, result.MatchedRule)
+	}
+
+	s.logger.DebugContext(ctx, "health events evaluated",
+		slog.String("status", string(result.Status)),
+		slog.String("matched_rule", result.MatchedRule),
+		slog.Int("event_count", len(events)),
+	)
+
+	return &pb.HealthCheckResult{
+		CheckName: "cel_policy",
+		Status:    status,
+		Message:   msg,
+	}
 }
 
 // SendHeartbeat handles heartbeat messages from nodes.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 func TestNewEvaluator(t *testing.T) {
@@ -172,7 +173,7 @@ func TestEvaluator_Evaluate_ECCErrors(t *testing.T) {
 
 	t.Run("double-bit ECC is unhealthy", func(t *testing.T) {
 		events := []gpu.HealthEvent{
-			gpu.NewMemoryEvent(0, "GPU-0", gpu.EventTypeECCDBE, 0, 1, "DBE error"),
+			gpu.NewMemoryEvent(0, "GPU-0", pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE, 0, 1, "DBE error"),
 		}
 
 		result, err := eval.Evaluate(ctx, events)

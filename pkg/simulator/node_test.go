@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 func TestNewSimulatedNode(t *testing.T) {
@@ -173,8 +175,8 @@ func TestSimulatedNode_ClearXIDErrors(t *testing.T) {
 	if len(events) != 1 {
 		t.Errorf("expected 1 event after clearing XID errors, got %d", len(events))
 	}
-	if len(events) > 0 && events[0].EventType != "thermal" {
-		t.Errorf("expected thermal event, got %s", events[0].EventType)
+	if len(events) > 0 && events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL {
+		t.Errorf("expected thermal event, got %v", events[0].EventType)
 	}
 }
 

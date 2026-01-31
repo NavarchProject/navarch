@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 func TestInjectable_NewInjectable(t *testing.T) {
@@ -279,8 +281,8 @@ func TestInjectable_CollectHealthEvents(t *testing.T) {
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].EventType != EventTypeXID {
-			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeXID)
+		if events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_XID {
+			t.Errorf("EventType = %v, want XID", events[0].EventType)
 		}
 		if events[0].Metrics["xid_code"] != 79 {
 			t.Errorf("xid_code = %v, want 79", events[0].Metrics["xid_code"])
@@ -316,8 +318,8 @@ func TestInjectable_InjectHealthEvents(t *testing.T) {
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].EventType != EventTypeThermal {
-			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeThermal)
+		if events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL {
+			t.Errorf("EventType = %v, want THERMAL", events[0].EventType)
 		}
 		if events[0].Metrics["temperature"] != 95 {
 			t.Errorf("temperature = %v, want 95", events[0].Metrics["temperature"])
@@ -325,14 +327,14 @@ func TestInjectable_InjectHealthEvents(t *testing.T) {
 	})
 
 	t.Run("inject memory event", func(t *testing.T) {
-		g.InjectMemoryHealthEvent(1, EventTypeECCDBE, 0, 1, "Double-bit ECC error")
+		g.InjectMemoryHealthEvent(1, pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE, 0, 1, "Double-bit ECC error")
 
 		events, _ := g.CollectHealthEvents(ctx)
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].EventType != EventTypeECCDBE {
-			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeECCDBE)
+		if events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE {
+			t.Errorf("EventType = %v, want ECC_DBE", events[0].EventType)
 		}
 		if events[0].Metrics["ecc_dbe_count"] != 1 {
 			t.Errorf("ecc_dbe_count = %v, want 1", events[0].Metrics["ecc_dbe_count"])
@@ -346,8 +348,8 @@ func TestInjectable_InjectHealthEvents(t *testing.T) {
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].EventType != EventTypeNVLink {
-			t.Errorf("EventType = %s, want %s", events[0].EventType, EventTypeNVLink)
+		if events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_NVLINK {
+			t.Errorf("EventType = %v, want NVLINK", events[0].EventType)
 		}
 		if events[0].Metrics["link_id"] != 3 {
 			t.Errorf("link_id = %v, want 3", events[0].Metrics["link_id"])
@@ -357,8 +359,8 @@ func TestInjectable_InjectHealthEvents(t *testing.T) {
 	t.Run("inject custom event", func(t *testing.T) {
 		customEvent := HealthEvent{
 			GPUIndex:  0,
-			System:    HealthSystemPCIE,
-			EventType: EventTypePCIE,
+			System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_PCIE,
+			EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_PCIE,
 			Metrics: map[string]any{
 				"error_count": 42,
 			},
@@ -370,8 +372,8 @@ func TestInjectable_InjectHealthEvents(t *testing.T) {
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].System != HealthSystemPCIE {
-			t.Errorf("System = %s, want %s", events[0].System, HealthSystemPCIE)
+		if events[0].System != pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_PCIE {
+			t.Errorf("System = %v, want PCIE", events[0].System)
 		}
 		if events[0].Metrics["error_count"] != 42 {
 			t.Errorf("error_count = %v, want 42", events[0].Metrics["error_count"])
@@ -390,7 +392,7 @@ func TestInjectable_ClearHealthEvents(t *testing.T) {
 	// Inject multiple events
 	g.InjectXIDHealthEvent(0, 79, "XID")
 	g.InjectThermalHealthEvent(1, 90, "Thermal")
-	g.InjectMemoryHealthEvent(2, EventTypeECCSBE, 5, 0, "SBE")
+	g.InjectMemoryHealthEvent(2, pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_SBE, 5, 0, "SBE")
 
 	t.Run("clear all events", func(t *testing.T) {
 		g.ClearHealthEvents()
@@ -407,14 +409,14 @@ func TestInjectable_ClearHealthEvents(t *testing.T) {
 	g.InjectXIDHealthEvent(2, 48, "XID 2")
 
 	t.Run("clear events by type", func(t *testing.T) {
-		g.ClearHealthEventsByType(EventTypeXID)
+		g.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_XID)
 
 		events, _ := g.CollectHealthEvents(ctx)
 		if len(events) != 1 {
 			t.Fatalf("len(events) = %d, want 1", len(events))
 		}
-		if events[0].EventType != EventTypeThermal {
-			t.Errorf("remaining event type = %s, want %s", events[0].EventType, EventTypeThermal)
+		if events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL {
+			t.Errorf("remaining event type = %v, want THERMAL", events[0].EventType)
 		}
 	})
 

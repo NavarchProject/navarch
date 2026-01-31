@@ -1286,3 +1286,232 @@ func TestHealthObserver(t *testing.T) {
 		}
 	})
 }
+
+func TestCELPolicyEvaluation(t *testing.T) {
+	t.Run("fatal_xid_event_makes_node_unhealthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Send health report with fatal XID event
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "health_events",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "collected 1 health event(s)",
+				},
+			},
+			Events: []*pb.HealthEvent{
+				{
+					Timestamp: timestamppb.Now(),
+					GpuIndex:  0,
+					GpuUuid:   "GPU-12345",
+					System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_DRIVER,
+					EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_XID,
+					Metrics:   map[string]string{"xid_code": "79"},
+					Message:   "GPU has fallen off the bus",
+				},
+			},
+		})
+		resp, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		if resp.Msg.NodeStatus != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+			t.Errorf("Expected node status UNHEALTHY, got %v", resp.Msg.NodeStatus)
+		}
+
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.HealthStatus != pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
+			t.Errorf("Expected health status UNHEALTHY, got %v", node.HealthStatus)
+		}
+	})
+
+	t.Run("thermal_warning_makes_node_degraded", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Send health report with thermal warning (85-94C = degraded)
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "health_events",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "collected 1 health event(s)",
+				},
+			},
+			Events: []*pb.HealthEvent{
+				{
+					Timestamp: timestamppb.Now(),
+					GpuIndex:  0,
+					GpuUuid:   "GPU-12345",
+					System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_THERMAL,
+					EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL,
+					Metrics:   map[string]string{"temperature": "88"},
+					Message:   "Temperature elevated",
+				},
+			},
+		})
+		resp, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		// Node status should remain active (degraded health doesn't change node status)
+		if resp.Msg.NodeStatus != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected node status ACTIVE, got %v", resp.Msg.NodeStatus)
+		}
+
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.HealthStatus != pb.HealthStatus_HEALTH_STATUS_DEGRADED {
+			t.Errorf("Expected health status DEGRADED, got %v", node.HealthStatus)
+		}
+	})
+
+	t.Run("empty_events_no_cel_evaluation", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Send health report with no events
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "health_events",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "no health events detected",
+				},
+			},
+			Events: []*pb.HealthEvent{},
+		})
+		resp, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		if resp.Msg.NodeStatus != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected node status ACTIVE, got %v", resp.Msg.NodeStatus)
+		}
+
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.HealthStatus != pb.HealthStatus_HEALTH_STATUS_HEALTHY {
+			t.Errorf("Expected health status HEALTHY, got %v", node.HealthStatus)
+		}
+	})
+
+	t.Run("multiple_events_worst_status_wins", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Send health report with both degraded and unhealthy events
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "health_events",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "collected 2 health event(s)",
+				},
+			},
+			Events: []*pb.HealthEvent{
+				{
+					Timestamp: timestamppb.Now(),
+					GpuIndex:  0,
+					System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_NVLINK,
+					EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_NVLINK,
+					Message:   "NVLink error",
+				},
+				{
+					Timestamp: timestamppb.Now(),
+					GpuIndex:  1,
+					System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_DRIVER,
+					EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_XID,
+					Metrics:   map[string]string{"xid_code": "79"},
+					Message:   "Fatal XID",
+				},
+			},
+		})
+		resp, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		// Worst status (unhealthy) should win
+		if resp.Msg.NodeStatus != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+			t.Errorf("Expected node status UNHEALTHY, got %v", resp.Msg.NodeStatus)
+		}
+	})
+
+	t.Run("ecc_dbe_makes_node_unhealthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		healthReq := connect.NewRequest(&pb.ReportHealthRequest{
+			NodeId: "node-1",
+			Results: []*pb.HealthCheckResult{
+				{
+					CheckName: "health_events",
+					Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
+					Message:   "collected 1 health event(s)",
+				},
+			},
+			Events: []*pb.HealthEvent{
+				{
+					Timestamp: timestamppb.Now(),
+					GpuIndex:  0,
+					System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_MEM,
+					EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE,
+					Metrics:   map[string]string{"ecc_dbe_count": "1"},
+					Message:   "Double-bit ECC error",
+				},
+			},
+		})
+		resp, err := srv.ReportHealth(ctx, healthReq)
+		if err != nil {
+			t.Fatalf("ReportHealth failed: %v", err)
+		}
+
+		if resp.Msg.NodeStatus != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+			t.Errorf("Expected node status UNHEALTHY, got %v", resp.Msg.NodeStatus)
+		}
+	})
+}

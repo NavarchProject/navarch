@@ -53,9 +53,9 @@ type Node struct {
 	metricsCollector metrics.Collector
 
 	// Configuration received from control plane
-	healthCheckInterval  time.Duration
-	heartbeatInterval    time.Duration
-	commandPollInterval  time.Duration
+	healthCheckInterval time.Duration
+	heartbeatInterval   time.Duration
+	commandPollInterval time.Duration
 
 	// Command handling
 	commandDispatcher *CommandDispatcher
@@ -144,12 +144,12 @@ func (n *Node) Start(ctx context.Context) error {
 
 func (n *Node) Stop() error {
 	n.logger.Info("stopping node daemon")
-	
+
 	ctx := context.Background()
 	if err := n.gpu.Shutdown(ctx); err != nil {
 		n.logger.Warn("failed to shutdown GPU manager", slog.String("error", err.Error()))
 	}
-	
+
 	return nil
 }
 
@@ -180,23 +180,23 @@ func (n *Node) register(ctx context.Context) error {
 		Zone:         n.config.Zone,
 		InstanceType: n.config.InstanceType,
 		Gpus:         gpuInfo,
-		Metadata:     &pb.NodeMetadata{
+		Metadata: &pb.NodeMetadata{
 			Hostname:   hostname,
 			InternalIp: "",
 			ExternalIp: "",
 			Labels:     labels,
 		},
 	})
-	
+
 	resp, err := n.client.RegisterNode(ctx, req)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
-	
+
 	if !resp.Msg.Success {
 		return fmt.Errorf("registration rejected: %s", resp.Msg.Message)
 	}
-	
+
 	// Update configuration from control plane
 	if resp.Msg.Config != nil {
 		n.healthCheckInterval = time.Duration(resp.Msg.Config.HealthCheckIntervalSeconds) * time.Second
@@ -336,12 +336,20 @@ func (n *Node) runHealthChecks(ctx context.Context) error {
 	gpuCheck := n.runGPUCheck(ctx)
 	results = append(results, gpuCheck)
 
-	healthEventCheck := n.runHealthEventCheck(ctx)
+	// Collect health events and generate check result
+	healthEventCheck, rawEvents := n.runHealthEventCheck(ctx)
 	results = append(results, healthEventCheck)
+
+	// Convert raw events to proto format for CEL policy evaluation on control plane
+	var protoEvents []*pb.HealthEvent
+	if len(rawEvents) > 0 {
+		protoEvents = gpu.HealthEventsToProto(rawEvents)
+	}
 
 	req := connect.NewRequest(&pb.ReportHealthRequest{
 		NodeId:  n.config.NodeID,
 		Results: results,
+		Events:  protoEvents,
 	})
 
 	resp, err := n.client.ReportHealth(ctx, req)
@@ -421,43 +429,29 @@ func (n *Node) runGPUCheck(ctx context.Context) *pb.HealthCheckResult {
 	}
 }
 
-// runHealthEventCheck collects GPU health events and evaluates them.
-// This replaces the old XID-only check with a more comprehensive approach
-// that collects all health events for control plane CEL policy evaluation.
-func (n *Node) runHealthEventCheck(ctx context.Context) *pb.HealthCheckResult {
+// runHealthEventCheck collects GPU health events for CEL policy evaluation.
+// The node does not evaluate events locally - it sends raw events to the
+// control plane where CEL policies determine the health classification.
+func (n *Node) runHealthEventCheck(ctx context.Context) (*pb.HealthCheckResult, []gpu.HealthEvent) {
 	events, err := n.gpu.CollectHealthEvents(ctx)
 	if err != nil {
 		return &pb.HealthCheckResult{
 			CheckName: "health_events",
 			Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
 			Message:   fmt.Sprintf("failed to collect health events: %v", err),
-		}
+		}, nil
 	}
 
+	msg := "no health events detected"
 	if len(events) > 0 {
-		// Count XID events specifically
-		xidCount := 0
-		for _, e := range events {
-			if e.EventType == gpu.EventTypeXID {
-				xidCount++
-			}
-		}
-		status := pb.HealthStatus_HEALTH_STATUS_DEGRADED
-		if xidCount > 0 {
-			status = pb.HealthStatus_HEALTH_STATUS_UNHEALTHY
-		}
-		return &pb.HealthCheckResult{
-			CheckName: "health_events",
-			Status:    status,
-			Message:   fmt.Sprintf("detected %d health event(s)", len(events)),
-		}
+		msg = fmt.Sprintf("collected %d health event(s) for policy evaluation", len(events))
 	}
 
 	return &pb.HealthCheckResult{
 		CheckName: "health_events",
 		Status:    pb.HealthStatus_HEALTH_STATUS_HEALTHY,
-		Message:   "no health events detected",
-	}
+		Message:   msg,
+	}, events
 }
 
 // commandPollLoop polls for commands from the control plane.

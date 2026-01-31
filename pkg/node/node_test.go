@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 func TestNew(t *testing.T) {
@@ -151,24 +152,35 @@ func TestHealthChecks(t *testing.T) {
 	})
 
 	t.Run("health_event_check_healthy", func(t *testing.T) {
-		result := n.runHealthEventCheck(ctx)
+		result, events := n.runHealthEventCheck(ctx)
 		if result.CheckName != "health_events" {
 			t.Errorf("Expected check name 'health_events', got %s", result.CheckName)
 		}
 		if result.Status != 1 { // HEALTH_STATUS_HEALTHY
 			t.Errorf("Expected healthy status, got %d", result.Status)
 		}
+		if len(events) != 0 {
+			t.Errorf("Expected no events, got %d", len(events))
+		}
 	})
 
-	t.Run("health_event_check_unhealthy_xid", func(t *testing.T) {
+	t.Run("health_event_check_collects_xid", func(t *testing.T) {
+		// Node collects events but doesn't evaluate them locally.
+		// CEL policy evaluation happens on the control plane.
 		injectableGPU.InjectXIDHealthEvent(0, 79, "Test XID error")
 
-		result := n.runHealthEventCheck(ctx)
-		if result.Status != 3 { // HEALTH_STATUS_UNHEALTHY
-			t.Errorf("Expected unhealthy status, got %d", result.Status)
+		result, events := n.runHealthEventCheck(ctx)
+		// Node always reports healthy - control plane evaluates with CEL
+		if result.Status != 1 { // HEALTH_STATUS_HEALTHY
+			t.Errorf("Expected healthy status (node doesn't evaluate), got %d", result.Status)
+		}
+		if len(events) != 1 {
+			t.Errorf("Expected 1 event collected, got %d", len(events))
+		}
+		if len(events) > 0 && events[0].EventType != pb.HealthEventType_HEALTH_EVENT_TYPE_XID {
+			t.Errorf("Expected XID event type, got %v", events[0].EventType)
 		}
 
 		injectableGPU.ClearHealthEvents()
 	})
 }
-

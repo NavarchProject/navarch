@@ -1,68 +1,22 @@
 package gpu
 
-import "time"
+import (
+	"time"
 
-// DCGM Health Watch System constants.
-// These correspond to NVIDIA DCGM health watch systems.
-const (
-	HealthSystemPCIE    = "DCGM_HEALTH_WATCH_PCIE"
-	HealthSystemNVLink  = "DCGM_HEALTH_WATCH_NVLINK"
-	HealthSystemPMU     = "DCGM_HEALTH_WATCH_PMU"
-	HealthSystemMCU     = "DCGM_HEALTH_WATCH_MCU"
-	HealthSystemMem     = "DCGM_HEALTH_WATCH_MEM"
-	HealthSystemSM      = "DCGM_HEALTH_WATCH_SM"
-	HealthSystemInforom = "DCGM_HEALTH_WATCH_INFOROM"
-	HealthSystemThermal = "DCGM_HEALTH_WATCH_THERMAL"
-	HealthSystemPower   = "DCGM_HEALTH_WATCH_POWER"
-	HealthSystemDriver  = "DCGM_HEALTH_WATCH_DRIVER"
-	HealthSystemNVSwitch = "DCGM_HEALTH_WATCH_NVSWITCH"
-)
-
-// Event types for health events.
-const (
-	EventTypeXID         = "xid"
-	EventTypeThermal     = "thermal"
-	EventTypePower       = "power"
-	EventTypeMemory      = "memory"
-	EventTypeNVLink      = "nvlink"
-	EventTypePCIE        = "pcie"
-	EventTypeDriverError = "driver_error"
-	EventTypeECCSBE      = "ecc_sbe" // Single-bit ECC error
-	EventTypeECCDBE      = "ecc_dbe" // Double-bit ECC error
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 // HealthEvent represents a GPU health event from DCGM or other monitoring backends.
 // Events are sent to the control plane where CEL policies evaluate them.
 type HealthEvent struct {
-	// Timestamp when the event occurred.
-	Timestamp time.Time `json:"timestamp"`
-
-	// GPUIndex identifies which GPU reported the event (-1 for node-level events).
-	GPUIndex int `json:"gpu_index"`
-
-	// GPUUUID is the unique identifier for the GPU (empty for node-level events).
-	GPUUUID string `json:"gpu_uuid,omitempty"`
-
-	// System is the DCGM health watch system that generated the event.
-	System string `json:"system"`
-
-	// EventType categorizes the event (xid, thermal, memory, etc).
-	EventType string `json:"event_type"`
-
-	// Metrics contains event-specific data accessible in CEL policies.
-	// Common keys:
-	//   - xid_code: int (for XID events)
-	//   - temperature: int (for thermal events)
-	//   - power_watts: float64 (for power events)
-	//   - memory_used_bytes: uint64 (for memory events)
-	//   - ecc_sbe_count: int (single-bit ECC errors)
-	//   - ecc_dbe_count: int (double-bit ECC errors)
-	Metrics map[string]any `json:"metrics,omitempty"`
-
-	// Message is a human-readable description of the event.
-	Message string `json:"message,omitempty"`
+	Timestamp time.Time
+	GPUIndex  int
+	GPUUUID   string
+	System    pb.HealthWatchSystem
+	EventType pb.HealthEventType
+	Metrics   map[string]any
+	Message   string
 }
-
 
 // NewXIDEvent creates a HealthEvent for an XID error.
 func NewXIDEvent(gpuIndex int, gpuUUID string, xidCode int, message string) HealthEvent {
@@ -70,8 +24,8 @@ func NewXIDEvent(gpuIndex int, gpuUUID string, xidCode int, message string) Heal
 		Timestamp: time.Now(),
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
-		System:    HealthSystemDriver,
-		EventType: EventTypeXID,
+		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_DRIVER,
+		EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_XID,
 		Metrics: map[string]any{
 			"xid_code": xidCode,
 		},
@@ -85,8 +39,8 @@ func NewThermalEvent(gpuIndex int, gpuUUID string, temperature int, message stri
 		Timestamp: time.Now(),
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
-		System:    HealthSystemThermal,
-		EventType: EventTypeThermal,
+		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_THERMAL,
+		EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL,
 		Metrics: map[string]any{
 			"temperature": temperature,
 		},
@@ -95,12 +49,12 @@ func NewThermalEvent(gpuIndex int, gpuUUID string, temperature int, message stri
 }
 
 // NewMemoryEvent creates a HealthEvent for a memory error.
-func NewMemoryEvent(gpuIndex int, gpuUUID string, eventType string, sbeCount, dbeCount int, message string) HealthEvent {
+func NewMemoryEvent(gpuIndex int, gpuUUID string, eventType pb.HealthEventType, sbeCount, dbeCount int, message string) HealthEvent {
 	return HealthEvent{
 		Timestamp: time.Now(),
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
-		System:    HealthSystemMem,
+		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_MEM,
 		EventType: eventType,
 		Metrics: map[string]any{
 			"ecc_sbe_count": sbeCount,
@@ -116,8 +70,8 @@ func NewNVLinkEvent(gpuIndex int, gpuUUID string, linkID int, message string) He
 		Timestamp: time.Now(),
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
-		System:    HealthSystemNVLink,
-		EventType: EventTypeNVLink,
+		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_NVLINK,
+		EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_NVLINK,
 		Metrics: map[string]any{
 			"link_id": linkID,
 		},
@@ -131,11 +85,67 @@ func NewPowerEvent(gpuIndex int, gpuUUID string, powerWatts float64, message str
 		Timestamp: time.Now(),
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
-		System:    HealthSystemPower,
-		EventType: EventTypePower,
+		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_POWER,
+		EventType: pb.HealthEventType_HEALTH_EVENT_TYPE_POWER,
 		Metrics: map[string]any{
 			"power_watts": powerWatts,
 		},
 		Message: message,
+	}
+}
+
+// EventTypeString returns a CEL-friendly string for the event type.
+func EventTypeString(t pb.HealthEventType) string {
+	switch t {
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_XID:
+		return "xid"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL:
+		return "thermal"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_POWER:
+		return "power"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_MEMORY:
+		return "memory"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_NVLINK:
+		return "nvlink"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_PCIE:
+		return "pcie"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_DRIVER_ERROR:
+		return "driver_error"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_SBE:
+		return "ecc_sbe"
+	case pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE:
+		return "ecc_dbe"
+	default:
+		return "unknown"
+	}
+}
+
+// SystemString returns a CEL-friendly string for the health watch system.
+func SystemString(s pb.HealthWatchSystem) string {
+	switch s {
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_PCIE:
+		return "DCGM_HEALTH_WATCH_PCIE"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_NVLINK:
+		return "DCGM_HEALTH_WATCH_NVLINK"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_PMU:
+		return "DCGM_HEALTH_WATCH_PMU"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_MCU:
+		return "DCGM_HEALTH_WATCH_MCU"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_MEM:
+		return "DCGM_HEALTH_WATCH_MEM"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_SM:
+		return "DCGM_HEALTH_WATCH_SM"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_INFOROM:
+		return "DCGM_HEALTH_WATCH_INFOROM"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_THERMAL:
+		return "DCGM_HEALTH_WATCH_THERMAL"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_POWER:
+		return "DCGM_HEALTH_WATCH_POWER"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_DRIVER:
+		return "DCGM_HEALTH_WATCH_DRIVER"
+	case pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_NVSWITCH:
+		return "DCGM_HEALTH_WATCH_NVSWITCH"
+	default:
+		return "DCGM_HEALTH_WATCH_UNKNOWN"
 	}
 }

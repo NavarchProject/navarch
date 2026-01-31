@@ -205,17 +205,17 @@ func (e *Evaluator) Policy() *Policy {
 }
 
 // eventToMap converts a HealthEvent to a map for CEL evaluation.
+// Proto enums are converted to strings for user-friendly policy conditions.
 func eventToMap(event *gpu.HealthEvent) map[string]any {
-	m := map[string]any{
+	return map[string]any{
 		"timestamp":  event.Timestamp.Format(time.RFC3339),
 		"gpu_index":  event.GPUIndex,
 		"gpu_uuid":   event.GPUUUID,
-		"system":     event.System,
-		"event_type": event.EventType,
+		"system":     gpu.SystemString(event.System),
+		"event_type": gpu.EventTypeString(event.EventType),
 		"message":    event.Message,
 		"metrics":    convertMetrics(event.Metrics),
 	}
-	return m
 }
 
 // convertMetrics converts the metrics map to CEL-compatible types.

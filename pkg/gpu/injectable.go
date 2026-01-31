@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 // Injectable is a fake GPU manager that supports failure injection for testing.
@@ -213,7 +215,7 @@ func (g *Injectable) InjectThermalHealthEvent(gpuIndex, temperature int, message
 }
 
 // InjectMemoryHealthEvent adds a memory/ECC event.
-func (g *Injectable) InjectMemoryHealthEvent(gpuIndex int, eventType string, sbeCount, dbeCount int, message string) {
+func (g *Injectable) InjectMemoryHealthEvent(gpuIndex int, eventType pb.HealthEventType, sbeCount, dbeCount int, message string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -311,7 +313,7 @@ func (g *Injectable) ClearHealthEvents() {
 }
 
 // ClearHealthEventsByType removes health events of a specific type.
-func (g *Injectable) ClearHealthEventsByType(eventType string) {
+func (g *Injectable) ClearHealthEventsByType(eventType pb.HealthEventType) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node"
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 // SimulatedNode wraps a real node.Node with an injectable GPU for failure simulation.
@@ -141,8 +142,7 @@ func (n *SimulatedNode) InjectFailure(failure InjectedFailure) {
 		n.gpu.InjectDeviceError(failure.GPUIndex, errors.New(failure.Message))
 
 	case "memory_error":
-		// New failure type for ECC errors
-		n.gpu.InjectMemoryHealthEvent(failure.GPUIndex, gpu.EventTypeECCDBE, 0, 1, failure.Message)
+		n.gpu.InjectMemoryHealthEvent(failure.GPUIndex, pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE, 0, 1, failure.Message)
 
 	case "nvlink_error":
 		// New failure type for NVLink errors
@@ -192,7 +192,7 @@ func (n *SimulatedNode) RecoverFailure(failureType string) {
 func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 	switch f.Type {
 	case "xid_error":
-		n.gpu.ClearHealthEventsByType(gpu.EventTypeXID)
+		n.gpu.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_XID)
 	case "temperature":
 		if f.GPUIndex >= 0 {
 			n.gpu.ClearTemperatureSpike(f.GPUIndex)
@@ -201,7 +201,7 @@ func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 			for i := 0; i < n.spec.GPUCount; i++ {
 				n.gpu.ClearTemperatureSpike(i)
 			}
-			n.gpu.ClearHealthEventsByType(gpu.EventTypeThermal)
+			n.gpu.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_THERMAL)
 		}
 	case "nvml_failure", "backend_error":
 		n.gpu.ClearBackendError()
@@ -210,10 +210,10 @@ func (n *SimulatedNode) clearSpecificFailure(f InjectedFailure) {
 	case "device_error":
 		n.gpu.ClearDeviceError(f.GPUIndex)
 	case "memory_error":
-		n.gpu.ClearHealthEventsByType(gpu.EventTypeECCDBE)
-		n.gpu.ClearHealthEventsByType(gpu.EventTypeECCSBE)
+		n.gpu.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_DBE)
+		n.gpu.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_ECC_SBE)
 	case "nvlink_error":
-		n.gpu.ClearHealthEventsByType(gpu.EventTypeNVLink)
+		n.gpu.ClearHealthEventsByType(pb.HealthEventType_HEALTH_EVENT_TYPE_NVLINK)
 	}
 }
 
