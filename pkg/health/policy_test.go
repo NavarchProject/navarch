@@ -71,6 +71,18 @@ rules:
     result: invalid
 `,
 		},
+		{
+			name: "duplicate rule name",
+			yaml: `
+rules:
+  - name: test
+    condition: 'true'
+    result: healthy
+  - name: test
+    condition: 'false'
+    result: unhealthy
+`,
+		},
 	}
 
 	for _, tt := range tests {

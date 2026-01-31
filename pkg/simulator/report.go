@@ -162,7 +162,7 @@ var policyRuleExpressions = map[string]string{
 	"nvlink-error":     `event.event_type == "nvlink" || event.system == "DCGM_HEALTH_WATCH_NVLINK"`,
 	"pcie-error":       `event.event_type == "pcie" || event.system == "DCGM_HEALTH_WATCH_PCIE"`,
 	"power-warning":    `event.event_type == "power" || event.system == "DCGM_HEALTH_WATCH_POWER"`,
-	"default-healthy":  `true`,
+	"default":  `true`,
 }
 
 type fleetTemplateData struct {

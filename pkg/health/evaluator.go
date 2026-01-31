@@ -166,7 +166,7 @@ func (e *Evaluator) EvaluateSingle(ctx context.Context, event gpu.HealthEvent) (
 		}
 	}
 
-	// No rule matched (shouldn't happen with a default-healthy rule)
+	// No rule matched (shouldn't happen with a default rule)
 	return ResultHealthy, "", nil
 }
 

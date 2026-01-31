@@ -359,7 +359,7 @@ func inferPolicyRule(event FailureEvent) (name, result string, priority int) {
 		return "power-warning", "degraded", 50
 
 	default:
-		return "default-healthy", "healthy", 0
+		return "default", "healthy", 0
 	}
 }
 
