@@ -609,3 +609,74 @@ func TestFakeClock_PendingTimers(t *testing.T) {
 		t.Errorf("after advance, PendingTimers() = %d, want 2", got)
 	}
 }
+
+func TestFakeClock_WaiterCount_NeverNegative(t *testing.T) {
+	// This test verifies that concurrent timer creation and firing
+	// doesn't cause the waiting counter to go negative due to race conditions.
+	// The fix ensures waiting.Add(1) happens before mutex unlock.
+	c := NewFakeClock(time.Now())
+
+	const iterations = 1000
+	const goroutines = 10
+
+	var wg sync.WaitGroup
+	var negativeCount atomic.Int32
+
+	// Monitor goroutine that checks for negative waiter counts
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				if count := c.WaiterCount(); count < 0 {
+					negativeCount.Add(1)
+				}
+				time.Sleep(time.Microsecond)
+			}
+		}
+	}()
+
+	// Create timers and advance concurrently
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				// Create a timer
+				timer := c.NewTimer(time.Millisecond)
+				// Immediately advance past it
+				c.Advance(2 * time.Millisecond)
+				// Drain the channel
+				select {
+				case <-timer.C():
+				default:
+				}
+			}
+		}()
+	}
+
+	// Also test After() concurrently
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				ch := c.After(time.Millisecond)
+				c.Advance(2 * time.Millisecond)
+				select {
+				case <-ch:
+				default:
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(done)
+
+	if got := negativeCount.Load(); got > 0 {
+		t.Errorf("WaiterCount() was negative %d times, want 0", got)
+	}
+}
