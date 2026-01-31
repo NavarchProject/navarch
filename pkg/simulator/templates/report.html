@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,10 +12,10 @@
             theme: {
                 extend: {
                     colors: {
-                        border: '#333333',
-                        'border-subtle': '#222222',
+                        border: { DEFAULT: '#333333', subtle: '#222222' },
                         surface: { DEFAULT: '#0a0a0a', secondary: '#111111', hover: '#1a1a1a' },
                         accent: { DEFAULT: '#0070f3', success: '#50e3c2', warning: '#f5a623', danger: '#e00', purple: '#7928ca', pink: '#ff0080' },
+                        muted: '#666666',
                     },
                     fontFamily: {
                         mono: ['Geist Mono', 'SF Mono', 'SFMono-Regular', 'ui-monospace', 'Menlo', 'Consolas', 'monospace'],
@@ -26,103 +26,10 @@
         }
     </script>
     <style>
-        :root {
-            --bg-primary: #000;
-            --bg-secondary: #0a0a0a;
-            --bg-tertiary: #111;
-            --bg-hover: #1a1a1a;
-            --border: #333;
-            --border-subtle: #222;
-            --text-primary: #ededed;
-            --text-secondary: #a1a1a1;
-            --text-muted: #666;
-            --accent: #fff;
-            --success: #50e3c2;
-            --warning: #f5a623;
-            --danger: #e00;
-            --blue: #0070f3;
-            --radius: 8px;
-            --shadow-sm: 0 0 0 1px var(--border);
-            --mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
-            --sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        }
+        /* Only styles that Tailwind cannot easily handle */
+        body { -webkit-font-smoothing: antialiased; }
 
-        /* Base styles */
-        body {
-            font-family: var(--sans);
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            font-size: 14px;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
-
-        /* Header - Clean and minimal */
-        .header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            padding: 20px 24px;
-            margin: -24px -24px 24px -24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 24px;
-            flex-wrap: wrap;
-            box-shadow: var(--shadow-sm);
-        }
-        .header-left { display: flex; align-items: center; gap: 16px; }
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text-primary);
-            letter-spacing: -0.02em;
-        }
-        .header-badge {
-            font-size: 11px;
-            font-weight: 500;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: var(--bg-tertiary);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-        }
-        .header-meta {
-            display: flex;
-            gap: 24px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .header-meta span { display: flex; align-items: center; gap: 6px; }
-        .header-meta .label { color: var(--text-muted); font-size: 12px; }
-        .header-meta .value { color: var(--text-primary); font-weight: 500; font-family: var(--mono); font-size: 12px; }
-
-        /* Tabs - Vercel underline style */
-        .tabs {
-            display: flex;
-            gap: 0;
-            margin-bottom: 32px;
-            border-bottom: 1px solid var(--border);
-        }
-        .tab {
-            padding: 12px 16px;
-            cursor: pointer;
-            color: var(--text-muted);
-            border: none;
-            background: none;
-            font-size: 14px;
-            font-weight: 400;
-            border-radius: 0;
-            transition: color 0.15s ease;
-            position: relative;
-        }
-        .tab:hover { color: var(--text-primary); }
-        .tab.active {
-            color: var(--text-primary);
-        }
+        /* Tab underline animation */
         .tab.active::after {
             content: '';
             position: absolute;
@@ -130,307 +37,16 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: var(--text-primary);
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        /* Stats grid - Vercel card style */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1px;
-            margin-bottom: 32px;
-            background: var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-        }
-        .stat-card {
-            background: var(--bg-secondary);
-            padding: 20px;
-            border: none;
-            box-shadow: none;
-            transition: background 0.15s ease;
-        }
-        .stat-card:hover { background: var(--bg-tertiary); }
-        .stat-card::before { display: none; }
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 400;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-        }
-        .stat-value {
-            font-family: var(--sans);
-            font-size: 28px;
-            font-weight: 500;
-            letter-spacing: -0.03em;
-            color: var(--text-primary);
-        }
-        .stat-card.success .stat-value { color: var(--success); }
-        .stat-card.warning .stat-value { color: var(--warning); }
-        .stat-card.danger .stat-value { color: var(--danger); }
-        .stat-card.info .stat-value { color: var(--text-primary); }
-
-        /* Info icon tooltips */
-        .info-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #222;
-            color: #666;
-            font-size: 9px;
-            font-weight: 600;
-            cursor: help;
-            margin-left: 6px;
-            vertical-align: middle;
-            transition: all 0.15s ease;
-            flex-shrink: 0;
-        }
-        .stat-card:hover .info-icon {
-            background: #444;
-            color: #999;
-        }
-        .stat-tooltip {
-            position: fixed;
-            max-width: 280px;
-            padding: 10px 14px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            font-size: 12px;
-            line-height: 1.5;
-            color: #a1a1a1;
-            z-index: 1000;
-            pointer-events: none;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-            opacity: 0;
-            transition: opacity 0.15s ease;
-        }
-        .stat-tooltip.visible { opacity: 1; }
-
-        /* Charts */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-            gap: 20px;
-        }
-        .chart-card {
-            background: var(--bg-secondary);
-            border-radius: var(--radius);
-            padding: 24px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-        }
-        .chart-card h3 {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 16px;
-        }
-        .chart-container { position: relative; height: 260px; }
-        .chart-container.small { height: 200px; }
-
-        /* Tables */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        .data-table th, .data-table td {
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .data-table th {
-            background: var(--bg-tertiary);
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .data-table tr:hover { background: var(--bg-hover); }
-        .data-table td { color: var(--text-secondary); }
-
-        /* Badges - Rounded pills */
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 100px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .badge.fatal { background: var(--danger-dim); color: var(--danger); }
-        .badge.recoverable { background: var(--success-dim); color: var(--success); }
-        .badge.enabled { background: var(--success-dim); color: var(--success); }
-        .badge.disabled { background: var(--bg-tertiary); color: var(--text-muted); }
-
-        /* Config sections */
-        .config-section {
-            background: var(--bg-secondary);
-            border-radius: var(--radius);
-            padding: 24px;
-            border: 1px solid var(--border);
-            margin-bottom: 16px;
-            box-shadow: var(--shadow-sm);
-        }
-        .config-section h3 {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--accent);
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-        }
-        .config-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border-subtle);
-        }
-        .config-item:last-child { border-bottom: none; }
-        .config-label { color: var(--text-muted); font-size: 13px; }
-        .config-value {
-            color: var(--text-primary);
-            font-family: var(--mono);
-            font-size: 13px;
-            font-weight: 500;
+            background: #ededed;
         }
 
-        .config-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 16px;
-        }
-
-        /* Section headers */
-        .section-header {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin: 32px 0 16px 0;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .footer {
-            margin-top: 48px;
-            padding-top: 24px;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-
-        /* Timeline Track View */
-        .timeline-container {
-            background: var(--bg-secondary);
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-        .timeline-header {
-            display: flex;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .timeline-labels {
-            min-width: 180px;
-            max-width: 180px;
-            padding: 8px 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            border-right: 1px solid var(--border);
-        }
-        .timeline-ruler {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            padding: 8px 0;
-            overflow-x: auto;
-        }
-        .timeline-tick {
-            flex: 1;
-            text-align: center;
-            font-family: var(--mono);
-            font-size: 10px;
-            color: var(--text-muted);
-            border-left: 1px solid var(--border-subtle);
-            padding: 0 4px;
-            min-width: 60px;
-        }
-        .timeline-body {
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        .timeline-row {
-            display: flex;
-            border-bottom: 1px solid var(--border-subtle);
-            min-height: 28px;
-        }
-        .timeline-row:hover { background: var(--bg-hover); }
-        .timeline-row.has-failures { background: var(--danger-dim); }
-        .timeline-node-label {
-            min-width: 180px;
-            max-width: 180px;
-            padding: 4px 12px;
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--text-secondary);
-            border-right: 1px solid var(--border-subtle);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            cursor: pointer;
-        }
-        .timeline-node-label:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-        .timeline-track {
-            flex: 1;
-            position: relative;
-            height: 28px;
-        }
-        .timeline-segment {
-            position: absolute;
-            top: 4px;
-            height: 20px;
-            border-radius: 3px;
-        }
+        /* Timeline segments need absolute positioning with percentages */
+        .timeline-segment { position: absolute; top: 4px; height: 20px; border-radius: 3px; }
         .timeline-segment.healthy { background: #0070f3; }
         .timeline-segment.degraded { background: #f5a623; }
         .timeline-segment.unhealthy { background: #e00; }
-        .timeline-segment.pending { background: var(--bg-hover); }
+        .timeline-segment.pending { background: #1a1a1a; }
+
         .timeline-event {
             position: absolute;
             top: 50%;
@@ -440,405 +56,136 @@
             border-radius: 50%;
             cursor: pointer;
             z-index: 5;
-            border: 2px solid var(--bg-secondary);
+            border: 2px solid #0a0a0a;
         }
         .timeline-event.failure { background: #e00; }
         .timeline-event.recovery { background: #50e3c2; }
         .timeline-event.status_change { background: #666; }
-        .timeline-controls {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .timeline-legend {
-            display: flex;
-            gap: 16px;
-            padding: 8px 16px;
-            background: var(--bg-secondary);
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-        }
-        .legend-color.healthy { background: #0070f3; }
-        .legend-color.degraded { background: #f5a623; }
-        .legend-color.unhealthy { background: #e00; }
-        .legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-        .legend-dot.failure { background: #e00; }
-        .legend-dot.recovery { background: #50e3c2; }
-        .timeline-tooltip {
-            position: fixed;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px 16px;
-            font-size: 13px;
-            color: var(--text-primary);
-            z-index: 1000;
-            pointer-events: none;
-            max-width: 320px;
-            box-shadow: var(--shadow-md);
-        }
-        .zoom-controls {
-            display: flex;
-            gap: 4px;
-        }
-        .zoom-btn {
-            padding: 6px 12px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-family: var(--mono);
-            font-size: 12px;
-            transition: all 0.15s ease;
-        }
-        .zoom-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
-        /* Node List - Split view */
-        .nodes-container {
-            display: flex;
-            gap: 16px;
-            height: 65vh;
-        }
-        .nodes-sidebar {
-            width: 320px;
-            min-width: 320px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            display: flex;
-            flex-direction: column;
-            box-shadow: var(--shadow-sm);
-        }
-        .nodes-sidebar-header {
-            padding: 12px;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-tertiary);
-            border-radius: var(--radius) var(--radius) 0 0;
-        }
-        .nodes-sidebar-header input {
-            width: 100%;
-            padding: 8px 12px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-primary);
-            font-size: 13px;
-        }
-        .nodes-sidebar-header input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-dim);
-        }
-        .nodes-sidebar-filters {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .nodes-sidebar-filters select {
-            flex: 1;
-            padding: 6px 10px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-        .nodes-sidebar-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-        .node-list-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 12px;
-            cursor: pointer;
-            border-bottom: 1px solid var(--border-subtle);
-            gap: 10px;
-            transition: background 0.15s ease;
-        }
-        .node-list-item:hover { background: var(--bg-hover); }
+        /* Selected node highlight */
         .node-list-item.selected {
-            background: var(--accent-dim);
-            border-left: 3px solid var(--accent);
-        }
-        .node-list-item .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .node-list-item .status-dot.healthy { background: var(--success); }
-        .node-list-item .status-dot.degraded { background: var(--warning); }
-        .node-list-item .status-dot.unhealthy { background: var(--danger); }
-        .node-list-item .node-id {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-family: var(--mono);
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .node-list-item .failure-badge {
-            background: var(--danger-dim);
-            color: var(--danger);
-            padding: 2px 8px;
-            border-radius: 100px;
-            font-family: var(--mono);
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .nodes-detail {
-            flex: 1;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            box-shadow: var(--shadow-sm);
-        }
-        .nodes-detail-header {
-            padding: 16px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border);
-        }
-        .nodes-detail-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-        }
-        .nodes-detail-empty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
-        .node-info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .node-info-item {
-            background: var(--bg-tertiary);
-            padding: 12px;
-            border-radius: 6px;
-        }
-        .node-info-item label {
-            display: block;
-            font-size: 11px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 4px;
-        }
-        .node-info-item span {
-            font-family: var(--mono);
-            font-size: 13px;
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-        .node-events-list {
-            background: var(--bg-primary);
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            max-height: 350px;
-            overflow-y: auto;
-        }
-        .node-event-item {
-            display: flex;
-            align-items: flex-start;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border-subtle);
-            font-size: 13px;
-            gap: 10px;
-        }
-        .node-event-item:last-child { border-bottom: none; }
-        .node-event-time {
-            font-family: var(--mono);
-            color: var(--text-muted);
-            font-size: 11px;
-            white-space: nowrap;
-            min-width: 75px;
-        }
-        .node-event-icon {
-            width: 16px;
-            text-align: center;
-            font-size: 12px;
-        }
-        .node-event-msg {
-            flex: 1;
-            font-family: var(--mono);
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-        .nodes-sidebar-stats {
-            padding: 10px 12px;
-            background: var(--bg-tertiary);
-            border-top: 1px solid var(--border);
-            font-size: 12px;
-            color: var(--text-muted);
-            border-radius: 0 0 var(--radius) var(--radius);
+            background: rgba(0, 112, 243, 0.1);
+            border-left: 3px solid #0070f3;
         }
 
-        /* Utility classes */
-        .mono { font-family: var(--mono); }
-        .text-muted { color: var(--text-muted); }
-        .text-accent { color: var(--accent); }
-        .text-success { color: var(--success); }
-        .text-danger { color: var(--danger); }
-        .text-warning { color: var(--warning); }
+        /* Timeline row with failures */
+        .timeline-row.has-failures { background: rgba(238, 0, 0, 0.05); }
 
         /* Scrollbar styling */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-        /* Input focus states */
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-dim);
-        }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #666; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="header-left">
-                <h1>{{.Name}}</h1>
-                <span class="header-badge">stress test</span>
+<body class="font-sans bg-black text-zinc-200 text-sm leading-relaxed">
+    <div class="max-w-[1400px] mx-auto p-6">
+        <!-- Header -->
+        <div class="bg-surface border-b border-border px-6 py-5 -mx-6 -mt-6 mb-6 flex items-center justify-between gap-6 flex-wrap shadow-[0_0_0_1px_#333]">
+            <div class="flex items-center gap-4">
+                <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">{{.Name}}</h1>
+                <span class="text-[11px] font-medium px-2 py-1 rounded-md bg-surface-secondary text-zinc-400 border border-border uppercase tracking-wide">stress test</span>
             </div>
-            <div class="header-meta">
-                <span><span class="label">start</span> <span class="value">{{.StartTime}}</span></span>
-                <span><span class="label">duration</span> <span class="value">{{.Duration}}</span></span>
-                <span><span class="label">nodes</span> <span class="value">{{.TotalNodes}}</span></span>
-                <span><span class="label">rate</span> <span class="value">{{.FailureRate}}/min/1k</span></span>
-                <span><span class="label">seed</span> <span class="value">{{if .Seed}}{{.Seed}}{{else}}random{{end}}</span></span>
+            <div class="flex gap-6 text-[13px] text-zinc-400">
+                <span class="flex items-center gap-1.5"><span class="text-muted text-xs">start</span> <span class="text-zinc-100 font-medium font-mono text-xs">{{.StartTime}}</span></span>
+                <span class="flex items-center gap-1.5"><span class="text-muted text-xs">duration</span> <span class="text-zinc-100 font-medium font-mono text-xs">{{.Duration}}</span></span>
+                <span class="flex items-center gap-1.5"><span class="text-muted text-xs">nodes</span> <span class="text-zinc-100 font-medium font-mono text-xs">{{.TotalNodes}}</span></span>
+                <span class="flex items-center gap-1.5"><span class="text-muted text-xs">rate</span> <span class="text-zinc-100 font-medium font-mono text-xs">{{.FailureRate}}/min/1k</span></span>
+                <span class="flex items-center gap-1.5"><span class="text-muted text-xs">seed</span> <span class="text-zinc-100 font-medium font-mono text-xs">{{if .Seed}}{{.Seed}}{{else}}random{{end}}</span></span>
             </div>
         </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('results')">Results</button>
-            <button class="tab" onclick="showTab('timeline')">Timeline</button>
-            <button class="tab" onclick="showTab('nodes')">Nodes ({{.TotalNodes}})</button>
-            <button class="tab" onclick="showTab('config')">Config</button>
+        <!-- Tabs -->
+        <div class="flex gap-0 mb-8 border-b border-border">
+            <button class="tab active px-4 py-3 cursor-pointer text-muted border-none bg-transparent text-sm font-normal relative transition-colors hover:text-zinc-100" onclick="showTab('results')">Results</button>
+            <button class="tab px-4 py-3 cursor-pointer text-muted border-none bg-transparent text-sm font-normal relative transition-colors hover:text-zinc-100" onclick="showTab('timeline')">Timeline</button>
+            <button class="tab px-4 py-3 cursor-pointer text-muted border-none bg-transparent text-sm font-normal relative transition-colors hover:text-zinc-100" onclick="showTab('nodes')">Nodes ({{.TotalNodes}})</button>
+            <button class="tab px-4 py-3 cursor-pointer text-muted border-none bg-transparent text-sm font-normal relative transition-colors hover:text-zinc-100" onclick="showTab('config')">Config</button>
         </div>
 
         <!-- Results Tab -->
-        <div id="results" class="tab-content active">
-            <div class="section-header">Key Metrics</div>
-            <div class="stats-grid">
-                <div class="stat-card success" data-tooltip="Total number of simulated GPU nodes that successfully started and connected to the control plane.">
-                    <div class="stat-label">Nodes Started <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.NodesStarted}}</div>
+        <div id="results" class="tab-content">
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Key Metrics</div>
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-px mb-8 bg-border rounded-lg overflow-hidden">
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Total number of simulated GPU nodes that successfully started and connected to the control plane.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Nodes Started <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-success">{{.NodesStarted}}</div>
                 </div>
-                <div class="stat-card success" data-tooltip="Maximum number of nodes in healthy state at any point during the simulation.">
-                    <div class="stat-label">Peak Healthy <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.PeakHealthy}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Maximum number of nodes in healthy state at any point during the simulation.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Peak Healthy <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-success">{{.PeakHealthy}}</div>
                 </div>
-                <div class="stat-card warning" data-tooltip="Lowest number of healthy nodes observed. Low values indicate sustained fleet degradation.">
-                    <div class="stat-label">Min Healthy <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.MinHealthy}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Lowest number of healthy nodes observed. Low values indicate sustained fleet degradation.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Min Healthy <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-warning">{{.MinHealthy}}</div>
                 </div>
-                <div class="stat-card info" data-tooltip="Average number of healthy nodes across all sample intervals. Good indicator of overall fleet stability.">
-                    <div class="stat-label">Avg Healthy <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{printf "%.1f" .AvgHealthy}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Average number of healthy nodes across all sample intervals. Good indicator of overall fleet stability.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Avg Healthy <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-zinc-100">{{printf "%.1f" .AvgHealthy}}</div>
                 </div>
-                <div class="stat-card danger" data-tooltip="Total failure events injected (XID errors, thermal issues, NVML failures, etc).">
-                    <div class="stat-label">Total Failures <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.TotalFailures}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Total failure events injected (XID errors, thermal issues, NVML failures, etc).">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Total Failures <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-danger">{{.TotalFailures}}</div>
                 </div>
-                <div class="stat-card danger" data-tooltip="Failures triggered by other failures (e.g., one GPU error causing related nodes to fail). High cascades indicate correlated failure scenarios.">
-                    <div class="stat-label">Cascading <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.CascadingFailures}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Failures triggered by other failures (e.g., one GPU error causing related nodes to fail). High cascades indicate correlated failure scenarios.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Cascading <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-danger">{{.CascadingFailures}}</div>
                 </div>
-                <div class="stat-card success" data-tooltip="Nodes that recovered from failure state automatically (based on recovery probability config).">
-                    <div class="stat-label">Recoveries <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.TotalRecoveries}}</div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Nodes that recovered from failure state automatically (based on recovery probability config).">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Recoveries <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-success">{{.TotalRecoveries}}</div>
                 </div>
-                <div class="stat-card warning" data-tooltip="Scheduled maintenance windows or targeted failure scenarios that affected multiple nodes.">
-                    <div class="stat-label">Outages <span class="info-icon">?</span></div>
-                    <div class="stat-value">{{.TotalOutages}}</div>
-                </div>
-            </div>
-
-            <div class="section-header">Health Timeline</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>Node Status Distribution</h3>
-                    <div class="chart-container">
-                        <canvas id="healthChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Failures vs Recoveries (cumulative)</h3>
-                    <div class="chart-container">
-                        <canvas id="failuresChart"></canvas>
-                    </div>
+                <div class="stat-card bg-surface p-5 transition-colors hover:bg-surface-hover" data-tooltip="Scheduled maintenance windows or targeted failure scenarios that affected multiple nodes.">
+                    <div class="text-xs text-muted uppercase tracking-wider font-normal mb-2 flex items-center">Outages <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-zinc-800 text-muted text-[9px] font-semibold cursor-help ml-1.5">?</span></div>
+                    <div class="text-[28px] font-medium tracking-tight text-accent-warning">{{.TotalOutages}}</div>
                 </div>
             </div>
 
-            <div class="section-header">Failure Breakdown</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>By Type</h3>
-                    <div class="chart-container">
-                        <canvas id="failureTypeChart"></canvas>
-                    </div>
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Health Timeline</div>
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(480px,1fr))] gap-5">
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">Node Status Distribution</h3>
+                    <div class="relative h-[260px]"><canvas id="healthChart"></canvas></div>
                 </div>
-                <div class="chart-card">
-                    <h3>XID Codes</h3>
-                    <div class="chart-container">
-                        <canvas id="xidChart"></canvas>
-                    </div>
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">Failures vs Recoveries (cumulative)</h3>
+                    <div class="relative h-[260px]"><canvas id="failuresChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Failure Breakdown</div>
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(480px,1fr))] gap-5">
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">By Type</h3>
+                    <div class="relative h-[260px]"><canvas id="failureTypeChart"></canvas></div>
+                </div>
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">XID Codes</h3>
+                    <div class="relative h-[260px]"><canvas id="xidChart"></canvas></div>
                 </div>
             </div>
 
             {{if .TopXIDCodes}}
-            <div class="section-header">Top XID Errors</div>
-            <div class="chart-card">
-                <table class="data-table">
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Top XID Errors</div>
+            <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                <table class="w-full border-collapse text-[13px]">
                     <thead>
                         <tr>
-                            <th>XID Code</th>
-                            <th>Name</th>
-                            <th>Count</th>
-                            <th>Severity</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">XID Code</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Name</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Count</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Severity</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{range .TopXIDCodes}}
-                        <tr>
-                            <td><strong>{{.Code}}</strong></td>
-                            <td>{{.Name}}</td>
-                            <td>{{.Count}}</td>
-                            <td>
-                                {{if .Fatal}}<span class="badge fatal">Fatal</span>
-                                {{else}}<span class="badge recoverable">Recoverable</span>{{end}}
+                        <tr class="hover:bg-surface-hover">
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400"><strong>{{.Code}}</strong></td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Name}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Count}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">
+                                {{if .Fatal}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-red-500/10 text-accent-danger">Fatal</span>
+                                {{else}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">Recoverable</span>{{end}}
                             </td>
                         </tr>
                         {{end}}
@@ -848,60 +195,55 @@
             {{end}}
 
             {{if .HasFleetGen}}
-            <div class="section-header">Fleet Overview</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>GPU Type Distribution</h3>
-                    <div class="chart-container">
-                        <canvas id="gpuTypeChart"></canvas>
-                    </div>
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Fleet Overview</div>
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(480px,1fr))] gap-5">
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">GPU Type Distribution</h3>
+                    <div class="relative h-[260px]"><canvas id="gpuTypeChart"></canvas></div>
                 </div>
-                <div class="chart-card">
-                    <h3>Region Health</h3>
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">Region Health</h3>
                     <div id="regionHeatmap"></div>
                 </div>
             </div>
             {{end}}
 
             {{if .PolicyRuleHits}}
-            <div class="section-header">Policy Rule Evaluation</div>
-            <div class="chart-card" style="margin-bottom: 16px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                    <h3>Rules Triggered</h3>
-                    <a href="https://github.com/NavarchProject/navarch/blob/main/pkg/health/defaults.go" target="_blank"
-                       style="font-size: 12px; color: var(--blue); text-decoration: none;">View policy source →</a>
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Policy Rule Evaluation</div>
+            <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333] mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide">Rules Triggered</h3>
+                    <a href="https://github.com/NavarchProject/navarch/blob/main/pkg/health/defaults.go" target="_blank" class="text-xs text-accent hover:underline">View policy source &rarr;</a>
                 </div>
-                <div style="height: 120px;">
-                    <canvas id="policyRulesChart"></canvas>
-                </div>
+                <div class="h-[120px]"><canvas id="policyRulesChart"></canvas></div>
             </div>
-            <div class="chart-card">
-                <h3>CEL Expression Reference</h3>
+            <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">CEL Expression Reference</h3>
                 <p class="text-xs text-zinc-500 mb-3">
-                    Policy rules are evaluated using <a href="https://github.com/google/cel-spec" target="_blank" class="text-blue-500 hover:underline">CEL (Common Expression Language)</a>.
+                    Policy rules are evaluated using <a href="https://github.com/google/cel-spec" target="_blank" class="text-accent hover:underline">CEL (Common Expression Language)</a>.
                     Configure custom rules in your health policy config.
                 </p>
                 <div class="overflow-x-auto">
-                    <table class="data-table">
+                    <table class="w-full border-collapse text-[13px]">
                         <thead>
                             <tr>
-                                <th class="w-[140px]">Rule</th>
-                                <th class="w-[60px]">Hits</th>
-                                <th class="w-[90px]">Result</th>
-                                <th>CEL Expression</th>
+                                <th class="w-[140px] px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Rule</th>
+                                <th class="w-[60px] px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Hits</th>
+                                <th class="w-[90px] px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Result</th>
+                                <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">CEL Expression</th>
                             </tr>
                         </thead>
                         <tbody>
                             {{range .PolicyRuleHits}}
-                            <tr>
-                                <td class="font-mono font-medium">{{.Name}}</td>
-                                <td><strong>{{.Hits}}</strong></td>
-                                <td>
-                                    {{if eq .Result "unhealthy"}}<span class="badge fatal">{{.Result}}</span>
-                                    {{else if eq .Result "degraded"}}<span class="badge recoverable">{{.Result}}</span>
-                                    {{else}}<span class="badge enabled">{{.Result}}</span>{{end}}
+                            <tr class="hover:bg-surface-hover">
+                                <td class="px-4 py-3 border-b border-border-subtle font-mono font-medium text-zinc-400">{{.Name}}</td>
+                                <td class="px-4 py-3 border-b border-border-subtle text-zinc-400"><strong>{{.Hits}}</strong></td>
+                                <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">
+                                    {{if eq .Result "unhealthy"}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-red-500/10 text-accent-danger">{{.Result}}</span>
+                                    {{else if eq .Result "degraded"}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">{{.Result}}</span>
+                                    {{else}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">{{.Result}}</span>{{end}}
                                 </td>
-                                <td class="font-mono text-[11px] text-zinc-400 break-all">{{.Expression}}</td>
+                                <td class="px-4 py-3 border-b border-border-subtle font-mono text-[11px] text-zinc-400 break-all">{{.Expression}}</td>
                             </tr>
                             {{end}}
                         </tbody>
@@ -912,56 +254,55 @@
         </div>
 
         <!-- Timeline Tab -->
-        <div id="timeline" class="tab-content">
-            <div class="timeline-controls">
-                <div class="timeline-legend">
-                    <div class="legend-item"><div class="legend-color healthy"></div><span>healthy</span></div>
-                    <div class="legend-item"><div class="legend-color degraded"></div><span>degraded</span></div>
-                    <div class="legend-item"><div class="legend-color unhealthy"></div><span>unhealthy</span></div>
-                    <div class="legend-item"><div class="legend-dot failure"></div><span>failure</span></div>
-                    <div class="legend-item"><div class="legend-dot recovery"></div><span>recovery</span></div>
+        <div id="timeline" class="tab-content hidden">
+            <div class="flex gap-3 mb-4 items-center flex-wrap">
+                <div class="flex gap-4 px-4 py-2 bg-surface rounded-lg border border-border">
+                    <div class="flex items-center gap-1.5 text-xs text-muted"><div class="w-3 h-3 rounded-sm bg-accent"></div><span>healthy</span></div>
+                    <div class="flex items-center gap-1.5 text-xs text-muted"><div class="w-3 h-3 rounded-sm bg-accent-warning"></div><span>degraded</span></div>
+                    <div class="flex items-center gap-1.5 text-xs text-muted"><div class="w-3 h-3 rounded-sm bg-accent-danger"></div><span>unhealthy</span></div>
+                    <div class="flex items-center gap-1.5 text-xs text-muted"><div class="w-2 h-2 rounded-full bg-accent-danger"></div><span>failure</span></div>
+                    <div class="flex items-center gap-1.5 text-xs text-muted"><div class="w-2 h-2 rounded-full bg-accent-success"></div><span>recovery</span></div>
                 </div>
-                <input type="text" id="timelineSearch" placeholder="Filter nodes..."
-                       class="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-zinc-200 w-[150px] text-sm">
-                <select id="timelineFilter" class="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-zinc-400 text-sm">
+                <input type="text" id="timelineSearch" placeholder="Filter nodes..." class="px-3 py-2 bg-surface border border-border rounded-md text-zinc-200 w-[150px] text-sm focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20">
+                <select id="timelineFilter" class="px-3 py-2 bg-surface border border-border rounded-md text-zinc-400 text-sm focus:outline-none focus:border-accent">
                     <option value="">all nodes</option>
                     <option value="has_events">with events</option>
                     <option value="unhealthy">unhealthy</option>
                     <option value="degraded">degraded</option>
                 </select>
-                <div class="zoom-controls">
-                    <button class="zoom-btn" onclick="zoomTimeline(-1)">−</button>
-                    <span class="px-2.5 text-zinc-500 font-mono text-xs" id="zoomLevel">100%</span>
-                    <button class="zoom-btn" onclick="zoomTimeline(1)">+</button>
+                <div class="flex gap-1">
+                    <button class="px-3 py-1.5 bg-surface border border-border rounded-md text-zinc-400 cursor-pointer font-mono text-xs transition-colors hover:bg-surface-hover hover:text-zinc-100" onclick="zoomTimeline(-1)">&minus;</button>
+                    <span class="px-2.5 text-zinc-500 font-mono text-xs leading-[32px]" id="zoomLevel">100%</span>
+                    <button class="px-3 py-1.5 bg-surface border border-border rounded-md text-zinc-400 cursor-pointer font-mono text-xs transition-colors hover:bg-surface-hover hover:text-zinc-100" onclick="zoomTimeline(1)">+</button>
                 </div>
-                <span style="color: var(--text-muted); font-size: 13px;"><span id="timelineVisibleNodes">0</span> nodes</span>
+                <span class="text-muted text-[13px]"><span id="timelineVisibleNodes">0</span> nodes</span>
             </div>
-            
-            <div class="timeline-container">
-                <div class="timeline-header">
-                    <div class="timeline-labels">Node ID</div>
-                    <div class="timeline-ruler" id="timelineRuler"></div>
+
+            <div class="bg-surface rounded-lg border border-border overflow-hidden shadow-[0_0_0_1px_#333]">
+                <div class="flex bg-surface-secondary border-b border-border sticky top-0 z-10">
+                    <div class="min-w-[180px] max-w-[180px] px-3 py-2 font-semibold text-muted text-[11px] uppercase tracking-wide border-r border-border">Node ID</div>
+                    <div class="flex-1 flex items-center py-2 overflow-x-auto" id="timelineRuler"></div>
                 </div>
-                <div class="timeline-body" id="timelineBody"></div>
+                <div class="max-h-[60vh] overflow-y-auto" id="timelineBody"></div>
             </div>
-            
-            <div id="timelineTooltip" class="timeline-tooltip" style="display: none;"></div>
+
+            <div id="timelineTooltip" class="fixed bg-surface border border-border rounded-lg px-4 py-3 text-[13px] text-zinc-100 z-[1000] pointer-events-none max-w-[320px] shadow-lg hidden"></div>
         </div>
 
         <!-- Nodes Tab -->
-        <div id="nodes" class="tab-content">
-            <div class="nodes-container">
-                <div class="nodes-sidebar">
-                    <div class="nodes-sidebar-header">
-                        <input type="text" id="nodeSearch" placeholder="Search nodes...">
-                        <div class="nodes-sidebar-filters">
-                            <select id="statusFilter">
+        <div id="nodes" class="tab-content hidden">
+            <div class="flex gap-4 h-[65vh]">
+                <div class="w-80 min-w-[320px] bg-surface border border-border rounded-lg flex flex-col shadow-[0_0_0_1px_#333]">
+                    <div class="p-3 border-b border-border bg-surface-secondary rounded-t-lg">
+                        <input type="text" id="nodeSearch" placeholder="Search nodes..." class="w-full px-3 py-2 bg-surface border border-border rounded-md text-zinc-100 text-[13px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20">
+                        <div class="flex gap-2 mt-2">
+                            <select id="statusFilter" class="flex-1 px-2.5 py-1.5 bg-surface border border-border rounded-md text-zinc-400 text-xs focus:outline-none focus:border-accent">
                                 <option value="">All</option>
                                 <option value="healthy">Healthy</option>
                                 <option value="degraded">Degraded</option>
                                 <option value="unhealthy">Unhealthy</option>
                             </select>
-                            <select id="sortBy">
+                            <select id="sortBy" class="flex-1 px-2.5 py-1.5 bg-surface border border-border rounded-md text-zinc-400 text-xs focus:outline-none focus:border-accent">
                                 <option value="node_id">By ID</option>
                                 <option value="failures">By Failures</option>
                                 <option value="status">By Status</option>
@@ -969,13 +310,13 @@
                             </select>
                         </div>
                     </div>
-                    <div class="nodes-sidebar-list" id="nodeList"></div>
-                    <div class="nodes-sidebar-stats">
+                    <div class="flex-1 overflow-y-auto" id="nodeList"></div>
+                    <div class="px-3 py-2.5 bg-surface-secondary border-t border-border text-xs text-muted rounded-b-lg">
                         <span id="visibleNodes">0</span> / <span id="totalNodes">0</span> nodes
                     </div>
                 </div>
-                <div class="nodes-detail">
-                    <div id="nodeDetailContent" class="nodes-detail-empty">
+                <div class="flex-1 bg-surface border border-border rounded-lg overflow-hidden flex flex-col shadow-[0_0_0_1px_#333]">
+                    <div id="nodeDetailContent" class="flex items-center justify-center h-full text-muted text-[13px]">
                         Select a node to view details
                     </div>
                 </div>
@@ -983,43 +324,43 @@
         </div>
 
         <!-- Configuration Tab -->
-        <div id="config" class="tab-content">
-            <div class="section-header">Test Configuration</div>
+        <div id="config" class="tab-content hidden">
+            <div class="text-xs font-semibold text-muted uppercase tracking-wider mt-8 mb-4 pb-3 border-b border-border">Test Configuration</div>
 
-            <div class="config-section">
-                <h3>General</h3>
-                <div class="config-grid">
+            <div class="bg-surface rounded-lg p-6 border border-border mb-4 shadow-[0_0_0_1px_#333]">
+                <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">General</h3>
+                <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
                     <div>
-                        <div class="config-item">
-                            <span class="config-label">Test Duration</span>
-                            <span class="config-value">{{.TestDuration}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Test Duration</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.TestDuration}}</span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">Metrics Interval</span>
-                            <span class="config-value">{{.MetricsInterval}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Metrics Interval</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.MetricsInterval}}</span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">Random Seed</span>
-                            <span class="config-value">{{if .Seed}}{{.Seed}}{{else}}random{{end}}</span>
+                        <div class="flex justify-between py-2.5">
+                            <span class="text-muted text-[13px]">Random Seed</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{if .Seed}}{{.Seed}}{{else}}random{{end}}</span>
                         </div>
                     </div>
                     <div>
-                        <div class="config-item">
-                            <span class="config-label">Start Time</span>
-                            <span class="config-value">{{.StartTime}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Start Time</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.StartTime}}</span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">End Time</span>
-                            <span class="config-value">{{.EndTime}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">End Time</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.EndTime}}</span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">Actual Duration</span>
-                            <span class="config-value">{{.Duration}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Actual Duration</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.Duration}}</span>
                         </div>
                         {{if .LogsDirectory}}
-                        <div class="config-item">
-                            <span class="config-label">Logs Directory</span>
-                            <a href="{{.LogsDirectory}}" target="_blank" class="config-value" style="color: var(--accent); text-decoration: none;">{{.LogsDirectory}} ↗</a>
+                        <div class="flex justify-between py-2.5">
+                            <span class="text-muted text-[13px]">Logs Directory</span>
+                            <a href="{{.LogsDirectory}}" target="_blank" class="text-accent font-mono text-[13px] font-medium hover:underline">{{.LogsDirectory}} &UpperRightArrow;</a>
                         </div>
                         {{end}}
                     </div>
@@ -1027,31 +368,31 @@
             </div>
 
             {{if .HasFleetGen}}
-            <div class="config-section">
-                <h3>Fleet</h3>
-                <div class="config-grid">
+            <div class="bg-surface rounded-lg p-6 border border-border mb-4 shadow-[0_0_0_1px_#333]">
+                <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">Fleet</h3>
+                <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
                     <div>
-                        <div class="config-item">
-                            <span class="config-label">Total Nodes</span>
-                            <span class="config-value">{{.TotalNodes}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Total Nodes</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.TotalNodes}}</span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">Startup</span>
-                            <span class="config-value">{{.StartupPattern}}{{if .StartupDuration}}, {{.StartupDuration}}{{end}}{{if .StartupJitter}} ±{{.StartupJitter}}%{{end}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Startup</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.StartupPattern}}{{if .StartupDuration}}, {{.StartupDuration}}{{end}}{{if .StartupJitter}} &plusmn;{{.StartupJitter}}%{{end}}</span>
                         </div>
                         {{if .HasColdStart}}
-                        <div class="config-item">
-                            <span class="config-label">Cold Start</span>
-                            <span class="config-value">{{if .ColdStartMean}}{{.ColdStartMean}} ±{{.ColdStartStdDev}}{{else}}{{.ColdStartMin}} – {{.ColdStartMax}}{{end}}</span>
+                        <div class="flex justify-between py-2.5">
+                            <span class="text-muted text-[13px]">Cold Start</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{if .ColdStartMean}}{{.ColdStartMean}} &plusmn;{{.ColdStartStdDev}}{{else}}{{.ColdStartMin}} &ndash; {{.ColdStartMax}}{{end}}</span>
                         </div>
                         {{end}}
                     </div>
                     <div>
                         {{if .FleetProviders}}
                         {{range .FleetProviders}}
-                        <div class="config-item">
-                            <span class="config-label">{{.Key}}</span>
-                            <span class="config-value">{{.Value}}%</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle last:border-b-0">
+                            <span class="text-muted text-[13px]">{{.Key}}</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.Value}}%</span>
                         </div>
                         {{end}}
                         {{end}}
@@ -1059,20 +400,19 @@
                 </div>
 
                 {{if .FleetTemplates}}
-                <!-- Stacked bar showing template distribution -->
-                <div style="margin-top: 20px;">
-                    <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 16px; background: var(--bg-tertiary);">
+                <div class="mt-5">
+                    <div class="flex h-2 rounded overflow-hidden mb-4 bg-surface-secondary">
                         {{range $i, $t := .FleetTemplates}}
-                        <div style="flex: {{$t.Weight}}; background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};" title="{{$t.Name}}: {{$t.Weight}}%"></div>
+                        <div class="h-full" style="flex: {{$t.Weight}}; background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};" title="{{$t.Name}}: {{$t.Weight}}%"></div>
                         {{end}}
                     </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 24px; font-size: 13px;">
+                    <div class="flex flex-wrap gap-6 text-[13px]">
                         {{range $i, $t := .FleetTemplates}}
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 8px; height: 8px; border-radius: 2px; background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};"></div>
-                            <span style="color: var(--text-secondary);">{{$t.Name}}</span>
-                            <span style="color: var(--text-muted); font-family: var(--mono); font-size: 12px;">{{$t.GPUCount}}× GPU</span>
-                            <span style="color: var(--text-muted); font-size: 12px;">{{$t.Weight}}%</span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-sm" style="background: {{if eq $i 0}}#fff{{else if eq $i 1}}#888{{else if eq $i 2}}#555{{else if eq $i 3}}#0070f3{{else if eq $i 4}}#7928ca{{else if eq $i 5}}#50e3c2{{else if eq $i 6}}#f5a623{{else}}#e00{{end}};"></div>
+                            <span class="text-zinc-400">{{$t.Name}}</span>
+                            <span class="text-muted font-mono text-xs">{{$t.GPUCount}}&times; GPU</span>
+                            <span class="text-muted text-xs">{{$t.Weight}}%</span>
                         </div>
                         {{end}}
                     </div>
@@ -1080,11 +420,11 @@
                 {{end}}
 
                 {{if .FleetRegions}}
-                <div style="margin-top: 24px;">
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em;">Regions</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <div class="mt-6">
+                    <div class="text-xs text-muted mb-2.5 uppercase tracking-wider">Regions</div>
+                    <div class="flex flex-wrap gap-2">
                         {{range .FleetRegions}}
-                        <span style="background: var(--bg-tertiary); padding: 6px 10px; border-radius: 6px; font-family: var(--mono); font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border);">{{.Key}} <span style="color: var(--text-muted);">{{.Value}}%</span></span>
+                        <span class="bg-surface-secondary px-2.5 py-1.5 rounded-md font-mono text-xs text-zinc-400 border border-border">{{.Key}} <span class="text-muted">{{.Value}}%</span></span>
                         {{end}}
                     </div>
                 </div>
@@ -1093,29 +433,29 @@
             {{end}}
 
             {{if .HasChaos}}
-            <div class="config-section">
-                <h3>Chaos Engineering</h3>
-                <div class="config-grid">
+            <div class="bg-surface rounded-lg p-6 border border-border mb-4 shadow-[0_0_0_1px_#333]">
+                <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">Chaos Engineering</h3>
+                <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
                     <div>
-                        <div class="config-item">
-                            <span class="config-label">Chaos Enabled</span>
-                            <span class="config-value">
-                                {{if .ChaosEnabled}}<span class="badge enabled">Enabled</span>
-                                {{else}}<span class="badge disabled">Disabled</span>{{end}}
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                            <span class="text-muted text-[13px]">Chaos Enabled</span>
+                            <span>
+                                {{if .ChaosEnabled}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">Enabled</span>
+                                {{else}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-surface-secondary text-muted">Disabled</span>{{end}}
                             </span>
                         </div>
-                        <div class="config-item">
-                            <span class="config-label">Failure Rate</span>
-                            <span class="config-value">{{.FailureRate}} / min / 1000 nodes</span>
+                        <div class="flex justify-between py-2.5">
+                            <span class="text-muted text-[13px]">Failure Rate</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.FailureRate}} / min / 1000 nodes</span>
                         </div>
                     </div>
                     <div>
                         {{if .FailureTypeWeights}}
-                        <h4 style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600;">Failure Type Weights</h4>
+                        <h4 class="text-muted text-[13px] mb-3 font-semibold">Failure Type Weights</h4>
                         {{range .FailureTypeWeights}}
-                        <div class="config-item">
-                            <span class="config-label">{{.Key}}</span>
-                            <span class="config-value">{{.Value}}</span>
+                        <div class="flex justify-between py-2.5 border-b border-border-subtle last:border-b-0">
+                            <span class="text-muted text-[13px]">{{.Key}}</span>
+                            <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.Value}}</span>
                         </div>
                         {{end}}
                         {{end}}
@@ -1123,125 +463,123 @@
                 </div>
 
                 {{if .XIDDistribution}}
-                <div class="charts-grid" style="margin-top: 24px;">
+                <div class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 mt-6">
                     <div>
-                        <h4 style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600;">XID Error Distribution (Configured Weights)</h4>
-                        <table class="data-table">
+                        <h4 class="text-muted text-[13px] mb-3 font-semibold">XID Error Distribution (Configured Weights)</h4>
+                        <table class="w-full border-collapse text-[13px]">
                             <thead>
                                 <tr>
-                                    <th>XID Code</th>
-                                    <th>Name</th>
-                                    <th>Weight</th>
-                                    <th>Severity</th>
+                                    <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">XID Code</th>
+                                    <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Name</th>
+                                    <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Weight</th>
+                                    <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Severity</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {{range .XIDDistribution}}
-                                <tr>
-                                    <td><strong>{{.Code}}</strong></td>
-                                    <td>{{.Name}}</td>
-                                    <td>{{.Weight}}</td>
-                                    <td>
-                                        {{if .Fatal}}<span class="badge fatal">Fatal</span>
-                                        {{else}}<span class="badge recoverable">Recoverable</span>{{end}}
+                                <tr class="hover:bg-surface-hover">
+                                    <td class="px-4 py-3 border-b border-border-subtle text-zinc-400"><strong>{{.Code}}</strong></td>
+                                    <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Name}}</td>
+                                    <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Weight}}</td>
+                                    <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">
+                                        {{if .Fatal}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-red-500/10 text-accent-danger">Fatal</span>
+                                        {{else}}<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">Recoverable</span>{{end}}
                                     </td>
                                 </tr>
                                 {{end}}
                             </tbody>
                         </table>
                     </div>
-                    <div class="chart-card">
-                        <h3>XID Weight Distribution</h3>
-                        <div class="chart-container small">
-                            <canvas id="xidDistChart"></canvas>
-                        </div>
+                    <div class="bg-surface rounded-lg p-6 border border-border">
+                        <h3 class="text-[13px] font-semibold text-zinc-400 uppercase tracking-wide mb-4">XID Weight Distribution</h3>
+                        <div class="relative h-[200px]"><canvas id="xidDistChart"></canvas></div>
                     </div>
                 </div>
                 {{end}}
             </div>
             {{end}}
 
-            <div class="config-cards">
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
                 {{if .HasCascading}}
-                <div class="config-section">
-                    <h3>Cascading Failures</h3>
-                    <div class="config-item">
-                        <span class="config-label">Status</span>
-                        <span class="config-value"><span class="badge enabled">Enabled</span></span>
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">Cascading Failures</h3>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Status</span>
+                        <span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">Enabled</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Probability</span>
-                        <span class="config-value">{{printf "%.0f" (mul .CascadeProbability 100)}}%</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Probability</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{printf "%.0f" (mul .CascadeProbability 100)}}%</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Max Depth</span>
-                        <span class="config-value">{{.CascadeMaxDepth}}</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Max Depth</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.CascadeMaxDepth}}</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Min Delay</span>
-                        <span class="config-value">{{.CascadeMinDelay}}</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Min Delay</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.CascadeMinDelay}}</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Max Delay</span>
-                        <span class="config-value">{{.CascadeMaxDelay}}</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Max Delay</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.CascadeMaxDelay}}</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Scope</span>
-                        <span class="config-value">{{.CascadeScope}}</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Scope</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.CascadeScope}}</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Max Affected</span>
-                        <span class="config-value">{{printf "%.0f" (mul .CascadeMaxAffected 100)}}%</span>
+                    <div class="flex justify-between py-2.5">
+                        <span class="text-muted text-[13px]">Max Affected</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{printf "%.0f" (mul .CascadeMaxAffected 100)}}%</span>
                     </div>
                 </div>
                 {{end}}
 
                 {{if .HasRecovery}}
-                <div class="config-section">
-                    <h3>Recovery Settings</h3>
-                    <div class="config-item">
-                        <span class="config-label">Status</span>
-                        <span class="config-value"><span class="badge enabled">Enabled</span></span>
+                <div class="bg-surface rounded-lg p-6 border border-border shadow-[0_0_0_1px_#333]">
+                    <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">Recovery Settings</h3>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Status</span>
+                        <span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-emerald-500/10 text-accent-success">Enabled</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Probability</span>
-                        <span class="config-value">{{printf "%.0f" (mul .RecoveryProbability 100)}}%</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Probability</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{printf "%.0f" (mul .RecoveryProbability 100)}}%</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Mean Time</span>
-                        <span class="config-value">{{.RecoveryMeanTime}}</span>
+                    <div class="flex justify-between py-2.5 border-b border-border-subtle">
+                        <span class="text-muted text-[13px]">Mean Time</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.RecoveryMeanTime}}</span>
                     </div>
-                    <div class="config-item">
-                        <span class="config-label">Std Deviation</span>
-                        <span class="config-value">{{.RecoveryStdDev}}</span>
+                    <div class="flex justify-between py-2.5">
+                        <span class="text-muted text-[13px]">Std Deviation</span>
+                        <span class="text-zinc-100 font-mono text-[13px] font-medium">{{.RecoveryStdDev}}</span>
                     </div>
                 </div>
                 {{end}}
             </div>
 
             {{if .ScheduledOutages}}
-            <div class="config-section">
-                <h3>Scheduled Outages</h3>
-                <table class="data-table">
+            <div class="bg-surface rounded-lg p-6 border border-border mt-4 shadow-[0_0_0_1px_#333]">
+                <h3 class="text-sm font-semibold text-white mb-4 pb-3 border-b border-border-subtle">Scheduled Outages</h3>
+                <table class="w-full border-collapse text-[13px]">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Start Time</th>
-                            <th>Duration</th>
-                            <th>Scope</th>
-                            <th>Target</th>
-                            <th>Failure Type</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Name</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Start Time</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Duration</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Scope</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Target</th>
+                            <th class="px-4 py-3 text-left border-b border-border-subtle bg-surface-secondary text-muted font-semibold text-[11px] uppercase tracking-wide">Failure Type</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{range .ScheduledOutages}}
-                        <tr>
-                            <td><strong>{{.Name}}</strong></td>
-                            <td>{{.StartTime}}</td>
-                            <td>{{.Duration}}</td>
-                            <td>{{.Scope}}</td>
-                            <td>{{.Target}}</td>
-                            <td>{{.FailureType}}</td>
+                        <tr class="hover:bg-surface-hover">
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400"><strong>{{.Name}}</strong></td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.StartTime}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Duration}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Scope}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.Target}}</td>
+                            <td class="px-4 py-3 border-b border-border-subtle text-zinc-400">{{.FailureType}}</td>
                         </tr>
                         {{end}}
                     </tbody>
@@ -1250,26 +588,25 @@
             {{end}}
         </div>
 
-        <div class="footer">
+        <div class="mt-12 pt-6 border-t border-border text-center text-muted text-xs">
             Generated by Navarch Stress Test Simulator
         </div>
     </div>
 
     <script>
-        // Chart.js global config for dark Vercel theme
+        // Chart.js global config
         Chart.defaults.color = '#666666';
         Chart.defaults.borderColor = '#222222';
         Chart.defaults.font.family = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
         Chart.defaults.font.size = 11;
 
         function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
+            document.getElementById(tabId).classList.remove('hidden');
             event.target.classList.add('active');
         }
 
-        // Color palette - Vercel inspired
         const colors = {
             success: '#50e3c2',
             warning: '#f5a623',
@@ -1278,13 +615,9 @@
             blue: '#0070f3',
             purple: '#7928ca',
             pink: '#ff0080',
-            successDim: 'rgba(80, 227, 194, 0.15)',
-            warningDim: 'rgba(245, 166, 35, 0.15)',
-            dangerDim: 'rgba(238, 0, 0, 0.15)',
-            accentDim: 'rgba(255, 255, 255, 0.1)',
         };
 
-        // Node Health Timeline - stacked area chart
+        // Node Health Timeline
         new Chart(document.getElementById('healthChart'), {
             type: 'line',
             data: {
@@ -1313,8 +646,8 @@
             data: {
                 labels: {{.TimelineLabels}},
                 datasets: [
-                    { label: 'Failures', data: {{.FailuresData}}, borderColor: colors.danger, backgroundColor: colors.dangerDim, fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 },
-                    { label: 'Recoveries', data: {{.RecoveriesData}}, borderColor: colors.success, backgroundColor: colors.successDim, fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 }
+                    { label: 'Failures', data: {{.FailuresData}}, borderColor: colors.danger, backgroundColor: 'rgba(238, 0, 0, 0.15)', fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'Recoveries', data: {{.RecoveriesData}}, borderColor: colors.success, backgroundColor: 'rgba(80, 227, 194, 0.15)', fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 0 }
                 ]
             },
             options: {
@@ -1329,12 +662,12 @@
             }
         });
 
-        // Failure Type Distribution - Vercel gradient palette
+        // Failure Type Distribution
         new Chart(document.getElementById('failureTypeChart'), {
             type: 'doughnut',
             data: {
                 labels: {{.FailureTypeLabels}},
-                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666', '#0070f3', '#7928ca'], borderWidth: 0 }]
+                datasets: [{ data: {{.FailureTypeData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666'], borderWidth: 0 }]
             },
             options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } } } }
         });
@@ -1364,7 +697,7 @@
             type: 'doughnut',
             data: {
                 labels: {{.XIDDistLabels}},
-                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666', '#0070f3', '#7928ca'], borderWidth: 0 }]
+                datasets: [{ data: {{.XIDDistData}}, backgroundColor: ['#0070f3', '#7928ca', '#ff0080', '#50e3c2', '#f5a623', '#e00', '#fff', '#666'], borderWidth: 0 }]
             },
             options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, padding: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } } } }
         });
@@ -1384,42 +717,37 @@
             });
         }
 
-        // Region Heatmap - Compact grid style
+        // Region Heatmap
         const heatmapContainer = document.getElementById('regionHeatmap');
         if (heatmapContainer) {
             const nodes = {{.NodesJSON}};
-
-            // Group by region, then by zone
             const regions = {};
             nodes.forEach(node => {
                 if (!regions[node.region]) regions[node.region] = {};
-                if (!regions[node.region][node.zone]) {
-                    regions[node.region][node.zone] = { healthy: 0, degraded: 0, unhealthy: 0, total: 0 };
-                }
+                if (!regions[node.region][node.zone]) regions[node.region][node.zone] = { healthy: 0, degraded: 0, unhealthy: 0, total: 0 };
                 regions[node.region][node.zone][node.status]++;
                 regions[node.region][node.zone].total++;
             });
 
-            // Calculate region totals
             Object.keys(regions).forEach(region => {
                 let totals = { healthy: 0, degraded: 0, unhealthy: 0, total: 0 };
                 Object.values(regions[region]).forEach(zone => {
-                    totals.healthy += zone.healthy;
-                    totals.degraded += zone.degraded;
-                    totals.unhealthy += zone.unhealthy;
-                    totals.total += zone.total;
+                    if (zone.total) {
+                        totals.healthy += zone.healthy;
+                        totals.degraded += zone.degraded;
+                        totals.unhealthy += zone.unhealthy;
+                        totals.total += zone.total;
+                    }
                 });
                 regions[region]._totals = totals;
             });
 
-            // Get zone color based on health
             function getZoneColor(zone) {
                 if (zone.unhealthy > 0) return '#e00';
                 if (zone.degraded > 0) return '#f5a623';
                 return '#0070f3';
             }
 
-            // Build compact grid HTML with Tailwind classes
             let html = '';
             Object.keys(regions).sort().forEach(region => {
                 const totals = regions[region]._totals;
@@ -1427,11 +755,7 @@
                 const zones = Object.keys(regions[region]).filter(z => z !== '_totals').sort();
 
                 html += '<div class="flex items-center py-3 border-b border-zinc-800">';
-
-                // Region name
                 html += '<div class="min-w-[140px] font-mono text-sm text-zinc-200">' + region + '</div>';
-
-                // Zone cells
                 html += '<div class="flex gap-1 flex-1">';
                 zones.forEach(zoneName => {
                     const zone = regions[region][zoneName];
@@ -1445,23 +769,17 @@
                 });
                 html += '</div>';
 
-                // Summary stats
                 const pctColor = healthPct === 100 ? 'text-emerald-400' : healthPct >= 80 ? 'text-blue-500' : 'text-amber-500';
                 html += '<div class="min-w-[180px] flex items-center justify-end gap-4">';
                 html += '<span class="font-mono text-xs text-zinc-500">' + totals.total + ' nodes</span>';
                 html += '<span class="font-mono text-xs font-medium ' + pctColor + '">' + healthPct + '%</span>';
 
-                // Mini bar
                 const barColor = healthPct === 100 ? '#50e3c2' : healthPct >= 80 ? '#0070f3' : healthPct >= 50 ? '#f5a623' : '#e00';
                 html += '<div class="w-[60px] h-1 bg-zinc-700 rounded overflow-hidden">';
                 html += '<div class="h-full" style="width:' + healthPct + '%;background:' + barColor + '"></div>';
-                html += '</div>';
-                html += '</div>';
-
-                html += '</div>';
+                html += '</div></div></div>';
             });
 
-            // Add legend
             html += '<div class="flex gap-4 pt-3 text-xs text-zinc-500">';
             html += '<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>healthy</span>';
             html += '<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span>degraded</span>';
@@ -1470,7 +788,6 @@
 
             heatmapContainer.innerHTML = html;
 
-            // Add hover tooltips for zone cells
             const zoneTooltip = document.createElement('div');
             zoneTooltip.className = 'fixed bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2.5 text-xs z-[1000] pointer-events-none hidden shadow-lg';
             document.body.appendChild(zoneTooltip);
@@ -1478,23 +795,15 @@
             heatmapContainer.querySelectorAll('.zone-cell').forEach(cell => {
                 cell.addEventListener('mouseenter', (e) => {
                     const zone = cell.dataset.zone;
-                    const h = cell.dataset.healthy;
-                    const d = cell.dataset.degraded;
-                    const u = cell.dataset.unhealthy;
-                    const t = cell.dataset.total;
+                    const h = cell.dataset.healthy, d = cell.dataset.degraded, u = cell.dataset.unhealthy, t = cell.dataset.total;
                     zoneTooltip.innerHTML = '<div class="font-medium mb-1.5 text-zinc-200">' + zone + '</div>' +
                         '<div class="text-zinc-400">' + t + ' nodes</div>' +
-                        '<div class="mt-1 flex gap-2">' +
-                        '<span class="text-blue-500">' + h + ' healthy</span>' +
-                        '<span class="text-amber-500">' + d + ' degraded</span>' +
-                        '<span class="text-red-500">' + u + ' unhealthy</span></div>';
+                        '<div class="mt-1 flex gap-2"><span class="text-blue-500">' + h + ' healthy</span><span class="text-amber-500">' + d + ' degraded</span><span class="text-red-500">' + u + ' unhealthy</span></div>';
                     zoneTooltip.classList.remove('hidden');
                     zoneTooltip.style.left = (e.clientX + 10) + 'px';
                     zoneTooltip.style.top = (e.clientY + 10) + 'px';
                 });
-                cell.addEventListener('mouseleave', () => {
-                    zoneTooltip.classList.add('hidden');
-                });
+                cell.addEventListener('mouseleave', () => zoneTooltip.classList.add('hidden'));
                 cell.addEventListener('mousemove', (e) => {
                     zoneTooltip.style.left = (e.clientX + 10) + 'px';
                     zoneTooltip.style.top = (e.clientY + 10) + 'px';
@@ -1532,14 +841,11 @@
         const testDuration = "{{.Duration}}";
         let timelineZoom = 1;
         let timelineFilteredNodes = [...timelineNodes];
-        
+
         function parseGoDuration(durationStr) {
             const matches = durationStr.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/);
             if (!matches) return 60000;
-            const hours = parseInt(matches[1]) || 0;
-            const minutes = parseInt(matches[2]) || 0;
-            const seconds = parseFloat(matches[3]) || 0;
-            return (hours * 3600 + minutes * 60 + seconds) * 1000;
+            return ((parseInt(matches[1]) || 0) * 3600 + (parseInt(matches[2]) || 0) * 60 + (parseFloat(matches[3]) || 0)) * 1000;
         }
 
         function formatDuration(ns) {
@@ -1548,30 +854,25 @@
             if (ms < 1000) return ms.toFixed(0) + 'ms';
             const s = ms / 1000;
             if (s < 60) return s.toFixed(1) + 's';
-            const m = Math.floor(s / 60);
-            const remainS = s % 60;
-            return m + 'm' + remainS.toFixed(0) + 's';
+            return Math.floor(s / 60) + 'm' + (s % 60).toFixed(0) + 's';
         }
-        
+
         const durationMs = parseGoDuration(testDuration);
-        
+
         function renderTimeline() {
             const ruler = document.getElementById('timelineRuler');
             const body = document.getElementById('timelineBody');
-            
             const numTicks = Math.min(20, Math.max(6, Math.floor(durationMs / 10000)));
             const tickInterval = durationMs / numTicks;
-            
+
             let rulerHtml = '';
             for (let i = 0; i <= numTicks; i++) {
                 const time = (i * tickInterval) / 1000;
-                let label = time >= 60 
-                    ? Math.floor(time / 60) + 'm' + (time % 60 > 0 ? Math.floor(time % 60) + 's' : '')
-                    : Math.floor(time) + 's';
-                rulerHtml += '<div class="timeline-tick">' + label + '</div>';
+                let label = time >= 60 ? Math.floor(time / 60) + 'm' + (time % 60 > 0 ? Math.floor(time % 60) + 's' : '') : Math.floor(time) + 's';
+                rulerHtml += '<div class="flex-1 text-center font-mono text-[10px] text-muted border-l border-border-subtle px-1 min-w-[60px]">' + label + '</div>';
             }
             ruler.innerHTML = rulerHtml;
-            
+
             let minTime = Infinity;
             timelineFilteredNodes.forEach(node => {
                 if (node.events && node.events.length > 0) {
@@ -1580,43 +881,38 @@
                 }
             });
             if (minTime === Infinity) minTime = Date.now() - durationMs;
-            
+
             let bodyHtml = '';
             timelineFilteredNodes.forEach(node => {
-                const statusColor = node.status === 'healthy' ? colors.success : 
-                                  node.status === 'degraded' ? colors.warning : colors.danger;
+                const statusColor = node.status === 'healthy' ? colors.success : node.status === 'degraded' ? colors.warning : colors.danger;
                 const hasFailures = node.events && node.events.some(e => e.type === 'failure');
-                
-                bodyHtml += '<div class="timeline-row' + (hasFailures ? ' has-failures' : '') + '">';
-                bodyHtml += '<div class="timeline-node-label" title="' + node.node_id + '" onclick="selectNodeFromTimeline(\'' + node.node_id + '\')">';
-                bodyHtml += '<span style="width: 5px; height: 5px; border-radius: 50%; background: ' + statusColor + '; flex-shrink: 0;"></span>';
-                bodyHtml += '<span style="overflow: hidden; text-overflow: ellipsis;">' + node.node_id + '</span>';
-                bodyHtml += '</div>';
-                bodyHtml += '<div class="timeline-track" data-node="' + node.node_id + '">';
-                
+
+                bodyHtml += '<div class="timeline-row flex border-b border-border-subtle min-h-[28px] hover:bg-surface-hover' + (hasFailures ? ' has-failures' : '') + '">';
+                bodyHtml += '<div class="min-w-[180px] max-w-[180px] px-3 py-1 font-mono text-[11px] text-zinc-400 border-r border-border-subtle flex items-center gap-2 whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer hover:text-zinc-100 hover:bg-surface-secondary" title="' + node.node_id + '" onclick="selectNodeFromTimeline(\'' + node.node_id + '\')">';
+                bodyHtml += '<span class="w-[5px] h-[5px] rounded-full flex-shrink-0" style="background: ' + statusColor + ';"></span>';
+                bodyHtml += '<span class="overflow-hidden text-ellipsis">' + node.node_id + '</span></div>';
+                bodyHtml += '<div class="flex-1 relative h-[28px]" data-node="' + node.node_id + '">';
+
                 if (node.events && node.events.length > 0) {
-                    let currentStatus = 'pending';
-                    let segmentStart = 0;
-                    
+                    let currentStatus = 'pending', segmentStart = 0;
                     node.events.forEach((event, idx) => {
                         const eventTime = new Date(event.timestamp).getTime();
                         const eventPos = ((eventTime - minTime) / durationMs) * 100 * timelineZoom;
-                        
+
                         if (idx > 0 || event.type === 'started') {
                             const segmentWidth = eventPos - segmentStart;
                             if (segmentWidth > 0.1) {
                                 bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + segmentWidth + '%;"></div>';
                             }
                         }
-                        
+
                         if (event.type === 'started' || event.type === 'recovery') currentStatus = 'healthy';
                         else if (event.type === 'failure') currentStatus = 'unhealthy';
                         else if (event.type === 'status_change' && event.status) currentStatus = event.status;
                         segmentStart = eventPos;
-                        
+
                         if (event.type !== 'started') {
-                            const eventClass = event.type === 'failure' ? 'failure' : 
-                                             event.type === 'recovery' ? 'recovery' : 'status_change';
+                            const eventClass = event.type === 'failure' ? 'failure' : event.type === 'recovery' ? 'recovery' : 'status_change';
                             bodyHtml += '<div class="timeline-event ' + eventClass + '" style="left: ' + eventPos + '%;" ';
                             bodyHtml += 'data-event="' + encodeURIComponent(JSON.stringify(event)) + '" ';
                             bodyHtml += 'data-node="' + node.node_id + '" ';
@@ -1624,7 +920,7 @@
                             bodyHtml += 'onmouseleave="hideEventTooltip()"></div>';
                         }
                     });
-                    
+
                     const finalWidth = (100 * timelineZoom) - segmentStart;
                     if (finalWidth > 0.1) {
                         bodyHtml += '<div class="timeline-segment ' + currentStatus + '" style="left: ' + segmentStart + '%; width: ' + finalWidth + '%;"></div>';
@@ -1632,55 +928,53 @@
                 } else {
                     bodyHtml += '<div class="timeline-segment healthy" style="left: 0; width: ' + (100 * timelineZoom) + '%;"></div>';
                 }
-                
+
                 bodyHtml += '</div></div>';
             });
-            
+
             body.innerHTML = bodyHtml;
             document.getElementById('timelineVisibleNodes').textContent = timelineFilteredNodes.length;
         }
-        
+
         function showEventTooltip(e, element) {
             const event = JSON.parse(decodeURIComponent(element.dataset.event));
             const nodeId = element.dataset.node;
             const tooltip = document.getElementById('timelineTooltip');
-            
             const time = new Date(event.timestamp).toLocaleTimeString();
             let typeLabel = event.type.replace('_', ' ').toUpperCase();
-            let color = event.type === 'failure' ? colors.danger : 
-                       event.type === 'recovery' ? colors.success : colors.accent;
-            
-            let html = '<div style="margin-bottom: 8px; font-weight: 600; color: ' + color + '; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;">' + typeLabel + '</div>';
-            html += '<div style="margin-bottom: 4px; color: var(--text-secondary);"><span style="color: var(--text-muted);">node</span> ' + nodeId + '</div>';
-            html += '<div style="margin-bottom: 4px; color: var(--text-secondary);"><span style="color: var(--text-muted);">time</span> ' + time + '</div>';
-            if (event.message) html += '<div style="margin-bottom: 4px; color: var(--text-primary);">' + event.message + '</div>';
-            if (event.xid_code) html += '<div style="margin-bottom: 4px; color: ' + colors.danger + ';"><span style="color: var(--text-muted);">xid</span> ' + event.xid_code + '</div>';
+            let color = event.type === 'failure' ? colors.danger : event.type === 'recovery' ? colors.success : colors.accent;
+
+            let html = '<div class="mb-2 font-semibold text-[11px] tracking-wide uppercase" style="color: ' + color + ';">' + typeLabel + '</div>';
+            html += '<div class="mb-1 text-zinc-400"><span class="text-muted">node</span> ' + nodeId + '</div>';
+            html += '<div class="mb-1 text-zinc-400"><span class="text-muted">time</span> ' + time + '</div>';
+            if (event.message) html += '<div class="mb-1 text-zinc-100">' + event.message + '</div>';
+            if (event.xid_code) html += '<div class="mb-1" style="color: ' + colors.danger + ';"><span class="text-muted">xid</span> ' + event.xid_code + '</div>';
             if (event.policy_rule) {
                 let ruleColor = event.rule_result === 'unhealthy' ? colors.danger : event.rule_result === 'degraded' ? colors.warning : colors.blue;
-                html += '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);"><span style="color: var(--text-muted);">rule</span> <span style="color: ' + ruleColor + '; font-family: var(--mono); font-size: 11px;">' + event.policy_rule + '</span> → <span style="color: ' + ruleColor + ';">' + event.rule_result + '</span></div>';
+                html += '<div class="mt-2 pt-2 border-t border-border"><span class="text-muted">rule</span> <span class="font-mono text-[11px]" style="color: ' + ruleColor + ';">' + event.policy_rule + '</span> &rarr; <span style="color: ' + ruleColor + ';">' + event.rule_result + '</span></div>';
             }
-            
+
             tooltip.innerHTML = html;
-            tooltip.style.display = 'block';
+            tooltip.classList.remove('hidden');
             tooltip.style.left = (e.clientX + 12) + 'px';
             tooltip.style.top = (e.clientY - 10) + 'px';
         }
-        
+
         function hideEventTooltip() {
-            document.getElementById('timelineTooltip').style.display = 'none';
+            document.getElementById('timelineTooltip').classList.add('hidden');
         }
-        
+
         function zoomTimeline(direction) {
             if (direction > 0 && timelineZoom < 5) timelineZoom *= 1.5;
             else if (direction < 0 && timelineZoom > 0.5) timelineZoom /= 1.5;
             document.getElementById('zoomLevel').textContent = Math.round(timelineZoom * 100) + '%';
             renderTimeline();
         }
-        
+
         function filterTimeline() {
             const search = document.getElementById('timelineSearch').value.toLowerCase();
             const filter = document.getElementById('timelineFilter').value;
-            
+
             timelineFilteredNodes = timelineNodes.filter(node => {
                 const matchesSearch = !search || node.node_id.toLowerCase().includes(search);
                 let matchesFilter = true;
@@ -1691,125 +985,120 @@
             });
             renderTimeline();
         }
-        
+
         if (timelineNodes && timelineNodes.length > 0) {
             renderTimeline();
             document.getElementById('timelineSearch').addEventListener('input', filterTimeline);
             document.getElementById('timelineFilter').addEventListener('change', filterTimeline);
         }
-        
+
         // Node management
         const allNodes = {{.NodesJSON}};
         let filteredNodes = [...allNodes];
         let selectedNodeId = null;
-        
+
         function renderNodes() {
             const container = document.getElementById('nodeList');
             let html = '';
-            
+
             filteredNodes.forEach(node => {
                 const failureCount = node.events ? node.events.filter(e => e.type === 'failure').length : 0;
                 const isSelected = node.node_id === selectedNodeId;
-                
-                html += '<div class="node-list-item' + (isSelected ? ' selected' : '') + '" onclick="selectNode(\'' + node.node_id + '\')">';
-                html += '<div class="status-dot ' + node.status + '"></div>';
-                html += '<span class="node-id">' + node.node_id + '</span>';
-                if (failureCount > 0) html += '<span class="failure-badge">' + failureCount + '</span>';
+
+                html += '<div class="node-list-item flex items-center px-3 py-2.5 cursor-pointer border-b border-border-subtle gap-2.5 transition-colors hover:bg-surface-hover' + (isSelected ? ' selected' : '') + '" onclick="selectNode(\'' + node.node_id + '\')">';
+                html += '<div class="w-2 h-2 rounded-full flex-shrink-0 ' + (node.status === 'healthy' ? 'bg-accent-success' : node.status === 'degraded' ? 'bg-accent-warning' : 'bg-accent-danger') + '"></div>';
+                html += '<span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-zinc-400">' + node.node_id + '</span>';
+                if (failureCount > 0) html += '<span class="bg-red-500/10 text-accent-danger px-2 py-0.5 rounded-full font-mono text-[11px] font-semibold">' + failureCount + '</span>';
                 html += '</div>';
             });
-            
+
             container.innerHTML = html;
             document.getElementById('visibleNodes').textContent = filteredNodes.length;
             document.getElementById('totalNodes').textContent = allNodes.length;
         }
-        
+
         function selectNode(nodeId) {
             selectedNodeId = nodeId;
             renderNodes();
             showNodeDetail(nodeId);
         }
-        
+
         function showNodeDetail(nodeId) {
             const node = allNodes.find(n => n.node_id === nodeId);
             if (!node) return;
-            
+
             const detailContainer = document.getElementById('nodeDetailContent');
-            const statusColor = node.status === 'healthy' ? colors.success : 
-                              node.status === 'degraded' ? colors.warning : colors.danger;
-            
-            let html = '<div class="nodes-detail-header">';
-            html += '<div style="display: flex; align-items: center; gap: 10px;">';
-            html += '<span style="width: 10px; height: 10px; border-radius: 50%; background: ' + statusColor + ';"></span>';
-            html += '<code style="margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 600;">' + node.node_id + '</code>';
-            html += '<span class="badge ' + (node.status === 'healthy' ? 'enabled' : node.status === 'degraded' ? 'recoverable' : 'fatal') + '">' + node.status + '</span>';
+            const statusColor = node.status === 'healthy' ? colors.success : node.status === 'degraded' ? colors.warning : colors.danger;
+
+            let html = '<div class="p-4 bg-surface-secondary border-b border-border">';
+            html += '<div class="flex items-center gap-2.5">';
+            html += '<span class="w-2.5 h-2.5 rounded-full" style="background: ' + statusColor + ';"></span>';
+            html += '<code class="text-sm font-semibold text-zinc-100">' + node.node_id + '</code>';
+            html += '<span class="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ' + (node.status === 'healthy' ? 'bg-emerald-500/10 text-accent-success' : node.status === 'degraded' ? 'bg-emerald-500/10 text-accent-success' : 'bg-red-500/10 text-accent-danger') + '">' + node.status + '</span>';
             html += '</div></div>';
-            
-            html += '<div class="nodes-detail-content">';
-            html += '<div class="node-info-grid">';
-            html += '<div class="node-info-item"><label>Provider</label><span>' + node.provider + '</span></div>';
-            html += '<div class="node-info-item"><label>Region</label><span>' + node.region + '</span></div>';
-            html += '<div class="node-info-item"><label>Zone</label><span>' + node.zone + '</span></div>';
-            html += '<div class="node-info-item"><label>Instance</label><span>' + node.instance_type + '</span></div>';
-            html += '<div class="node-info-item"><label>GPUs</label><span>' + node.gpu_count + '× ' + node.gpu_type + '</span></div>';
-            html += '<div class="node-info-item"><label>Failures</label><span style="color: ' + colors.danger + ';">' + node.failure_count + '</span></div>';
+
+            html += '<div class="flex-1 overflow-y-auto p-4">';
+            html += '<div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5 mb-5">';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Provider</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + node.provider + '</span></div>';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Region</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + node.region + '</span></div>';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Zone</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + node.zone + '</span></div>';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Instance</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + node.instance_type + '</span></div>';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">GPUs</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + node.gpu_count + '&times; ' + node.gpu_type + '</span></div>';
+            html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Failures</label><span class="font-mono text-[13px] font-medium" style="color: ' + colors.danger + ';">' + node.failure_count + '</span></div>';
             if (node.cold_start_delay && node.cold_start_delay > 0) {
-                html += '<div class="node-info-item"><label>Cold Start</label><span>' + formatDuration(node.cold_start_delay) + '</span></div>';
+                html += '<div class="bg-surface-secondary p-3 rounded-md"><label class="block text-[11px] text-muted uppercase tracking-wide mb-1">Cold Start</label><span class="font-mono text-[13px] text-zinc-100 font-medium">' + formatDuration(node.cold_start_delay) + '</span></div>';
             }
             html += '</div>';
-            
+
             if (node.log_file) {
-                html += '<div style="margin-bottom: 16px;">';
-                html += '<label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;">Log File</label>';
-                html += '<a href="' + node.log_file + '" target="_blank" style="display: block; font-size: 12px; color: var(--accent); word-break: break-all; background: var(--bg-tertiary); padding: 10px 12px; border-radius: 6px; text-decoration: none; font-family: var(--mono);">' + node.log_file + ' ↗</a>';
+                html += '<div class="mb-4">';
+                html += '<label class="block text-[11px] text-muted uppercase tracking-wide mb-1.5">Log File</label>';
+                html += '<a href="' + node.log_file + '" target="_blank" class="block text-xs text-accent break-all bg-surface-secondary px-3 py-2.5 rounded-md font-mono hover:underline">' + node.log_file + ' &UpperRightArrow;</a>';
                 html += '</div>';
             }
 
-            html += '<div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; font-weight: 600;">Events (' + (node.events ? node.events.length : 0) + ')</div>';
-            html += '<div class="node-events-list">';
-            
+            html += '<div class="text-[11px] text-muted uppercase tracking-wide mb-2 font-semibold">Events (' + (node.events ? node.events.length : 0) + ')</div>';
+            html += '<div class="bg-black rounded-md border border-border max-h-[350px] overflow-y-auto">';
+
             if (node.events && node.events.length > 0) {
                 node.events.forEach(event => {
                     const time = new Date(event.timestamp).toLocaleTimeString();
-                    let icon = '•', color = '#555';
-                    
-                    if (event.type === 'started') { icon = '▸'; color = colors.success; }
-                    else if (event.type === 'failure') { icon = '✕'; color = colors.danger; }
-                    else if (event.type === 'recovery') { icon = '↺'; color = colors.success; }
-                    else if (event.type === 'status_change') { icon = '◆'; color = colors.accent; }
-                    
-                    html += '<div class="node-event-item">';
-                    html += '<span class="node-event-time">' + time + '</span>';
-                    html += '<span class="node-event-icon" style="color: ' + color + ';">' + icon + '</span>';
-                    html += '<span class="node-event-msg">' + event.message;
+                    let icon = '&bull;', color = '#555';
+                    if (event.type === 'started') { icon = '&#9658;'; color = colors.success; }
+                    else if (event.type === 'failure') { icon = '&times;'; color = colors.danger; }
+                    else if (event.type === 'recovery') { icon = '&#8634;'; color = colors.success; }
+                    else if (event.type === 'status_change') { icon = '&#9670;'; color = colors.accent; }
+
+                    html += '<div class="flex items-start px-3 py-2.5 border-b border-border-subtle text-[13px] gap-2.5 last:border-b-0">';
+                    html += '<span class="font-mono text-muted text-[11px] whitespace-nowrap min-w-[75px]">' + time + '</span>';
+                    html += '<span class="w-4 text-center text-xs" style="color: ' + color + ';">' + icon + '</span>';
+                    html += '<span class="flex-1 font-mono text-zinc-400 text-xs">' + event.message;
                     if (event.xid_code) html += ' <span style="color: ' + colors.danger + ';">[XID ' + event.xid_code + ']</span>';
                     if (event.policy_rule) {
                         let ruleColor = event.rule_result === 'unhealthy' ? colors.danger : event.rule_result === 'degraded' ? colors.warning : '#0070f3';
-                        html += ' <span style="background: ' + ruleColor + '22; color: ' + ruleColor + '; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-family: var(--mono);">' + event.policy_rule + ' → ' + event.rule_result + '</span>';
+                        html += ' <span class="px-1.5 py-0.5 rounded text-[10px] font-mono" style="background: ' + ruleColor + '22; color: ' + ruleColor + ';">' + event.policy_rule + ' &rarr; ' + event.rule_result + '</span>';
                     }
                     html += '</span></div>';
                 });
             } else {
-                html += '<div style="padding: 20px; color: var(--text-muted); text-align: center; font-size: 13px;">No events recorded</div>';
+                html += '<div class="px-5 py-5 text-muted text-center text-[13px]">No events recorded</div>';
             }
-            
+
             html += '</div></div>';
             detailContainer.innerHTML = html;
-            detailContainer.className = '';
+            detailContainer.className = 'flex flex-col h-full';
         }
-        
+
         function filterNodes() {
             const search = document.getElementById('nodeSearch').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;
             const sortBy = document.getElementById('sortBy').value;
-            
+
             filteredNodes = allNodes.filter(node => {
-                const matchesSearch = !search || 
-                    node.node_id.toLowerCase().includes(search) ||
-                    node.provider.toLowerCase().includes(search) ||
-                    node.region.toLowerCase().includes(search);
+                const matchesSearch = !search || node.node_id.toLowerCase().includes(search) || node.provider.toLowerCase().includes(search) || node.region.toLowerCase().includes(search);
                 return matchesSearch && (!statusFilter || node.status === statusFilter);
             });
-            
+
             filteredNodes.sort((a, b) => {
                 switch(sortBy) {
                     case 'failures': return b.failure_count - a.failure_count;
@@ -1820,19 +1109,19 @@
             });
             renderNodes();
         }
-        
+
         window.selectNodeFromTimeline = function(nodeId) {
             showTab('nodes');
             setTimeout(() => selectNode(nodeId), 100);
         };
-        
+
         if (allNodes && allNodes.length > 0) {
             filterNodes();
             document.getElementById('nodeSearch').addEventListener('input', filterNodes);
             document.getElementById('statusFilter').addEventListener('change', filterNodes);
             document.getElementById('sortBy').addEventListener('change', filterNodes);
         }
-        
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
@@ -1842,22 +1131,20 @@
             else if (e.key === '4') showTab('config');
         });
 
-        // Stat card info tooltips
+        // Stat card tooltips
         const statTooltip = document.createElement('div');
-        statTooltip.className = 'stat-tooltip';
+        statTooltip.className = 'fixed max-w-[280px] px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs leading-relaxed text-zinc-400 z-[1000] pointer-events-none shadow-lg opacity-0 transition-opacity';
         document.body.appendChild(statTooltip);
 
         document.querySelectorAll('.stat-card[data-tooltip]').forEach(card => {
             card.addEventListener('mouseenter', (e) => {
                 statTooltip.textContent = card.dataset.tooltip;
-                statTooltip.classList.add('visible');
+                statTooltip.style.opacity = '1';
                 const rect = card.getBoundingClientRect();
                 statTooltip.style.left = rect.left + 'px';
                 statTooltip.style.top = (rect.bottom + 8) + 'px';
             });
-            card.addEventListener('mouseleave', () => {
-                statTooltip.classList.remove('visible');
-            });
+            card.addEventListener('mouseleave', () => statTooltip.style.opacity = '0');
         });
     </script>
 </body>
