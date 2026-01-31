@@ -125,9 +125,9 @@ func (c *FakeClock) After(d time.Duration) <-chan time.Time {
 	}
 
 	c.addWaiter(c.now.Add(d), ch, nil)
+	c.waiting.Add(1)
 	c.mu.Unlock()
 
-	c.waiting.Add(1)
 	c.signalAdvance()
 
 	return ch
@@ -193,9 +193,9 @@ func (c *FakeClock) NewTimer(d time.Duration) Timer {
 	}
 
 	ft.id = c.addWaiter(ft.deadline, ft.ch, nil)
+	c.waiting.Add(1)
 	c.mu.Unlock()
 
-	c.waiting.Add(1)
 	c.signalAdvance()
 
 	return ft
