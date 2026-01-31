@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	pb "github.com/NavarchProject/navarch/proto"
@@ -28,6 +29,7 @@ type Runner struct {
 	controlPlaneAddr string
 	nodes            map[string]*SimulatedNode
 	logger           *slog.Logger
+	clock            clock.Clock
 	client           protoconnect.ControlPlaneServiceClient
 	waitForCancel    bool
 
@@ -91,6 +93,14 @@ func WithSeed(seed int64) RunnerOption {
 	}
 }
 
+// WithClock sets the clock for time operations.
+// Use clock.NewFakeClock for deterministic time-accelerated simulations.
+func WithClock(clk clock.Clock) RunnerOption {
+	return func(r *Runner) {
+		r.clock = clk
+	}
+}
+
 // NewRunner creates a new scenario runner.
 func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 	r := &Runner{
@@ -98,6 +108,7 @@ func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 		controlPlaneAddr: "http://localhost:8080",
 		nodes:            make(map[string]*SimulatedNode),
 		logger:           slog.Default(),
+		clock:            clock.Real(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -449,13 +460,14 @@ func (r *Runner) runEventsInBackground(ctx context.Context) {
 }
 
 func (r *Runner) startControlPlane(ctx context.Context) error {
-	r.database = db.NewInMemDB()
+	r.database = db.NewInMemDBWithClock(r.clock)
 	cfg := controlplane.DefaultConfig()
 	// Use faster intervals for simulation
 	cfg.HealthCheckIntervalSeconds = 5
 	cfg.HeartbeatIntervalSeconds = 3
+	cfg.Clock = r.clock
 
-// Pass nil for instance manager in simulator (not needed for basic simulation)
+	// Pass nil for instance manager in simulator (not needed for basic simulation)
 	r.cpServer = controlplane.NewServer(r.database, cfg, nil, r.logger.With(slog.String("component", "control-plane")))
 
 	mux := http.NewServeMux()

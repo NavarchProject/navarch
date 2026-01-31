@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
 
@@ -48,6 +49,7 @@ type Pool struct {
 	config    Config
 	providers []ProviderConfig
 	selector  ProviderSelector
+	clock     clock.Clock
 	mu        sync.RWMutex
 	nodes     map[string]*ManagedNode
 	lastScale time.Time
@@ -80,7 +82,8 @@ type Status struct {
 type NewPoolOptions struct {
 	Config           Config
 	Providers        []ProviderConfig
-	ProviderStrategy string // priority, cost, availability, round-robin
+	ProviderStrategy string      // priority, cost, availability, round-robin
+	Clock            clock.Clock // Clock for time operations. If nil, uses real time.
 }
 
 // New creates a pool with a single provider.
@@ -128,10 +131,16 @@ func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
 		return nil, err
 	}
 
+	clk := opts.Clock
+	if clk == nil {
+		clk = clock.Real()
+	}
+
 	return &Pool{
 		config:    opts.Config,
 		providers: opts.Providers,
 		selector:  selector,
+		clock:     clk,
 		nodes:     make(map[string]*ManagedNode),
 	}, nil
 }
@@ -192,9 +201,9 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 	if count <= 0 {
 		return nil, fmt.Errorf("pool at maximum capacity (%d nodes)", p.config.MaxNodes)
 	}
-	if time.Since(p.lastScale) < p.config.CooldownPeriod {
+	if p.clock.Since(p.lastScale) < p.config.CooldownPeriod {
 		return nil, fmt.Errorf("cooldown period not elapsed (%.0fs remaining)",
-			(p.config.CooldownPeriod - time.Since(p.lastScale)).Seconds())
+			(p.config.CooldownPeriod - p.clock.Since(p.lastScale)).Seconds())
 	}
 
 	var nodes []*provider.Node
@@ -208,12 +217,12 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 			Node:          node,
 			Pool:          p.config.Name,
 			ProviderName:  providerName,
-			ProvisionedAt: time.Now(),
+			ProvisionedAt: p.clock.Now(),
 		}
 		nodes = append(nodes, node)
 	}
 
-	p.lastScale = time.Now()
+	p.lastScale = p.clock.Now()
 	return nodes, nil
 }
 
@@ -288,7 +297,7 @@ func (p *Pool) ScaleDown(ctx context.Context, count int) error {
 	if count <= 0 {
 		return fmt.Errorf("pool at minimum capacity (%d nodes)", p.config.MinNodes)
 	}
-	if time.Since(p.lastScale) < p.config.CooldownPeriod {
+	if p.clock.Since(p.lastScale) < p.config.CooldownPeriod {
 		return fmt.Errorf("cooldown period not elapsed")
 	}
 
@@ -306,7 +315,7 @@ func (p *Pool) ScaleDown(ctx context.Context, count int) error {
 		delete(p.nodes, nodeID)
 	}
 
-	p.lastScale = time.Now()
+	p.lastScale = p.clock.Now()
 	return nil
 }
 
@@ -422,7 +431,7 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		Node:          node,
 		Pool:          p.config.Name,
 		ProviderName:  providerName,
-		ProvisionedAt: time.Now(),
+		ProvisionedAt: p.clock.Now(),
 	}
 
 	return node, nil
@@ -439,7 +448,7 @@ func (p *Pool) RecordHealthFailure(nodeID string) (shouldReplace bool) {
 	}
 
 	mn.HealthFailures++
-	mn.LastHealthCheck = time.Now()
+	mn.LastHealthCheck = p.clock.Now()
 
 	return p.config.AutoReplace && mn.HealthFailures >= p.config.UnhealthyThreshold
 }
@@ -451,7 +460,7 @@ func (p *Pool) RecordHealthSuccess(nodeID string) {
 
 	if mn, ok := p.nodes[nodeID]; ok {
 		mn.HealthFailures = 0
-		mn.LastHealthCheck = time.Now()
+		mn.LastHealthCheck = p.clock.Now()
 	}
 }
 

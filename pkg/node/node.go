@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node/metrics"
 	"github.com/NavarchProject/navarch/pkg/retry"
@@ -42,6 +43,9 @@ type Config struct {
 
 	// GPU is the GPU manager to use. If nil, a fake GPU will be created.
 	GPU gpu.Manager
+
+	// Clock is the clock to use for time operations. If nil, uses real time.
+	Clock clock.Clock
 }
 
 // Node represents the node daemon that communicates with the control plane.
@@ -50,6 +54,7 @@ type Node struct {
 	client           protoconnect.ControlPlaneServiceClient
 	logger           *slog.Logger
 	gpu              gpu.Manager
+	clock            clock.Clock
 	metricsCollector metrics.Collector
 
 	// Configuration received from control plane
@@ -78,12 +83,18 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 		gpuManager = createGPUManager(logger)
 	}
 
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.Real()
+	}
+
 	metricsCollector := metrics.NewCollector(gpuManager, nil)
 
 	return &Node{
 		config:              cfg,
 		logger:              logger,
 		gpu:                 gpuManager,
+		clock:               clk,
 		metricsCollector:    metricsCollector,
 		healthCheckInterval: 60 * time.Second,
 		heartbeatInterval:   30 * time.Second,
@@ -244,7 +255,7 @@ func (n *Node) detectGPUs(ctx context.Context) ([]*pb.GPUInfo, error) {
 
 // heartbeatLoop sends periodic heartbeats to the control plane.
 func (n *Node) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(n.heartbeatInterval)
+	ticker := n.clock.NewTicker(n.heartbeatInterval)
 	defer ticker.Stop()
 
 	// Retry config for heartbeats - faster retries since they're periodic
@@ -260,7 +271,7 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			err := retry.Do(ctx, retryCfg, func(ctx context.Context) error {
 				return n.sendHeartbeat(ctx)
 			})
@@ -309,14 +320,14 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 
 // healthCheckLoop runs health checks periodically and reports results.
 func (n *Node) healthCheckLoop(ctx context.Context) {
-	ticker := time.NewTicker(n.healthCheckInterval)
+	ticker := n.clock.NewTicker(n.healthCheckInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			if err := n.runHealthChecks(ctx); err != nil {
 				n.logger.ErrorContext(ctx, "failed to run health checks",
 					slog.String("error", err.Error()),
@@ -456,14 +467,14 @@ func (n *Node) runHealthEventCheck(ctx context.Context) (*pb.HealthCheckResult, 
 
 // commandPollLoop polls for commands from the control plane.
 func (n *Node) commandPollLoop(ctx context.Context) {
-	ticker := time.NewTicker(n.commandPollInterval)
+	ticker := n.clock.NewTicker(n.commandPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			if err := n.pollCommands(ctx); err != nil {
 				n.logger.ErrorContext(ctx, "failed to poll commands",
 					slog.String("error", err.Error()),

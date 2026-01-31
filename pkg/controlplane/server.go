@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/health"
@@ -26,6 +26,7 @@ type NodeHealthObserver interface {
 type Server struct {
 	db              db.DB
 	config          Config
+	clock           clock.Clock
 	logger          *slog.Logger
 	metricsSource   *DBMetricsSource
 	instanceManager *InstanceManager
@@ -38,6 +39,7 @@ type Config struct {
 	HealthCheckIntervalSeconds int32
 	HeartbeatIntervalSeconds   int32
 	EnabledHealthChecks        []string
+	Clock                      clock.Clock // Clock for time operations. If nil, uses real time.
 }
 
 // DefaultConfig returns a sensible default configuration.
@@ -56,7 +58,13 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 	if logger == nil {
 		logger = slog.Default()
 	}
-	metricsSource := NewDBMetricsSource(database, logger)
+
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.Real()
+	}
+
+	metricsSource := NewDBMetricsSourceWithClock(database, clk, logger)
 
 	// Create health evaluator with default policy
 	evaluator, err := health.NewEvaluator(health.DefaultPolicy())
@@ -68,6 +76,7 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 	return &Server{
 		db:              database,
 		config:          cfg,
+		clock:           clk,
 		logger:          logger,
 		metricsSource:   metricsSource,
 		instanceManager: instanceManager,
@@ -171,7 +180,7 @@ func (s *Server) ReportHealth(ctx context.Context, req *connect.Request[pb.Repor
 
 	healthRecord := &db.HealthCheckRecord{
 		NodeID:    req.Msg.NodeId,
-		Timestamp: time.Now(),
+		Timestamp: s.clock.Now(),
 		Results:   results,
 	}
 
@@ -258,7 +267,7 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("node_id is required"))
 	}
 
-	timestamp := time.Now()
+	timestamp := s.clock.Now()
 	if req.Msg.Timestamp != nil {
 		timestamp = req.Msg.Timestamp.AsTime()
 	}
@@ -431,7 +440,7 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 	}
 
 	commandID := uuid.New().String()
-	issuedAt := time.Now()
+	issuedAt := s.clock.Now()
 
 	record := &db.CommandRecord{
 		CommandID:  commandID,

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	pb "github.com/NavarchProject/navarch/proto"
 )
@@ -12,16 +13,26 @@ import (
 // DBMetricsSource implements MetricsSource by aggregating metrics from the database.
 type DBMetricsSource struct {
 	db     db.DB
+	clock  clock.Clock
 	logger *slog.Logger
 }
 
 // NewDBMetricsSource creates a metrics source that reads from the database.
 func NewDBMetricsSource(database db.DB, logger *slog.Logger) *DBMetricsSource {
+	return NewDBMetricsSourceWithClock(database, clock.Real(), logger)
+}
+
+// NewDBMetricsSourceWithClock creates a metrics source with a custom clock.
+func NewDBMetricsSourceWithClock(database db.DB, clk clock.Clock, logger *slog.Logger) *DBMetricsSource {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	if clk == nil {
+		clk = clock.Real()
+	}
 	return &DBMetricsSource{
 		db:     database,
+		clock:  clk,
 		logger: logger,
 	}
 }
@@ -111,7 +122,7 @@ func (m *DBMetricsSource) GetPoolMetrics(ctx context.Context, poolName string) (
 func (m *DBMetricsSource) StoreMetrics(ctx context.Context, nodeID string, metrics *pb.NodeMetrics) error {
 	return m.db.RecordMetrics(ctx, &db.MetricsRecord{
 		NodeID:    nodeID,
-		Timestamp: time.Now(),
+		Timestamp: m.clock.Now(),
 		Metrics:   metrics,
 	})
 }

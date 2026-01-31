@@ -7,6 +7,8 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
 // Config configures retry behavior.
@@ -31,6 +33,9 @@ type Config struct {
 	// RetryableFunc determines if an error should trigger a retry.
 	// If nil, all non-nil errors are considered retryable.
 	RetryableFunc func(error) bool
+
+	// Clock is the clock to use for delays. If nil, uses real time.
+	Clock clock.Clock
 }
 
 // DefaultConfig returns a reasonable default retry configuration.
@@ -66,6 +71,11 @@ func Do(ctx context.Context, cfg Config, fn func(ctx context.Context) error) err
 	}
 	if cfg.Multiplier == 0 {
 		cfg.Multiplier = 2.0
+	}
+
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.Real()
 	}
 
 	var lastErr error
@@ -108,7 +118,7 @@ func Do(ctx context.Context, cfg Config, fn func(ctx context.Context) error) err
 		select {
 		case <-ctx.Done():
 			return errors.Join(ctx.Err(), lastErr)
-		case <-time.After(actualDelay):
+		case <-clk.After(actualDelay):
 		}
 
 		// Increase delay for next iteration

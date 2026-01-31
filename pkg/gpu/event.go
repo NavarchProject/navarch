@@ -20,8 +20,14 @@ type HealthEvent struct {
 
 // NewXIDEvent creates a HealthEvent for an XID error.
 func NewXIDEvent(gpuIndex int, gpuUUID string, xidCode int, message string) HealthEvent {
+	return NewXIDEventAt(time.Now(), gpuIndex, gpuUUID, xidCode, message)
+}
+
+// NewXIDEventAt creates a HealthEvent for an XID error with a specific timestamp.
+// Use this in simulations where you need deterministic timestamps.
+func NewXIDEventAt(timestamp time.Time, gpuIndex int, gpuUUID string, xidCode int, message string) HealthEvent {
 	return HealthEvent{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
 		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_DRIVER,
@@ -35,8 +41,13 @@ func NewXIDEvent(gpuIndex int, gpuUUID string, xidCode int, message string) Heal
 
 // NewThermalEvent creates a HealthEvent for a thermal warning.
 func NewThermalEvent(gpuIndex int, gpuUUID string, temperature int, message string) HealthEvent {
+	return NewThermalEventAt(time.Now(), gpuIndex, gpuUUID, temperature, message)
+}
+
+// NewThermalEventAt creates a HealthEvent for a thermal warning with a specific timestamp.
+func NewThermalEventAt(timestamp time.Time, gpuIndex int, gpuUUID string, temperature int, message string) HealthEvent {
 	return HealthEvent{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
 		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_THERMAL,
@@ -50,8 +61,13 @@ func NewThermalEvent(gpuIndex int, gpuUUID string, temperature int, message stri
 
 // NewMemoryEvent creates a HealthEvent for a memory error.
 func NewMemoryEvent(gpuIndex int, gpuUUID string, eventType pb.HealthEventType, sbeCount, dbeCount int, message string) HealthEvent {
+	return NewMemoryEventAt(time.Now(), gpuIndex, gpuUUID, eventType, sbeCount, dbeCount, message)
+}
+
+// NewMemoryEventAt creates a HealthEvent for a memory error with a specific timestamp.
+func NewMemoryEventAt(timestamp time.Time, gpuIndex int, gpuUUID string, eventType pb.HealthEventType, sbeCount, dbeCount int, message string) HealthEvent {
 	return HealthEvent{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
 		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_MEM,
@@ -66,8 +82,13 @@ func NewMemoryEvent(gpuIndex int, gpuUUID string, eventType pb.HealthEventType, 
 
 // NewNVLinkEvent creates a HealthEvent for an NVLink error.
 func NewNVLinkEvent(gpuIndex int, gpuUUID string, linkID int, message string) HealthEvent {
+	return NewNVLinkEventAt(time.Now(), gpuIndex, gpuUUID, linkID, message)
+}
+
+// NewNVLinkEventAt creates a HealthEvent for an NVLink error with a specific timestamp.
+func NewNVLinkEventAt(timestamp time.Time, gpuIndex int, gpuUUID string, linkID int, message string) HealthEvent {
 	return HealthEvent{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
 		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_NVLINK,
@@ -81,8 +102,13 @@ func NewNVLinkEvent(gpuIndex int, gpuUUID string, linkID int, message string) He
 
 // NewPowerEvent creates a HealthEvent for a power issue.
 func NewPowerEvent(gpuIndex int, gpuUUID string, powerWatts float64, message string) HealthEvent {
+	return NewPowerEventAt(time.Now(), gpuIndex, gpuUUID, powerWatts, message)
+}
+
+// NewPowerEventAt creates a HealthEvent for a power issue with a specific timestamp.
+func NewPowerEventAt(timestamp time.Time, gpuIndex int, gpuUUID string, powerWatts float64, message string) HealthEvent {
 	return HealthEvent{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		GPUIndex:  gpuIndex,
 		GPUUUID:   gpuUUID,
 		System:    pb.HealthWatchSystem_HEALTH_WATCH_SYSTEM_POWER,

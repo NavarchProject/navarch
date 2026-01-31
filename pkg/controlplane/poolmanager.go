@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -19,6 +20,7 @@ type PoolManager struct {
 	pools           map[string]*managedPool
 	mu              sync.RWMutex
 	logger          *slog.Logger
+	clock           clock.Clock
 	interval        time.Duration
 	metrics         MetricsSource
 	instanceManager *InstanceManager
@@ -47,6 +49,7 @@ type PoolMetrics struct {
 // PoolManagerConfig configures the pool manager.
 type PoolManagerConfig struct {
 	EvaluationInterval time.Duration // How often to run autoscaler (default: 30s)
+	Clock              clock.Clock   // Clock for time operations. If nil, uses real time.
 }
 
 // NewPoolManager creates a new pool manager.
@@ -59,9 +62,14 @@ func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, instanceManage
 	if interval == 0 {
 		interval = 30 * time.Second
 	}
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.Real()
+	}
 	return &PoolManager{
 		pools:           make(map[string]*managedPool),
 		logger:          logger,
+		clock:           clk,
 		interval:        interval,
 		metrics:         metrics,
 		instanceManager: instanceManager,
@@ -163,7 +171,7 @@ func (pm *PoolManager) GetPoolStatus(name string) (pool.Status, error) {
 }
 
 func (pm *PoolManager) runAutoscalerLoop(ctx context.Context, name string, mp *managedPool) {
-	ticker := time.NewTicker(pm.interval)
+	ticker := pm.clock.NewTicker(pm.interval)
 	defer ticker.Stop()
 
 	pm.logger.Info("autoscaler loop started",
@@ -176,7 +184,7 @@ func (pm *PoolManager) runAutoscalerLoop(ctx context.Context, name string, mp *m
 		case <-ctx.Done():
 			pm.logger.Info("autoscaler loop stopped", slog.String("pool", name))
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			pm.evaluate(ctx, name, mp)
 		}
 	}
@@ -211,6 +219,7 @@ func (pm *PoolManager) evaluate(ctx context.Context, name string, mp *managedPoo
 func (pm *PoolManager) buildPoolState(ctx context.Context, name string, mp *managedPool) (pool.PoolState, error) {
 	cfg := mp.pool.Config()
 	status := mp.pool.Status()
+	now := pm.clock.Now()
 
 	state := pool.PoolState{
 		Name:           name,
@@ -219,8 +228,8 @@ func (pm *PoolManager) buildPoolState(ctx context.Context, name string, mp *mana
 		MinNodes:       cfg.MinNodes,
 		MaxNodes:       cfg.MaxNodes,
 		CooldownPeriod: cfg.CooldownPeriod,
-		TimeOfDay:      time.Now(),
-		DayOfWeek:      time.Now().Weekday(),
+		TimeOfDay:      now,
+		DayOfWeek:      now.Weekday(),
 	}
 
 	if pm.metrics != nil {

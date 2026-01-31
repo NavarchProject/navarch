@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	pb "github.com/NavarchProject/navarch/proto"
 	"google.golang.org/protobuf/proto"
 )
@@ -14,6 +15,7 @@ import (
 // Suitable for testing and development.
 type InMemDB struct {
 	mu           sync.RWMutex
+	clock        clock.Clock
 	nodes        map[string]*NodeRecord
 	healthChecks map[string][]*HealthCheckRecord // nodeID -> list of health checks
 	commands     map[string]*CommandRecord       // commandID -> command
@@ -24,7 +26,16 @@ type InMemDB struct {
 
 // NewInMemDB creates a new in-memory database.
 func NewInMemDB() *InMemDB {
+	return NewInMemDBWithClock(clock.Real())
+}
+
+// NewInMemDBWithClock creates a new in-memory database with a custom clock.
+func NewInMemDBWithClock(clk clock.Clock) *InMemDB {
+	if clk == nil {
+		clk = clock.Real()
+	}
 	return &InMemDB{
+		clock:        clk,
 		nodes:        make(map[string]*NodeRecord),
 		healthChecks: make(map[string][]*HealthCheckRecord),
 		commands:     make(map[string]*CommandRecord),
@@ -43,7 +54,7 @@ func (db *InMemDB) RegisterNode(ctx context.Context, record *NodeRecord) error {
 		record.LastHeartbeat = existing.LastHeartbeat
 		record.LastHealthCheck = existing.LastHealthCheck
 	} else {
-		record.RegisteredAt = time.Now()
+		record.RegisteredAt = db.clock.Now()
 	}
 	if record.Status == pb.NodeStatus_NODE_STATUS_UNKNOWN {
 		record.Status = pb.NodeStatus_NODE_STATUS_ACTIVE
@@ -318,7 +329,7 @@ func (db *InMemDB) GetRecentMetrics(ctx context.Context, nodeID string, duration
 		return nil, fmt.Errorf("node %s not found", nodeID)
 	}
 
-	cutoff := time.Now().Add(-duration)
+	cutoff := db.clock.Now().Add(-duration)
 	history := db.metrics[nodeID]
 
 	var recent []*MetricsRecord
@@ -374,7 +385,7 @@ func (db *InMemDB) UpdateInstanceState(ctx context.Context, instanceID string, s
 	instance.StatusMessage = message
 
 	// Set timestamps based on state transitions
-	now := time.Now()
+	now := db.clock.Now()
 	switch state {
 	case pb.InstanceState_INSTANCE_STATE_RUNNING:
 		if instance.ReadyAt.IsZero() {

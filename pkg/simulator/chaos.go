@@ -151,7 +151,7 @@ func (c *ChaosEngine) determineNodeStatus(node *SimulatedNode) string {
 	}
 	for _, f := range failures {
 		switch f.Type {
-		case "boot_failure", "nvml_failure", "network", "device_error", "memory_error":
+		case "boot_failure", "nvml_failure", "backend_error", "network", "device_error", "memory_error":
 			return "unhealthy"
 		case "xid_error":
 			// Check if it's a fatal XID

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	pb "github.com/NavarchProject/navarch/proto"
 )
@@ -22,6 +23,7 @@ import (
 //   - Clean up terminated instance records
 type InstanceManager struct {
 	db     db.DB
+	clock  clock.Clock
 	logger *slog.Logger
 	config InstanceManagerConfig
 
@@ -46,6 +48,9 @@ type InstanceManagerConfig struct {
 	// RetainTerminatedDuration is how long to keep terminated instance records
 	// before deleting them. Default: 24 hours.
 	RetainTerminatedDuration time.Duration
+
+	// Clock is the clock to use for time operations. If nil, uses real time.
+	Clock clock.Clock
 }
 
 // DefaultInstanceManagerConfig returns sensible defaults for the instance manager.
@@ -72,8 +77,14 @@ func NewInstanceManager(database db.DB, config InstanceManagerConfig, logger *sl
 		config.RetainTerminatedDuration = DefaultInstanceManagerConfig().RetainTerminatedDuration
 	}
 
+	clk := config.Clock
+	if clk == nil {
+		clk = clock.Real()
+	}
+
 	return &InstanceManager{
 		db:     database,
+		clock:  clk,
 		logger: logger,
 		config: config,
 	}
@@ -147,7 +158,7 @@ func (t *InstanceManager) TrackProvisioning(ctx context.Context, instanceID, pro
 		InstanceType: instanceType,
 		State:        pb.InstanceState_INSTANCE_STATE_PROVISIONING,
 		PoolName:     poolName,
-		CreatedAt:    time.Now(),
+		CreatedAt:    t.clock.Now(),
 		Labels:       labels,
 	}
 
@@ -278,14 +289,14 @@ func (t *InstanceManager) ListFailed(ctx context.Context) ([]*db.InstanceRecord,
 func (t *InstanceManager) staleCheckLoop(ctx context.Context) {
 	defer t.wg.Done()
 
-	ticker := time.NewTicker(t.config.StaleCheckInterval)
+	ticker := t.clock.NewTicker(t.config.StaleCheckInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-ticker.C():
 			t.checkStaleInstances(ctx)
 			t.cleanupTerminatedInstances(ctx)
 		}
@@ -303,7 +314,7 @@ func (t *InstanceManager) checkStaleInstances(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	now := t.clock.Now()
 	for _, instance := range pending {
 		age := now.Sub(instance.CreatedAt)
 		if age > t.config.RegistrationTimeout {
@@ -352,7 +363,7 @@ func (t *InstanceManager) cleanupTerminatedInstances(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
+	now := t.clock.Now()
 	for _, instance := range terminated {
 		if !instance.TerminatedAt.IsZero() {
 			age := now.Sub(instance.TerminatedAt)
