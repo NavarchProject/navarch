@@ -465,6 +465,9 @@ enum NodeCommandType {
 
   // Prepare for node shutdown/termination.
   NODE_COMMAND_TYPE_TERMINATE = 4;
+
+  // Mark node as schedulable again (reverse of cordon).
+  NODE_COMMAND_TYPE_UNCORDON = 5;
 }
 
 // Admin API messages

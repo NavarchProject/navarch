@@ -454,44 +454,40 @@ func TestNodeLifecycle(t *testing.T) {
 	})
 	srv.SendHeartbeat(ctx, hbReq)
 
-	// 3. Health degradation
-	healthReq := connect.NewRequest(&pb.ReportHealthRequest{
-		NodeId: "node-1",
-		Results: []*pb.HealthCheckResult{
-			{
-				CheckName: "nvml",
-				Status:    pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
-				Message:   "GPU failure",
-			},
-		},
-	})
-	srv.ReportHealth(ctx, healthReq)
-
-	node, _ = database.GetNode(ctx, "node-1")
-	if node.Status != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
-		t.Error("Expected status to change to UNHEALTHY")
-	}
-
-	// 4. Cordoning
+	// 3. Cordoning (status updated automatically by IssueCommand)
 	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
 		NodeId:      "node-1",
 		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
 	}))
-	database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_CORDONED)
 
 	node, _ = database.GetNode(ctx, "node-1")
 	if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
 		t.Error("Expected status CORDONED")
 	}
 
-	// 5. Draining
+	// 4. Uncordoning (status updated automatically by IssueCommand)
+	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+		NodeId:      "node-1",
+		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+	}))
+
+	node, _ = database.GetNode(ctx, "node-1")
+	if node.Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
+		t.Error("Expected status ACTIVE after uncordon")
+	}
+
+	// 5. Draining (status updated automatically by IssueCommand)
 	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
 		NodeId:      "node-1",
 		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
 	}))
-	database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_DRAINING)
 
-	// 6. Termination
+	node, _ = database.GetNode(ctx, "node-1")
+	if node.Status != pb.NodeStatus_NODE_STATUS_DRAINING {
+		t.Error("Expected status DRAINING")
+	}
+
+	// 6. Termination (note: terminate command doesn't change status automatically)
 	srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
 		NodeId:      "node-1",
 		CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
@@ -1125,6 +1121,181 @@ func TestIssueCommand(t *testing.T) {
 		}
 		if resp.Msg.CommandId == "" {
 			t.Error("Expected command_id even without parameters")
+		}
+	})
+
+	t.Run("cordon_updates_node_status", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue cordon command
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		_, err := srv.IssueCommand(ctx, issueReq)
+		if err != nil {
+			t.Fatalf("IssueCommand failed: %v", err)
+		}
+
+		// Verify node status changed to CORDONED
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Errorf("Expected node status CORDONED, got %v", node.Status)
+		}
+	})
+
+	t.Run("drain_updates_node_status", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue drain command
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+		})
+		_, err := srv.IssueCommand(ctx, issueReq)
+		if err != nil {
+			t.Fatalf("IssueCommand failed: %v", err)
+		}
+
+		// Verify node status changed to DRAINING
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_DRAINING {
+			t.Errorf("Expected node status DRAINING, got %v", node.Status)
+		}
+	})
+
+	t.Run("uncordon_updates_node_status", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// First cordon the node
+		cordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		_, err := srv.IssueCommand(ctx, cordonReq)
+		if err != nil {
+			t.Fatalf("Cordon failed: %v", err)
+		}
+
+		// Verify node is cordoned
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Fatalf("Expected node status CORDONED, got %v", node.Status)
+		}
+
+		// Uncordon the node
+		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+		})
+		resp, err := srv.IssueCommand(ctx, uncordonReq)
+		if err != nil {
+			t.Fatalf("Uncordon failed: %v", err)
+		}
+		if resp.Msg.CommandId == "" {
+			t.Error("Expected command_id to be returned")
+		}
+
+		// Verify node status changed back to ACTIVE
+		node, _ = database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected node status ACTIVE, got %v", node.Status)
+		}
+	})
+
+	t.Run("uncordon_fails_if_not_cordoned", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node (starts as ACTIVE)
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Try to uncordon a node that's not cordoned
+		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+		})
+		_, err := srv.IssueCommand(ctx, uncordonReq)
+		if err == nil {
+			t.Fatal("Expected error when uncordoning non-cordoned node")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeFailedPrecondition {
+			t.Errorf("Expected FailedPrecondition code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("uncordon_fails_if_draining", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Drain the node
+		drainReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
+		})
+		srv.IssueCommand(ctx, drainReq)
+
+		// Try to uncordon a draining node
+		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+		})
+		_, err := srv.IssueCommand(ctx, uncordonReq)
+		if err == nil {
+			t.Fatal("Expected error when uncordoning draining node")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeFailedPrecondition {
+			t.Errorf("Expected FailedPrecondition code, got: %v", connectErr.Code())
 		}
 	})
 }

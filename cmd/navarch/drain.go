@@ -45,10 +45,29 @@ func drainCmd() *cobra.Command {
 func uncordonCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uncordon <node-id>",
-		Short: "Mark a node as schedulable (not implemented yet)",
+		Short: "Mark a node as schedulable",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("uncordon command not yet implemented in control plane")
+			nodeID := args[0]
+			client := newClient()
+
+			req := &pb.IssueCommandRequest{
+				NodeId:      nodeID,
+				CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
+			resp, err := client.IssueCommand(ctx, connect.NewRequest(req))
+			if err != nil {
+				return fmt.Errorf("failed to uncordon node: %w", err)
+			}
+
+			fmt.Printf("Node %s uncordoned successfully\n", nodeID)
+			fmt.Printf("Command ID: %s\n", resp.Msg.CommandId)
+
+			return nil
 		},
 	}
 

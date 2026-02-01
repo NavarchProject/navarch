@@ -436,12 +436,43 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("command_type is required"))
 	}
 
-	_, err := s.db.GetNode(ctx, req.Msg.NodeId)
+	node, err := s.db.GetNode(ctx, req.Msg.NodeId)
 	if err != nil {
 		s.logger.WarnContext(ctx, "cannot issue command to unknown node",
 			slog.String("node_id", req.Msg.NodeId),
 		)
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
+	}
+
+	// Handle node status updates for cordon/uncordon commands
+	switch req.Msg.CommandType {
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
+		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_CORDONED); err != nil {
+			s.logger.ErrorContext(ctx, "failed to update node status to cordoned",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node: %w", err))
+		}
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON:
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", req.Msg.NodeId, node.Status.String()))
+		}
+		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_ACTIVE); err != nil {
+			s.logger.ErrorContext(ctx, "failed to update node status to active",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
+		}
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
+		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
+			s.logger.ErrorContext(ctx, "failed to update node status to draining",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node: %w", err))
+		}
 	}
 
 	commandID := uuid.New().String()
