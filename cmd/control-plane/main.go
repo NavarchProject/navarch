@@ -110,7 +110,6 @@ func main() {
 	if token != "" {
 		logger.Info("authentication enabled",
 			slog.String("method", "bearer-token"),
-			slog.Int("token_length", len(token)),
 		)
 		logger.Info("authentication exempt paths",
 			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics"}),

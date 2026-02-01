@@ -42,8 +42,6 @@ func main() {
 	} else {
 		logger.Info("authentication enabled",
 			slog.String("method", "bearer-token"),
-			slog.Int("token_length", len(token)),
-			slog.String("target", *controlPlaneAddr),
 		)
 	}
 
