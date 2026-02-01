@@ -104,9 +104,27 @@ func New(cfg Config, logger *slog.Logger) (*Node, error) {
 }
 
 // createGPUManager creates a GPU manager.
-// For now, this returns an injectable fake GPU manager.
-// TODO: Implement DCGM backend for production use.
+// It attempts to use NVML for real GPU access, falling back to a fake manager
+// for development or when NVML is unavailable.
 func createGPUManager(logger *slog.Logger) gpu.Manager {
+	// Force fake mode if explicitly requested
+	if os.Getenv("NAVARCH_FAKE_GPU") == "true" {
+		return createFakeGPUManager(logger)
+	}
+
+	// Try to use real NVML
+	if gpu.IsNVMLAvailable() {
+		logger.Info("using NVML GPU manager")
+		return gpu.NewNVML()
+	}
+
+	// Fall back to fake GPU manager
+	logger.Info("NVML not available, using fake GPU manager")
+	return createFakeGPUManager(logger)
+}
+
+// createFakeGPUManager creates an injectable fake GPU manager for development.
+func createFakeGPUManager(logger *slog.Logger) gpu.Manager {
 	gpuCount := 8
 	if envCount := os.Getenv("NAVARCH_GPU_COUNT"); envCount != "" {
 		fmt.Sscanf(envCount, "%d", &gpuCount)
@@ -115,7 +133,7 @@ func createGPUManager(logger *slog.Logger) gpu.Manager {
 	if gpuType == "" {
 		gpuType = "NVIDIA H100 80GB HBM3"
 	}
-	logger.Info("using injectable GPU manager",
+	logger.Info("using fake GPU manager",
 		slog.Int("device_count", gpuCount),
 		slog.String("gpu_type", gpuType),
 	)
