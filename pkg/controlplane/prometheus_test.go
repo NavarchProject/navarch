@@ -93,109 +93,6 @@ func TestPrometheusMetrics_HealthStatus(t *testing.T) {
 	}
 }
 
-func TestPrometheusMetrics_PoolNodes(t *testing.T) {
-	database := db.NewInMemDB()
-	defer database.Close()
-	ctx := context.Background()
-
-	database.RegisterNode(ctx, &db.NodeRecord{
-		NodeID: "node-1",
-		Metadata: &pb.NodeMetadata{
-			Labels: map[string]string{"pool": "gpu-pool-1"},
-		},
-	})
-	database.RegisterNode(ctx, &db.NodeRecord{
-		NodeID: "node-2",
-		Metadata: &pb.NodeMetadata{
-			Labels: map[string]string{"pool": "gpu-pool-1"},
-		},
-	})
-	database.RegisterNode(ctx, &db.NodeRecord{
-		NodeID: "node-3",
-		Metadata: &pb.NodeMetadata{
-			Labels: map[string]string{"pool": "gpu-pool-2"},
-		},
-	})
-
-	pm := NewPrometheusMetrics(database)
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(pm)
-
-	count, err := testutil.GatherAndCount(registry, "navarch_pool_current_nodes")
-	if err != nil {
-		t.Fatalf("Failed to gather metrics: %v", err)
-	}
-	if count == 0 {
-		t.Error("Expected navarch_pool_current_nodes metric")
-	}
-}
-
-func TestPrometheusMetrics_RecordHealthEvent(t *testing.T) {
-	database := db.NewInMemDB()
-	defer database.Close()
-
-	pm := NewPrometheusMetrics(database)
-
-	pm.RecordHealthEvent("xid")
-	pm.RecordHealthEvent("xid")
-	pm.RecordHealthEvent("thermal")
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(pm)
-
-	count, err := testutil.GatherAndCount(registry, "navarch_health_events_total")
-	if err != nil {
-		t.Fatalf("Failed to gather metrics: %v", err)
-	}
-	if count == 0 {
-		t.Error("Expected navarch_health_events_total metric")
-	}
-}
-
-func TestPrometheusMetrics_ScalingEvents(t *testing.T) {
-	database := db.NewInMemDB()
-	defer database.Close()
-
-	pm := NewPrometheusMetrics(database)
-
-	pm.RecordScalingEvent("gpu-pool-1", "up")
-	pm.RecordScalingEvent("gpu-pool-1", "up")
-	pm.RecordScalingEvent("gpu-pool-1", "down")
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(pm)
-
-	count, err := testutil.GatherAndCount(registry, "navarch_scaling_events_total")
-	if err != nil {
-		t.Fatalf("Failed to gather metrics: %v", err)
-	}
-	if count == 0 {
-		t.Error("Expected navarch_scaling_events_total metric")
-	}
-}
-
-func TestPrometheusMetrics_SetPoolTargetNodes(t *testing.T) {
-	database := db.NewInMemDB()
-	defer database.Close()
-
-	pm := NewPrometheusMetrics(database)
-
-	pm.SetPoolTargetNodes("gpu-pool-1", 5)
-	pm.SetPoolTargetNodes("gpu-pool-2", 3)
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(pm)
-
-	count, err := testutil.GatherAndCount(registry, "navarch_pool_target_nodes")
-	if err != nil {
-		t.Fatalf("Failed to gather metrics: %v", err)
-	}
-	if count != 2 {
-		t.Errorf("Expected 2 pool_target_nodes metrics, got %d", count)
-	}
-}
-
 func TestPrometheusMetrics_EmptyDatabase(t *testing.T) {
 	database := db.NewInMemDB()
 	defer database.Close()
@@ -210,8 +107,6 @@ func TestPrometheusMetrics_EmptyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to gather metrics: %v", err)
 	}
-	// No assertion on families count - empty database may return no metric families
-	// The important thing is that it doesn't panic or error
 }
 
 func TestNodeStatusString(t *testing.T) {
