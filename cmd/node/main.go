@@ -32,6 +32,10 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	if token == "" {
+		logger.Warn("authentication disabled: set NAVARCH_AUTH_TOKEN or use --auth-token to authenticate with control plane")
+	}
+
 	if *nodeID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
