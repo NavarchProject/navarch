@@ -114,6 +114,8 @@ func main() {
 			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
 		)
 		httpHandler = middleware.Wrap(mux)
+	} else {
+		logger.Warn("authentication disabled: set NAVARCH_AUTH_TOKEN or use --auth-token to secure the API")
 	}
 
 	logger.Info("control plane ready", slog.String("addr", cfg.Server.Address))
