@@ -54,37 +54,14 @@ All fields are optional and have sensible defaults.
 
 ### Authentication
 
-The control plane supports bearer token authentication. When enabled, all API requests (except health endpoints) require a valid token.
-
-To enable authentication:
+The control plane supports bearer token authentication. Set the `NAVARCH_AUTH_TOKEN` environment variable or use the `--auth-token` flag to enable it.
 
 ```bash
-# Using command-line flag
-control-plane --auth-token "your-secret-token"
-
-# Using environment variable
 export NAVARCH_AUTH_TOKEN="your-secret-token"
 control-plane --config config.yaml
 ```
 
-The following endpoints are exempt from authentication:
-
-- `/healthz` — Liveness probe.
-- `/readyz` — Readiness probe.
-- `/metrics` — Prometheus metrics.
-
-Clients must include the token in the `Authorization` header:
-
-```bash
-curl -H "Authorization: Bearer your-secret-token" http://localhost:50051/navarch.ControlPlaneService/ListNodes
-```
-
-For the CLI, set the token via environment variable:
-
-```bash
-export NAVARCH_AUTH_TOKEN="your-secret-token"
-navarch list
-```
+For details on client configuration and custom authentication methods, see [authentication](authentication.md).
 
 ### Providers
 

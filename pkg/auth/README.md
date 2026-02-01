@@ -2,6 +2,8 @@
 
 Package auth provides pluggable authentication for the Navarch control plane.
 
+For user-facing documentation, see [docs/authentication.md](../../docs/authentication.md).
+
 ## Overview
 
 This package implements a pluggable authentication architecture where multiple authenticators can be chained together. The first authenticator to successfully authenticate a request wins.

@@ -529,23 +529,19 @@ navarch_xid_errors_total
 
 ### Authentication
 
-The control plane supports bearer token authentication. To enable it, set the `NAVARCH_AUTH_TOKEN` environment variable or use the `--auth-token` flag when starting the control plane.
+Enable bearer token authentication by setting `NAVARCH_AUTH_TOKEN` on both the control plane and node agents:
 
 ```bash
-# Control plane with authentication
+# Control plane
 export NAVARCH_AUTH_TOKEN="your-secret-token"
 control-plane --config config.yaml
-```
 
-Node agents authenticate by including the token in their requests. Set the same token on the node:
-
-```bash
-# Node agent with authentication
+# Node agent
 export NAVARCH_AUTH_TOKEN="your-secret-token"
 node-agent --server https://control-plane.example.com
 ```
 
-For custom authentication methods (JWT, mTLS, OIDC), implement the `auth.Authenticator` interface. See `pkg/auth/README.md` for details.
+For token generation, client configuration, and custom authentication methods, see [authentication](authentication.md).
 
 ### Secrets management
 
