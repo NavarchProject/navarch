@@ -1298,6 +1298,118 @@ func TestIssueCommand(t *testing.T) {
 			t.Errorf("Expected FailedPrecondition code, got: %v", connectErr.Code())
 		}
 	})
+
+	t.Run("uncordon_fails_if_unhealthy", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Make node unhealthy
+		database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_UNHEALTHY)
+
+		// Try to uncordon an unhealthy node
+		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+		})
+		_, err := srv.IssueCommand(ctx, uncordonReq)
+		if err == nil {
+			t.Fatal("Expected error when uncordoning unhealthy node")
+		}
+
+		var connectErr *connect.Error
+		if !errors.As(err, &connectErr) {
+			t.Fatalf("Expected Connect error, got: %v", err)
+		}
+		if connectErr.Code() != connect.CodeFailedPrecondition {
+			t.Errorf("Expected FailedPrecondition code, got: %v", connectErr.Code())
+		}
+	})
+
+	t.Run("cordon_is_idempotent", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Cordon the node twice
+		cordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		_, err := srv.IssueCommand(ctx, cordonReq)
+		if err != nil {
+			t.Fatalf("First cordon failed: %v", err)
+		}
+
+		_, err = srv.IssueCommand(ctx, cordonReq)
+		if err != nil {
+			t.Fatalf("Second cordon should succeed (idempotent): %v", err)
+		}
+
+		// Verify node is still cordoned
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Errorf("Expected node status CORDONED, got %v", node.Status)
+		}
+	})
+
+	t.Run("uncordon_creates_command_record", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register and cordon node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId: "node-1",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		cordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		srv.IssueCommand(ctx, cordonReq)
+
+		// Uncordon the node
+		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON,
+		})
+		resp, err := srv.IssueCommand(ctx, uncordonReq)
+		if err != nil {
+			t.Fatalf("Uncordon failed: %v", err)
+		}
+
+		// Verify command record was created (it should be acknowledged after GetNodeCommands)
+		commands, _ := database.GetPendingCommands(ctx, "node-1")
+		found := false
+		for _, cmd := range commands {
+			if cmd.CommandID == resp.Msg.CommandId {
+				found = true
+				if cmd.Type != pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON {
+					t.Errorf("Expected UNCORDON command, got %v", cmd.Type)
+				}
+			}
+		}
+		if !found {
+			t.Error("Uncordon command record not found in pending commands")
+		}
+	})
 }
 
 // mockHealthObserver implements NodeHealthObserver for testing.
