@@ -18,7 +18,14 @@ func main() {
 	region := flag.String("region", "", "Cloud region")
 	zone := flag.String("zone", "", "Cloud zone")
 	instanceType := flag.String("instance-type", "", "Instance type")
+	authToken := flag.String("auth-token", "", "Authentication token (or use NAVARCH_AUTH_TOKEN env)")
 	flag.Parse()
+
+	// Get auth token from flag or environment
+	token := *authToken
+	if token == "" {
+		token = os.Getenv("NAVARCH_AUTH_TOKEN")
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -46,6 +53,7 @@ func main() {
 		Region:           *region,
 		Zone:             *zone,
 		InstanceType:     *instanceType,
+		AuthToken:        token,
 	}
 
 	n, err := node.New(cfg, logger)
