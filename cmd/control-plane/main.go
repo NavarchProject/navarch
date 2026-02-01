@@ -108,13 +108,19 @@ func main() {
 	// Setup authentication middleware
 	var httpHandler http.Handler = mux
 	if token != "" {
-		logger.Info("authentication enabled",
-			slog.String("method", "bearer-token"),
-		)
+		var authenticator auth.Authenticator = auth.NewBearerTokenAuthenticator(token, "system:authenticated", nil)
+
+		// Log authentication method if the authenticator provides it
+		if desc, ok := authenticator.(auth.AuthenticatorDescriptor); ok {
+			logger.Info("authentication enabled",
+				slog.String("method", desc.Method()),
+			)
+		} else {
+			logger.Info("authentication enabled")
+		}
 		logger.Info("authentication exempt paths",
 			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics"}),
 		)
-		authenticator := auth.NewBearerTokenAuthenticator(token, "system:authenticated", nil)
 		middleware := auth.NewMiddleware(authenticator,
 			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
 		)

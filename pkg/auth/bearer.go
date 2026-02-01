@@ -95,3 +95,8 @@ func (a *BearerTokenAuthenticator) AuthenticateRequest(r *http.Request) (*Identi
 		Extra:   nil,
 	}, true, nil
 }
+
+// Method implements AuthenticatorDescriptor.
+func (a *BearerTokenAuthenticator) Method() string {
+	return "bearer-token"
+}

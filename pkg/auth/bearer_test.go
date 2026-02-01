@@ -188,3 +188,18 @@ func TestBearerTokenAuthenticator_TimingAttackResistance(t *testing.T) {
 		})
 	}
 }
+
+func TestBearerTokenAuthenticator_ImplementsAuthenticatorDescriptor(t *testing.T) {
+	auth := NewBearerTokenAuthenticator("secret", "service:test", nil)
+
+	// Verify it implements AuthenticatorDescriptor
+	desc, ok := interface{}(auth).(AuthenticatorDescriptor)
+	if !ok {
+		t.Fatal("BearerTokenAuthenticator should implement AuthenticatorDescriptor")
+	}
+
+	method := desc.Method()
+	if method != "bearer-token" {
+		t.Errorf("Method(): expected %q, got %q", "bearer-token", method)
+	}
+}

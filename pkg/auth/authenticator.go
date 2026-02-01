@@ -44,6 +44,16 @@ type Authenticator interface {
 	AuthenticateRequest(r *http.Request) (*Identity, bool, error)
 }
 
+// AuthenticatorDescriptor is an optional interface that authenticators can
+// implement to provide metadata about themselves for logging and debugging.
+// This keeps authentication method details encapsulated in the authenticator
+// implementation rather than hardcoding them in main.go or other setup code.
+type AuthenticatorDescriptor interface {
+	// Method returns a short identifier for the authentication method.
+	// Examples: "bearer-token", "jwt", "oidc", "mtls"
+	Method() string
+}
+
 // AuthenticatorFunc is an adapter to allow plain functions to be used as Authenticators.
 type AuthenticatorFunc func(r *http.Request) (*Identity, bool, error)
 
