@@ -52,6 +52,40 @@ All fields are optional and have sensible defaults.
 | `autoscale_interval` | `30s` | How often autoscaler evaluates |
 | `health_policy` | (none) | Path to custom health policy YAML file |
 
+### Authentication
+
+The control plane supports bearer token authentication. When enabled, all API requests (except health endpoints) require a valid token.
+
+To enable authentication:
+
+```bash
+# Using command-line flag
+control-plane --auth-token "your-secret-token"
+
+# Using environment variable
+export NAVARCH_AUTH_TOKEN="your-secret-token"
+control-plane --config config.yaml
+```
+
+The following endpoints are exempt from authentication:
+
+- `/healthz` — Liveness probe.
+- `/readyz` — Readiness probe.
+- `/metrics` — Prometheus metrics.
+
+Clients must include the token in the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer your-secret-token" http://localhost:50051/navarch.ControlPlaneService/ListNodes
+```
+
+For the CLI, set the token via environment variable:
+
+```bash
+export NAVARCH_AUTH_TOKEN="your-secret-token"
+navarch list
+```
+
 ### Providers
 
 Providers define cloud platforms where GPU nodes are provisioned.
