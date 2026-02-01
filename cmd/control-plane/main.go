@@ -106,11 +106,14 @@ func main() {
 	mux.HandleFunc("/readyz", readyzHandler(database, logger))
 
 	// Setup authentication middleware
-	authMiddleware := auth.NewTokenAuthMiddleware(token)
 	var httpHandler http.Handler = mux
-	if authMiddleware.Enabled() {
+	if token != "" {
 		logger.Info("authentication enabled")
-		httpHandler = authMiddleware.Wrap(mux)
+		authenticator := auth.NewBearerTokenAuthenticator(token, "system:authenticated", nil)
+		middleware := auth.NewMiddleware(authenticator,
+			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
+		)
+		httpHandler = middleware.Wrap(mux)
 	}
 
 	logger.Info("control plane ready", slog.String("addr", cfg.Server.Address))
