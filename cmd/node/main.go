@@ -33,7 +33,18 @@ func main() {
 	slog.SetDefault(logger)
 
 	if token == "" {
-		logger.Warn("authentication disabled: set NAVARCH_AUTH_TOKEN or use --auth-token to authenticate with control plane")
+		logger.Warn("authentication disabled",
+			slog.String("reason", "no token configured"),
+			slog.String("env_var", "NAVARCH_AUTH_TOKEN"),
+			slog.String("flag", "--auth-token"),
+			slog.String("effect", "requests to control plane will be unauthenticated"),
+		)
+	} else {
+		logger.Info("authentication enabled",
+			slog.String("method", "bearer-token"),
+			slog.Int("token_length", len(token)),
+			slog.String("target", *controlPlaneAddr),
+		)
 	}
 
 	if *nodeID == "" {

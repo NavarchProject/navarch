@@ -108,14 +108,24 @@ func main() {
 	// Setup authentication middleware
 	var httpHandler http.Handler = mux
 	if token != "" {
-		logger.Info("authentication enabled")
+		logger.Info("authentication enabled",
+			slog.String("method", "bearer-token"),
+			slog.Int("token_length", len(token)),
+		)
+		logger.Info("authentication exempt paths",
+			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics"}),
+		)
 		authenticator := auth.NewBearerTokenAuthenticator(token, "system:authenticated", nil)
 		middleware := auth.NewMiddleware(authenticator,
 			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
 		)
 		httpHandler = middleware.Wrap(mux)
 	} else {
-		logger.Warn("authentication disabled: set NAVARCH_AUTH_TOKEN or use --auth-token to secure the API")
+		logger.Warn("authentication disabled",
+			slog.String("reason", "no token configured"),
+			slog.String("env_var", "NAVARCH_AUTH_TOKEN"),
+			slog.String("flag", "--auth-token"),
+		)
 	}
 
 	logger.Info("control plane ready", slog.String("addr", cfg.Server.Address))
