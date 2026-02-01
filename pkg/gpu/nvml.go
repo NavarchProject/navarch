@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
@@ -15,8 +16,10 @@ type NVML struct {
 	initialized bool
 	devices     []nvml.Device
 
+	// xidCollector monitors for XID errors via NVML events or dmesg fallback.
+	xidCollector *XIDCollector
+
 	// healthEvents stores events collected since the last call to CollectHealthEvents.
-	// For MVP, this remains empty. Task 2 adds XID collection.
 	healthEvents []HealthEvent
 }
 
@@ -55,6 +58,13 @@ func (m *NVML) Initialize(ctx context.Context) error {
 	}
 
 	m.initialized = true
+
+	// Initialize XID collector
+	m.xidCollector = NewXIDCollector()
+	if err := m.xidCollector.Initialize(ctx, m.devices); err != nil {
+		slog.Warn("failed to initialize XID collector, falling back to dmesg", "error", err)
+	}
+
 	return nil
 }
 
@@ -64,6 +74,11 @@ func (m *NVML) Shutdown(ctx context.Context) error {
 
 	if !m.initialized {
 		return errors.New("not initialized")
+	}
+
+	if m.xidCollector != nil {
+		m.xidCollector.Shutdown()
+		m.xidCollector = nil
 	}
 
 	ret := nvml.Shutdown()
@@ -175,7 +190,6 @@ func (m *NVML) GetDeviceHealth(ctx context.Context, index int) (*HealthInfo, err
 }
 
 // CollectHealthEvents returns health events since the last collection.
-// For MVP, this returns an empty slice. XID collection is added in Task 2.
 func (m *NVML) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -184,8 +198,20 @@ func (m *NVML) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
 		return nil, errors.New("not initialized")
 	}
 
-	events := make([]HealthEvent, len(m.healthEvents))
-	copy(events, m.healthEvents)
+	// Collect XID events
+	var xidEvents []HealthEvent
+	if m.xidCollector != nil {
+		var err error
+		xidEvents, err = m.xidCollector.Collect()
+		if err != nil {
+			slog.Warn("failed to collect XID events", "error", err)
+		}
+	}
+
+	// Combine with any manually added events
+	events := make([]HealthEvent, 0, len(m.healthEvents)+len(xidEvents))
+	events = append(events, m.healthEvents...)
+	events = append(events, xidEvents...)
 	m.healthEvents = nil
 
 	return events, nil

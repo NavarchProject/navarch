@@ -1,12 +1,14 @@
 # GPU package
 
-The GPU package provides an abstraction layer for interacting with NVIDIA GPUs. It supports both real hardware via DCGM and simulated hardware for development and testing.
+The GPU package provides an abstraction layer for interacting with NVIDIA GPUs. It supports real hardware via NVML and simulated hardware for development and testing.
 
 ## Overview
 
 The package provides:
 
 - A `Manager` interface for GPU operations.
+- NVML implementation for real GPU hardware.
+- XID error collection via NVML events with dmesg fallback.
 - Injectable implementation for testing and development.
 - Health event collection for CEL policy evaluation.
 - DCGM health watch system constants.
@@ -25,6 +27,47 @@ type Manager interface {
     CollectHealthEvents(ctx context.Context) ([]HealthEvent, error)
 }
 ```
+
+## NVML implementation
+
+The NVML implementation provides real GPU monitoring using the NVIDIA Management Library:
+
+```go
+manager := gpu.NewNVML()
+if err := manager.Initialize(ctx); err != nil {
+    log.Fatal(err)
+}
+defer manager.Shutdown(ctx)
+
+count, _ := manager.GetDeviceCount(ctx)
+for i := 0; i < count; i++ {
+    info, _ := manager.GetDeviceInfo(ctx, i)
+    health, _ := manager.GetDeviceHealth(ctx, i)
+    fmt.Printf("GPU %d: %s, Temp: %d°C, Power: %.0fW\n",
+        i, info.Name, health.Temperature, health.PowerUsage)
+}
+
+// Collect XID errors
+events, _ := manager.CollectHealthEvents(ctx)
+```
+
+### XID error collection
+
+The NVML implementation includes automatic XID error collection:
+
+1. **NVML events (primary)**: Uses `nvmlEventSetWait()` for real-time XID capture.
+2. **Kernel log fallback**: Parses `/dev/kmsg` or `/var/log/kern.log` when NVML events are unavailable.
+
+XID errors are automatically converted to `HealthEvent` objects and returned by `CollectHealthEvents()`.
+
+### Automatic fallback
+
+The node daemon automatically selects the GPU manager:
+
+1. Attempts to initialize NVML on startup.
+2. If successful, uses NVML manager with XID collection.
+3. If NVML is unavailable (no driver), falls back to Injectable.
+4. Set `NAVARCH_FAKE_GPU=true` to force fake mode.
 
 ## Injectable implementation
 
@@ -266,32 +309,56 @@ event.event_type == "ecc_dbe"
 
 See `pkg/health/defaults.go` for default policy rules.
 
+## XID collector
+
+The `XIDCollector` monitors for NVIDIA XID errors using a dual-strategy approach:
+
+### NVML events (primary)
+
+When available, the collector uses NVML's native event API:
+
+```go
+eventSet, _ := nvml.EventSetCreate()
+device.RegisterEvents(nvml.EventTypeXidCriticalError, eventSet)
+
+// Background goroutine waits for events
+data, _ := eventSet.Wait(100) // 100ms timeout
+// data.EventData contains XID code
+```
+
+### Kernel log fallback
+
+When NVML events are unavailable, the collector parses kernel logs:
+
+```go
+// Matches: NVRM: Xid (PCI:0000:41:00): 79, pid=12345, GPU has fallen off the bus
+var xidPattern = regexp.MustCompile(`NVRM: Xid \(PCI:([^)]+)\): (\d+)(?:, (.*))?`)
+```
+
+Log sources (in order of preference):
+1. `/dev/kmsg` - Real-time kernel ring buffer
+2. `/var/log/kern.log` - Debian/Ubuntu
+3. `/var/log/messages` - RHEL/CentOS
+
+### XID severity classification
+
+```go
+severity := gpu.XIDSeverity(79)     // "critical"
+desc := gpu.XIDDescription(79)       // "GPU has fallen off the bus"
+```
+
+| Severity | XID Codes |
+|----------|-----------|
+| critical | 13, 31, 43, 45, 48, 61, 62, 63, 64, 74, 79, 92, 94, 95 |
+| warning | 8, 32, 38, 56, 57, 68, 69, 119 |
+| info | All others |
+
 ## Extending
 
-To add a new GPU backend (e.g., real DCGM):
+To add a new GPU backend (e.g., DCGM for enhanced monitoring):
 
 1. Create a new file (e.g., `dcgm.go`).
 2. Implement the `Manager` interface.
 3. Implement `CollectHealthEvents` to return DCGM health watch events.
 
-Example skeleton:
-
-```go
-type DCGM struct {
-    // ...
-}
-
-func NewDCGM() *DCGM {
-    return &DCGM{}
-}
-
-func (d *DCGM) Initialize(ctx context.Context) error {
-    // Initialize DCGM
-}
-
-func (d *DCGM) CollectHealthEvents(ctx context.Context) ([]HealthEvent, error) {
-    // Query DCGM health watches and convert to HealthEvents
-}
-
-// Implement remaining Manager methods...
-```
+The NVML implementation (`nvml.go`) serves as a reference.
