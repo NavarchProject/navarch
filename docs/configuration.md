@@ -52,6 +52,17 @@ All fields are optional and have sensible defaults.
 | `autoscale_interval` | `30s` | How often autoscaler evaluates |
 | `health_policy` | (none) | Path to custom health policy YAML file |
 
+### Authentication
+
+The control plane supports bearer token authentication. Set the `NAVARCH_AUTH_TOKEN` environment variable or use the `--auth-token` flag to enable it.
+
+```bash
+export NAVARCH_AUTH_TOKEN="your-secret-token"
+control-plane --config config.yaml
+```
+
+For details on client configuration and custom authentication methods, see [authentication](authentication.md).
+
 ### Providers
 
 Providers define cloud platforms where GPU nodes are provisioned.

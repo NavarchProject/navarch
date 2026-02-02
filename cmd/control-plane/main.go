@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
@@ -28,7 +29,14 @@ import (
 
 func main() {
 	configPath := flag.String("config", "", "Path to configuration file")
+	authToken := flag.String("auth-token", "", "Authentication token (or use NAVARCH_AUTH_TOKEN env)")
 	flag.Parse()
+
+	// Get auth token from flag or environment
+	token := *authToken
+	if token == "" {
+		token = os.Getenv("NAVARCH_AUTH_TOKEN")
+	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -97,11 +105,36 @@ func main() {
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler(database, logger))
 
+	// Setup authentication middleware
+	var httpHandler http.Handler = mux
+	if token != "" {
+		// Add authenticators here (tried in order)
+		authenticator := auth.NewChainAuthenticator(
+			auth.NewBearerTokenAuthenticator(token, "system:authenticated", nil),
+		)
+		logger.Info("authentication enabled",
+			slog.Any("methods", authenticator.Methods()),
+		)
+		logger.Info("authentication exempt paths",
+			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics"}),
+		)
+		middleware := auth.NewMiddleware(authenticator,
+			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
+		)
+		httpHandler = middleware.Wrap(mux)
+	} else {
+		logger.Warn("authentication disabled",
+			slog.String("reason", "no token configured"),
+			slog.String("env_var", "NAVARCH_AUTH_TOKEN"),
+			slog.String("flag", "--auth-token"),
+		)
+	}
+
 	logger.Info("control plane ready", slog.String("addr", cfg.Server.Address))
 
 	httpServer := &http.Server{
 		Addr:    cfg.Server.Address,
-		Handler: h2c.NewHandler(mux, &http2.Server{}),
+		Handler: h2c.NewHandler(httpHandler, &http2.Server{}),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

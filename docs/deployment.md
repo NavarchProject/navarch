@@ -527,17 +527,21 @@ navarch_xid_errors_total
 - Node agents should authenticate with the control plane.
 - Consider using private networks for node-to-control-plane traffic.
 
-### Agent authentication (future)
+### Authentication
 
-```yaml
-# Node agent config with authentication
-server: https://control-plane.example.com
-auth:
-  method: mtls
-  certFile: /etc/navarch/node.crt
-  keyFile: /etc/navarch/node.key
-  caFile: /etc/navarch/ca.crt
+Enable bearer token authentication by setting `NAVARCH_AUTH_TOKEN` on both the control plane and node agents:
+
+```bash
+# Control plane
+export NAVARCH_AUTH_TOKEN="your-secret-token"
+control-plane --config config.yaml
+
+# Node agent
+export NAVARCH_AUTH_TOKEN="your-secret-token"
+node-agent --server https://control-plane.example.com
 ```
+
+For token generation, client configuration, and custom authentication methods, see [authentication](authentication.md).
 
 ### Secrets management
 
