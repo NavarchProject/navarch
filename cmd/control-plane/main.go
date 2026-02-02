@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -99,11 +101,16 @@ func main() {
 		srv.SetHealthObserver(poolManager)
 	}
 
+	// Create Prometheus metrics collector
+	promMetrics := controlplane.NewPrometheusMetrics(database)
+	prometheus.MustRegister(promMetrics)
+
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(srv)
 	mux.Handle(path, handler)
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler(database, logger))
+	mux.Handle("/metrics", promhttp.Handler())
 
 	// Setup authentication middleware
 	var httpHandler http.Handler = mux
