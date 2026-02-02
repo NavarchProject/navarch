@@ -146,3 +146,37 @@ func TestChainAuthenticator_ImmutableAfterCreation(t *testing.T) {
 		t.Error("Chain was affected by modification of original slice")
 	}
 }
+
+func TestChainAuthenticator_Methods(t *testing.T) {
+	chain := NewChainAuthenticator(
+		NewBearerTokenAuthenticator("token1", "user1", nil),
+		NewBearerTokenAuthenticator("token2", "user2", nil),
+	)
+
+	methods := chain.Methods()
+
+	if len(methods) != 2 {
+		t.Fatalf("Expected 2 methods, got %d", len(methods))
+	}
+	if methods[0] != "bearer-token" || methods[1] != "bearer-token" {
+		t.Errorf("Expected [bearer-token, bearer-token], got %v", methods)
+	}
+}
+
+func TestChainAuthenticator_Methods_SkipsNonDescriptors(t *testing.T) {
+	chain := NewChainAuthenticator(
+		NewBearerTokenAuthenticator("token", "user", nil),
+		AuthenticatorFunc(func(r *http.Request) (*Identity, bool, error) {
+			return nil, false, nil
+		}),
+	)
+
+	methods := chain.Methods()
+
+	if len(methods) != 1 {
+		t.Fatalf("Expected 1 method, got %d", len(methods))
+	}
+	if methods[0] != "bearer-token" {
+		t.Errorf("Expected [bearer-token], got %v", methods)
+	}
+}

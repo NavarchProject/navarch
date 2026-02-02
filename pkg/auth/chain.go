@@ -48,3 +48,14 @@ func (c *ChainAuthenticator) AuthenticateRequest(r *http.Request) (*Identity, bo
 	// No authenticator handled the request
 	return nil, false, nil
 }
+
+// Methods returns the method names of all authenticators in the chain.
+func (c *ChainAuthenticator) Methods() []string {
+	var methods []string
+	for _, a := range c.authenticators {
+		if desc, ok := a.(AuthenticatorDescriptor); ok {
+			methods = append(methods, desc.Method())
+		}
+	}
+	return methods
+}
