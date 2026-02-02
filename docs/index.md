@@ -68,8 +68,6 @@ To understand how Navarch works and integrates with Kubernetes, see [architectur
 
 To understand configuration options, see the [configuration reference](configuration.md).
 
-To secure the control plane API, see [authentication](authentication.md).
-
 To learn about pool management and autoscaling, see [pool management](pool-management.md).
 
 To set up a production deployment, see the [deployment guide](deployment.md).

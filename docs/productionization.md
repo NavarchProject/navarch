@@ -80,7 +80,7 @@ This document tracks the tasks required to make Navarch production-ready for ope
 ### Security
 - [ ] Add TLS support for control plane server
 - [ ] Add mTLS support for node-to-control-plane communication
-- [x] Add authentication mechanism (bearer token implemented; pluggable for JWT/OIDC/mTLS)
+- [ ] Add authentication mechanism (API keys, tokens, etc.)
 - [ ] Add authorization / RBAC
 - [ ] Security audit of dependencies
 

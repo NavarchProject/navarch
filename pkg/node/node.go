@@ -10,7 +10,6 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node/metrics"
@@ -47,9 +46,6 @@ type Config struct {
 
 	// Clock is the clock to use for time operations. If nil, uses real time.
 	Clock clock.Clock
-
-	// AuthToken is the authentication token for control plane communication.
-	AuthToken string
 }
 
 // Node represents the node daemon that communicates with the control plane.
@@ -149,18 +145,9 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize GPU manager: %w", err)
 	}
 
-	// Create client with optional auth interceptor
-	var opts []connect.ClientOption
-	if n.config.AuthToken != "" {
-		interceptor := auth.NewTokenInterceptor(n.config.AuthToken)
-		opts = append(opts, connect.WithInterceptors(interceptor))
-		n.logger.InfoContext(ctx, "authentication enabled for control plane connection")
-	}
-
 	n.client = protoconnect.NewControlPlaneServiceClient(
 		http.DefaultClient,
 		n.config.ControlPlaneAddr,
-		opts...,
 	)
 
 	n.logger.InfoContext(ctx, "connected to control plane",
