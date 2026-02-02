@@ -272,7 +272,7 @@ The drain operation performs the following steps:
 
 ### `navarch uncordon`
 
-Marks a cordoned node as schedulable again.
+Marks a cordoned node as schedulable again. This reverses the effect of `cordon`.
 
 Usage:
 
@@ -280,7 +280,34 @@ Usage:
 navarch uncordon <node-id>
 ```
 
-This command is not yet implemented.
+Examples:
+
+To uncordon a node:
+```bash
+$ navarch uncordon node-gcp-1
+Node node-gcp-1 uncordoned successfully
+Command ID: c3d4e5f6-a7b8-9012-cdef-234567890123
+```
+
+To verify the node is schedulable again:
+```bash
+$ navarch get node-gcp-1
+Node ID:       node-gcp-1
+Provider:      gcp
+Region:        us-central1
+Zone:          us-central1-a
+Instance Type: a3-highgpu-8g
+Status:        Active
+Health:        Healthy
+Last Heartbeat: 30s ago
+```
+
+When to use this command:
+
+- After maintenance is complete and the node is ready for workloads.
+- To bring a previously cordoned node back into service.
+
+Note: You can only uncordon a node that is currently in the `Cordoned` status. Attempting to uncordon a node in any other status (Active, Draining, Unhealthy, Terminated) will result in an error.
 
 ---
 
@@ -313,7 +340,7 @@ $ navarch list -o json | jq '.[] | select(.health_status != "HEALTH_STATUS_HEALT
 4. When ready, uncordon the node:
 
    ```bash
-   navarch uncordon node-gcp-1  # Not yet implemented
+   navarch uncordon node-gcp-1
    ```
 
 ### Decommission a node
