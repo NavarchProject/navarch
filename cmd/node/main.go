@@ -18,6 +18,7 @@ func main() {
 	region := flag.String("region", "", "Cloud region")
 	zone := flag.String("zone", "", "Cloud zone")
 	instanceType := flag.String("instance-type", "", "Instance type")
+	poolName := flag.String("pool", "", "Pool name (for autoscaler node counting)")
 	authToken := flag.String("auth-token", "", "Authentication token (or use NAVARCH_AUTH_TOKEN env)")
 	flag.Parse()
 
@@ -66,6 +67,7 @@ func main() {
 		Region:           *region,
 		Zone:             *zone,
 		InstanceType:     *instanceType,
+		Pool:             *poolName,
 		AuthToken:        token,
 	}
 

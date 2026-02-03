@@ -42,6 +42,9 @@ type Config struct {
 	// Labels are user-defined key-value labels for this node.
 	Labels map[string]string
 
+	// Pool is the pool name this node belongs to (sets the "pool" label).
+	Pool string
+
 	// GPU is the GPU manager to use. If nil, a fake GPU will be created.
 	GPU gpu.Manager
 
@@ -213,6 +216,10 @@ func (n *Node) register(ctx context.Context) error {
 		for k, v := range n.config.Labels {
 			labels[k] = v
 		}
+	}
+	// Add pool label if configured
+	if n.config.Pool != "" {
+		labels["pool"] = n.config.Pool
 	}
 
 	req := connect.NewRequest(&pb.RegisterNodeRequest{

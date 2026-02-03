@@ -46,6 +46,10 @@ func (m *mockMetrics) GetPoolMetrics(ctx context.Context, name string) (*PoolMet
 	}, nil
 }
 
+func (m *mockMetrics) GetPoolNodeCounts(ctx context.Context, name string) (PoolNodeCounts, error) {
+	return PoolNodeCounts{}, nil
+}
+
 func TestPoolManager_AddRemovePool(t *testing.T) {
 	pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
 
