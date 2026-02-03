@@ -60,7 +60,19 @@ func (a *ReactiveAutoscaler) Recommend(ctx context.Context, state PoolState) (Sc
 		return ScaleRecommendation{TargetNodes: state.CurrentNodes, Reason: "cooldown active"}, nil
 	}
 
-	// Ensure min_nodes are met
+	// Ensure min healthy nodes are met (this triggers replacement of unhealthy nodes)
+	// Only check if we have health info (HealthyNodes > 0 or there are unhealthy nodes)
+	hasUnhealthyNodes := state.HealthyNodes > 0 && state.HealthyNodes < state.CurrentNodes
+	if hasUnhealthyNodes && state.HealthyNodes < state.MinNodes && state.CurrentNodes < state.MaxNodes {
+		// Scale up to replace unhealthy nodes, but don't exceed max
+		target := min(state.CurrentNodes+1, state.MaxNodes)
+		return ScaleRecommendation{
+			TargetNodes: target,
+			Reason:      fmt.Sprintf("healthy nodes below minimum: %d < %d", state.HealthyNodes, state.MinNodes),
+		}, nil
+	}
+
+	// Ensure minimum total nodes (for initial scale-up)
 	if state.CurrentNodes < state.MinNodes {
 		return ScaleRecommendation{
 			TargetNodes: state.MinNodes,
