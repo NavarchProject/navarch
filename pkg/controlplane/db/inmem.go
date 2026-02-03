@@ -86,6 +86,18 @@ func (db *InMemDB) UpdateNodeStatus(ctx context.Context, nodeID string, status p
 	return nil
 }
 
+// UpdateNodeHealthStatus updates the health status of a node.
+func (db *InMemDB) UpdateNodeHealthStatus(ctx context.Context, nodeID string, health pb.HealthStatus) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	node, ok := db.nodes[nodeID]
+	if !ok {
+		return fmt.Errorf("node not found: %s", nodeID)
+	}
+	node.HealthStatus = health
+	return nil
+}
+
 // UpdateNodeHeartbeat updates the last heartbeat time for a node.
 func (db *InMemDB) UpdateNodeHeartbeat(ctx context.Context, nodeID string, timestamp time.Time) error {
 	db.mu.Lock()
