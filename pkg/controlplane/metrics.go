@@ -165,3 +165,23 @@ func (m *DBMetricsSource) GetPoolNodeCounts(ctx context.Context, poolName string
 	return counts, nil
 }
 
+// GetNodePool returns the pool name for a node by looking up its "pool" label.
+// Returns empty string if the node doesn't exist or has no pool label.
+func (m *DBMetricsSource) GetNodePool(ctx context.Context, nodeID string) (string, error) {
+	nodes, err := m.db.ListNodes(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	for _, node := range nodes {
+		if node.NodeID == nodeID {
+			if node.Metadata != nil && node.Metadata.Labels != nil {
+				return node.Metadata.Labels["pool"], nil
+			}
+			return "", nil
+		}
+	}
+
+	return "", nil
+}
+
