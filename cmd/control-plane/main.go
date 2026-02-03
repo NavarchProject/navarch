@@ -71,6 +71,20 @@ func main() {
 		logger.With(slog.String("component", "instance-manager")),
 	)
 
+	// Create heartbeat monitor to detect dead nodes
+	heartbeatTimeout := cfg.Server.HeartbeatTimeout
+	if heartbeatTimeout == 0 {
+		heartbeatTimeout = 3 * cfg.Server.HeartbeatInterval // Default: 3x heartbeat interval
+	}
+	heartbeatMonitor := controlplane.NewHeartbeatMonitor(
+		database,
+		controlplane.HeartbeatMonitorConfig{
+			HeartbeatTimeout: heartbeatTimeout,
+			CheckInterval:    cfg.Server.HeartbeatInterval,
+		},
+		logger,
+	)
+
 	// Load health policy
 	var healthPolicy *health.Policy
 	if cfg.Server.HealthPolicy != "" {
@@ -99,6 +113,7 @@ func main() {
 		}
 		// Wire pool manager to receive health notifications for auto-replacement
 		srv.SetHealthObserver(poolManager)
+		heartbeatMonitor.SetHealthObserver(poolManager)
 	}
 
 	// Create Prometheus metrics collector
@@ -150,6 +165,9 @@ func main() {
 	// Start the instance manager for background stale instance detection
 	instanceManager.Start(ctx)
 
+	// Start heartbeat monitor to detect dead nodes
+	heartbeatMonitor.Start(ctx)
+
 	if poolManager != nil {
 		poolManager.Start(ctx)
 	}
@@ -181,6 +199,7 @@ func main() {
 		poolManager.Stop()
 	}
 
+	heartbeatMonitor.Stop()
 	instanceManager.Stop()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {

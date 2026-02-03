@@ -20,6 +20,7 @@ type Config struct {
 type ServerConfig struct {
 	Address              string        `yaml:"address,omitempty"` // Default: ":50051"
 	HeartbeatInterval    time.Duration `yaml:"heartbeat_interval,omitempty"`
+	HeartbeatTimeout     time.Duration `yaml:"heartbeat_timeout,omitempty"` // Mark node unhealthy after this. Default: 3x heartbeat_interval
 	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty"`
 	AutoscaleInterval    time.Duration `yaml:"autoscale_interval,omitempty"`
 	HealthPolicy         string        `yaml:"health_policy,omitempty"` // Path to health policy YAML file
