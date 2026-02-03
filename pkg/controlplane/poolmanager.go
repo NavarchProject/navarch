@@ -36,6 +36,7 @@ type managedPool struct {
 // Implement this interface to connect your workload system.
 type MetricsSource interface {
 	GetPoolMetrics(ctx context.Context, poolName string) (*PoolMetrics, error)
+	GetPoolNodeCounts(ctx context.Context, poolName string) (PoolNodeCounts, error)
 }
 
 // PoolMetrics contains current metrics for a pool.
@@ -218,13 +219,35 @@ func (pm *PoolManager) evaluate(ctx context.Context, name string, mp *managedPoo
 
 func (pm *PoolManager) buildPoolState(ctx context.Context, name string, mp *managedPool) (pool.PoolState, error) {
 	cfg := mp.pool.Config()
-	status := mp.pool.Status()
 	now := pm.clock.Now()
+
+	// Get node counts from the database (includes all registered nodes with pool label)
+	var currentNodes, healthyNodes int
+	if pm.metrics != nil {
+		counts, err := pm.metrics.GetPoolNodeCounts(ctx, name)
+		if err != nil {
+			pm.logger.Warn("failed to get pool node counts, using pool internal state",
+				slog.String("pool", name),
+				slog.String("error", err.Error()),
+			)
+			status := mp.pool.Status()
+			currentNodes = status.TotalNodes
+			healthyNodes = status.HealthyNodes
+		} else {
+			currentNodes = counts.Total
+			healthyNodes = counts.Healthy
+		}
+	} else {
+		// Fallback to pool's internal tracking if no metrics source
+		status := mp.pool.Status()
+		currentNodes = status.TotalNodes
+		healthyNodes = status.HealthyNodes
+	}
 
 	state := pool.PoolState{
 		Name:           name,
-		CurrentNodes:   status.TotalNodes,
-		HealthyNodes:   status.HealthyNodes,
+		CurrentNodes:   currentNodes,
+		HealthyNodes:   healthyNodes,
 		MinNodes:       cfg.MinNodes,
 		MaxNodes:       cfg.MaxNodes,
 		CooldownPeriod: cfg.CooldownPeriod,
