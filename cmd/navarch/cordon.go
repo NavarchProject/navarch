@@ -19,20 +19,22 @@ func cordonCmd() *cobra.Command {
 			nodeID := args[0]
 			client := newClient()
 
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
+			warnIfNodeOffline(ctx, client, nodeID)
+
 			req := &pb.IssueCommandRequest{
 				NodeId:      nodeID,
 				CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
 			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-			defer cancel()
 
 			resp, err := client.IssueCommand(ctx, connect.NewRequest(req))
 			if err != nil {
 				return fmt.Errorf("failed to cordon node: %w", err)
 			}
 
-			fmt.Printf("Node %s cordoned successfully\n", nodeID)
+			fmt.Printf("Cordon command queued for node %s\n", nodeID)
 			fmt.Printf("Command ID: %s\n", resp.Msg.CommandId)
 
 			return nil
