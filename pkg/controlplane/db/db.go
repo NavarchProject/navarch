@@ -103,6 +103,7 @@ type DB interface {
 	RegisterNode(ctx context.Context, record *NodeRecord) error
 	GetNode(ctx context.Context, nodeID string) (*NodeRecord, error)
 	UpdateNodeStatus(ctx context.Context, nodeID string, status pb.NodeStatus) error
+	UpdateNodeHealthStatus(ctx context.Context, nodeID string, health pb.HealthStatus) error
 	UpdateNodeHeartbeat(ctx context.Context, nodeID string, timestamp time.Time) error
 	ListNodes(ctx context.Context) ([]*NodeRecord, error)
 	DeleteNode(ctx context.Context, nodeID string) error
