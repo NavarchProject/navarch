@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -286,4 +287,57 @@ pools:
 	}
 }
 
+func TestValidate_SetupCommandsRequireSSHKey(t *testing.T) {
+	yaml := `
+providers:
+  fake:
+    type: fake
+pools:
+  test:
+    provider: fake
+    instance_type: gpu_8x
+    min_nodes: 1
+    max_nodes: 5
+    setup_commands:
+      - echo hello
+`
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0644); err != nil {
+		t.Fatal(err)
+	}
 
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected validation error for setup_commands without ssh_private_key_path")
+	}
+	if !strings.Contains(err.Error(), "ssh_private_key_path") {
+		t.Errorf("expected error about ssh_private_key_path, got: %v", err)
+	}
+}
+
+func TestValidate_SetupCommandsWithDefaultSSHKey(t *testing.T) {
+	yaml := `
+providers:
+  fake:
+    type: fake
+defaults:
+  ssh_private_key_path: /path/to/key
+pools:
+  test:
+    provider: fake
+    instance_type: gpu_8x
+    min_nodes: 1
+    max_nodes: 5
+    setup_commands:
+      - echo hello
+`
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(yaml), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}

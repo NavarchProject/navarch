@@ -3,10 +3,12 @@ package pool
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/bootstrap"
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -32,6 +34,11 @@ type Config struct {
 	AutoReplace        bool // Automatically replace unhealthy nodes
 
 	Labels map[string]string // Key-value labels for workload routing
+
+	SetupCommands     []string // Commands run via SSH after provisioning
+	SSHUser           string   // Default: ubuntu
+	SSHPrivateKeyPath string
+	ControlPlaneAddr  string
 }
 
 // ProviderConfig holds configuration for a single provider within a pool.
@@ -50,6 +57,7 @@ type Pool struct {
 	providers []ProviderConfig
 	selector  ProviderSelector
 	clock     clock.Clock
+	logger    *slog.Logger
 	mu        sync.RWMutex
 	nodes     map[string]*ManagedNode
 	lastScale time.Time
@@ -82,8 +90,9 @@ type Status struct {
 type NewPoolOptions struct {
 	Config           Config
 	Providers        []ProviderConfig
-	ProviderStrategy string      // priority, cost, availability, round-robin
-	Clock            clock.Clock // Clock for time operations. If nil, uses real time.
+	ProviderStrategy string       // priority, cost, availability, round-robin
+	Clock            clock.Clock  // Clock for time operations. If nil, uses real time.
+	Logger           *slog.Logger
 }
 
 // New creates a pool with a single provider.
@@ -136,11 +145,17 @@ func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
 		clk = clock.Real()
 	}
 
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &Pool{
 		config:    opts.Config,
 		providers: opts.Providers,
 		selector:  selector,
 		clock:     clk,
+		logger:    logger,
 		nodes:     make(map[string]*ManagedNode),
 	}, nil
 }
@@ -213,17 +228,117 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 			return nodes, fmt.Errorf("failed to provision node %d: %w", i+1, err)
 		}
 
-		p.nodes[node.ID] = &ManagedNode{
+		managedNode := &ManagedNode{
 			Node:          node,
 			Pool:          p.config.Name,
 			ProviderName:  providerName,
 			ProvisionedAt: p.clock.Now(),
 		}
+		p.nodes[node.ID] = managedNode
 		nodes = append(nodes, node)
+
+		if len(p.config.SetupCommands) > 0 {
+			go p.bootstrapNode(context.Background(), managedNode)
+		}
 	}
 
 	p.lastScale = p.clock.Now()
 	return nodes, nil
+}
+
+func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
+	prov := p.getProvider(node.ProviderName)
+	if prov == nil {
+		p.logger.Error("bootstrap failed: provider not found",
+			slog.String("node_id", node.Node.ID),
+			slog.String("provider", node.ProviderName),
+		)
+		return
+	}
+
+	ip := node.Node.IPAddress
+	var err error
+	if ip == "" {
+		ip, err = p.waitForIP(ctx, prov, node.Node.ID)
+		if err != nil {
+			p.logger.Error("bootstrap failed: could not get IP",
+				slog.String("node_id", node.Node.ID),
+				slog.String("error", err.Error()),
+			)
+			return
+		}
+
+		p.mu.Lock()
+		if n, ok := p.nodes[node.Node.ID]; ok {
+			n.Node.IPAddress = ip
+		}
+		p.mu.Unlock()
+	}
+
+	bootstrapper := bootstrap.New(bootstrap.Config{
+		SetupCommands:     p.config.SetupCommands,
+		SSHUser:           p.config.SSHUser,
+		SSHPrivateKeyPath: p.config.SSHPrivateKeyPath,
+	}, p.logger)
+
+	vars := bootstrap.TemplateVars{
+		ControlPlane: p.config.ControlPlaneAddr,
+		Pool:         p.config.Name,
+		NodeID:       node.Node.ID,
+		Provider:     node.ProviderName,
+		Region:       node.Node.Region,
+		InstanceType: node.Node.InstanceType,
+	}
+
+	if err := bootstrapper.Bootstrap(ctx, ip, vars); err != nil {
+		p.logger.Error("bootstrap failed",
+			slog.String("node_id", node.Node.ID),
+			slog.String("ip", ip),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+func (p *Pool) waitForIP(ctx context.Context, prov provider.Provider, nodeID string) (string, error) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(15 * time.Minute)
+
+	checkIP := func() (string, bool) {
+		nodes, err := prov.List(ctx)
+		if err != nil {
+			p.logger.Debug("failed to list nodes while waiting for IP",
+				slog.String("error", err.Error()),
+			)
+			return "", false
+		}
+		for _, n := range nodes {
+			if n.ID == nodeID && n.IPAddress != "" {
+				return n.IPAddress, true
+			}
+		}
+		p.logger.Debug("waiting for node IP", slog.String("node_id", nodeID))
+		return "", false
+	}
+
+	// Check immediately before waiting for the first tick.
+	if ip, ok := checkIP(); ok {
+		return ip, nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timeout waiting for IP")
+		case <-ticker.C:
+			if ip, ok := checkIP(); ok {
+				return ip, nil
+			}
+		}
+	}
 }
 
 // provisionWithFallback tries providers in order until one succeeds.
@@ -427,11 +542,16 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		return nil, fmt.Errorf("failed to provision replacement: %w", err)
 	}
 
-	p.nodes[node.ID] = &ManagedNode{
+	managedNode := &ManagedNode{
 		Node:          node,
 		Pool:          p.config.Name,
 		ProviderName:  providerName,
 		ProvisionedAt: p.clock.Now(),
+	}
+	p.nodes[node.ID] = managedNode
+
+	if len(p.config.SetupCommands) > 0 {
+		go p.bootstrapNode(context.Background(), managedNode)
 	}
 
 	return node, nil

@@ -64,6 +64,10 @@ type PoolCfg struct {
 	Health      *HealthCfg      `yaml:"health,omitempty"`
 
 	Labels map[string]string `yaml:"labels,omitempty"`
+
+	SetupCommands     []string `yaml:"setup_commands,omitempty"`
+	SSHUser           string   `yaml:"ssh_user,omitempty"`
+	SSHPrivateKeyPath string   `yaml:"ssh_private_key_path,omitempty"`
 }
 
 // PoolProviderEntry configures a provider within a multi-provider pool.
@@ -116,8 +120,10 @@ type HealthCfg struct {
 
 // DefaultsCfg holds default values applied to all pools.
 type DefaultsCfg struct {
-	SSHKeys []string   `yaml:"ssh_keys,omitempty"`
-	Health  *HealthCfg `yaml:"health,omitempty"`
+	SSHKeys           []string   `yaml:"ssh_keys,omitempty"`
+	Health            *HealthCfg `yaml:"health,omitempty"`
+	SSHUser           string     `yaml:"ssh_user,omitempty"`
+	SSHPrivateKeyPath string     `yaml:"ssh_private_key_path,omitempty"`
 }
 
 // Load reads configuration from a YAML file.
@@ -177,6 +183,16 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("pool %q: unknown provider %q", name, p.Name)
 			}
 		}
+
+		if len(pool.SetupCommands) > 0 {
+			keyPath := pool.SSHPrivateKeyPath
+			if keyPath == "" {
+				keyPath = c.Defaults.SSHPrivateKeyPath
+			}
+			if keyPath == "" {
+				return fmt.Errorf("pool %q: ssh_private_key_path is required when setup_commands are configured", name)
+			}
+		}
 	}
 
 	for name, prov := range c.Providers {
@@ -212,8 +228,16 @@ func (c *Config) applyDefaults() {
 		if pool.Health == nil && c.Defaults.Health != nil {
 			pool.Health = c.Defaults.Health
 		}
+		if pool.SSHUser == "" {
+			if c.Defaults.SSHUser != "" {
+				pool.SSHUser = c.Defaults.SSHUser
+			} else {
+				pool.SSHUser = "ubuntu"
+			}
+		}
+		if pool.SSHPrivateKeyPath == "" && c.Defaults.SSHPrivateKeyPath != "" {
+			pool.SSHPrivateKeyPath = c.Defaults.SSHPrivateKeyPath
+		}
 		c.Pools[name] = pool
 	}
 }
-
-

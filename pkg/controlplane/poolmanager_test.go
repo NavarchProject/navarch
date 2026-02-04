@@ -2,13 +2,18 @@ package controlplane
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+
 	"github.com/NavarchProject/navarch/pkg/clock"
+	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
+	pb "github.com/NavarchProject/navarch/proto"
 )
 
 type mockProvider struct {
@@ -381,3 +386,101 @@ func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
 	})
 }
 
+// TestPoolManager_IntegrationWithDBMetrics verifies the full flow:
+// nodes register with pool labels → DBMetricsSource counts them → autoscaler sees correct counts.
+func TestPoolManager_IntegrationWithDBMetrics(t *testing.T) {
+	ctx := context.Background()
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	metricsSource := NewDBMetricsSource(database, nil)
+	srv := NewServer(database, DefaultConfig(), nil, nil)
+	fakeClock := clock.NewFakeClock(time.Now())
+	prov := &mockProvider{}
+
+	p, err := pool.NewWithOptions(pool.NewPoolOptions{
+		Config: pool.Config{
+			Name:           "integration-test",
+			MinNodes:       3,
+			MaxNodes:       5,
+			CooldownPeriod: 0,
+		},
+		Providers: []pool.ProviderConfig{
+			{Name: "mock", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+		Clock:            fakeClock,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pm := NewPoolManager(PoolManagerConfig{
+		EvaluationInterval: 100 * time.Millisecond,
+		Clock:              fakeClock,
+	}, metricsSource, nil, nil)
+
+	autoscaler := pool.NewReactiveAutoscaler(80, 20)
+	if err := pm.AddPool(p, autoscaler); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		req := &pb.RegisterNodeRequest{
+			NodeId:       fmt.Sprintf("node-%d", i),
+			Provider:     "mock",
+			Region:       "us-east-1",
+			InstanceType: "gpu-8x",
+			Metadata: &pb.NodeMetadata{
+				Labels: map[string]string{"pool": "integration-test"},
+			},
+		}
+		resp, err := srv.RegisterNode(ctx, connect.NewRequest(req))
+		if err != nil {
+			t.Fatalf("failed to register node-%d: %v", i, err)
+		}
+		if !resp.Msg.Success {
+			t.Fatalf("registration rejected for node-%d: %s", i, resp.Msg.Message)
+		}
+	}
+
+	counts, err := metricsSource.GetPoolNodeCounts(ctx, "integration-test")
+	if err != nil {
+		t.Fatalf("GetPoolNodeCounts failed: %v", err)
+	}
+	if counts.Total != 3 {
+		t.Errorf("expected 3 total nodes, got %d", counts.Total)
+	}
+	if counts.Healthy != 3 {
+		t.Errorf("expected 3 healthy nodes, got %d", counts.Healthy)
+	}
+
+	evalCtx, cancel := context.WithCancel(ctx)
+	pm.Start(evalCtx)
+
+	fakeClock.Advance(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
+
+	// 3 nodes registered = min_nodes met, no scaling should occur
+	if prov.provisions.Load() != 0 {
+		t.Errorf("expected no provisions, got %d", prov.provisions.Load())
+	}
+
+	if err := database.UpdateNodeStatus(ctx, "node-1", pb.NodeStatus_NODE_STATUS_UNHEALTHY); err != nil {
+		t.Fatalf("failed to mark node unhealthy: %v", err)
+	}
+
+	counts, err = metricsSource.GetPoolNodeCounts(ctx, "integration-test")
+	if err != nil {
+		t.Fatalf("GetPoolNodeCounts failed: %v", err)
+	}
+	if counts.Healthy != 2 {
+		t.Errorf("expected 2 healthy nodes after marking one unhealthy, got %d", counts.Healthy)
+	}
+	if counts.Unhealthy != 1 {
+		t.Errorf("expected 1 unhealthy node, got %d", counts.Unhealthy)
+	}
+
+	cancel()
+	pm.Stop()
+}

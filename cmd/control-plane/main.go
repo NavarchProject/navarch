@@ -276,9 +276,14 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 				UnhealthyThreshold: config.GetUnhealthyThreshold(poolCfg.Health),
 				AutoReplace:        config.GetAutoReplace(poolCfg.Health),
 				Labels:             labels,
+				SetupCommands:      poolCfg.SetupCommands,
+				SSHUser:            poolCfg.SSHUser,
+				SSHPrivateKeyPath:  poolCfg.SSHPrivateKeyPath,
+				ControlPlaneAddr:   controlPlaneAddr,
 			},
 			Providers:        poolProviders,
 			ProviderStrategy: poolCfg.Strategy,
+			Logger:           logger,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create pool %s: %w", poolName, err)
