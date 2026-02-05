@@ -47,6 +47,9 @@ type Runner struct {
 	startupConfig StartupConfig
 	mu            sync.Mutex
 	nodeSpecs     map[string]NodeSpec // nodeID -> spec for replacement
+
+	// Live web view
+	webView       *WebView
 }
 
 // simHealthObserver implements NodeHealthObserver for the simulator.
@@ -99,6 +102,21 @@ func WithClock(clk clock.Clock) RunnerOption {
 	return func(r *Runner) {
 		r.clock = clk
 	}
+}
+
+// WithWebView enables the live web view for real-time simulation visualization.
+func WithWebView() RunnerOption {
+	return func(r *Runner) {
+		r.webView = NewWebView(r.clock, r.logger)
+	}
+}
+
+// WebViewAddr returns the address of the live web view, or empty string if not enabled.
+func (r *Runner) WebViewAddr() string {
+	if r.webView == nil {
+		return ""
+	}
+	return r.webView.Addr()
 }
 
 // NewRunner creates a new scenario runner.
@@ -207,6 +225,26 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		nodeCount = stress.FleetGen.TotalNodes
 	}
 
+	// Start live web view if enabled
+	if r.webView != nil {
+		if err := r.webView.Start(ctx); err != nil {
+			r.logger.Warn("failed to start web view", slog.String("error", err.Error()))
+			r.webView = nil
+		} else {
+			failureRate := 0.0
+			if stress.Chaos != nil && stress.Chaos.Enabled {
+				failureRate = stress.Chaos.FailureRate
+			}
+			r.webView.SetInit(&WebInitEvent{
+				ScenarioName: r.scenario.Name,
+				TotalNodes:   nodeCount,
+				Duration:     duration.Seconds(),
+				FailureRate:  failureRate,
+				Seed:         r.seed,
+			})
+		}
+	}
+
 	var logFile *os.File
 	if stress.LogFile != "" {
 		var err error
@@ -249,6 +287,11 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 	r.logger.Info("initializing stress test")
 
 	r.metrics = NewStressMetrics(r.clock, r.logger)
+
+	// Attach web view as real-time listener
+	if r.webView != nil {
+		r.metrics.SetListener(r.webView)
+	}
 
 	if err := r.startControlPlane(ctx); err != nil {
 		return fmt.Errorf("failed to start control plane: %w", err)
@@ -346,6 +389,9 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 		go r.runEventsInBackground(ctx)
 	}
 
+	if r.webView != nil {
+		console.PrintWebView(r.webView.Addr())
+	}
 	console.PrintRunning(duration)
 
 	progressTicker := r.clock.NewTicker(time.Second)
@@ -381,6 +427,11 @@ func (r *Runner) runStressTest(ctx context.Context) error {
 
 finished:
 	console.ClearProgress()
+
+	// Notify web view that simulation is complete
+	if r.webView != nil {
+		r.webView.EmitComplete()
+	}
 
 	// Take a final sample to ensure accurate end-state data
 	r.metrics.TakeSample()

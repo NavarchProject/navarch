@@ -24,6 +24,7 @@ var (
 	verbose bool
 	debug   bool
 	seed    int64
+	web     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -55,7 +56,10 @@ Examples:
   simulator run scenarios/stress/1000-node-chaos.yaml -v
 
   # Run with reproducible randomness
-  simulator run scenarios/stress/1000-node-chaos.yaml --seed 12345`,
+  simulator run scenarios/stress/1000-node-chaos.yaml --seed 12345
+
+  # Run with live web view (opens a browser-based timeline)
+  simulator run scenarios/stress/1000-node-chaos.yaml --web`,
 	Args: cobra.ExactArgs(1),
 	RunE: runScenario,
 }
@@ -83,6 +87,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug output")
 
 	runCmd.Flags().Int64Var(&seed, "seed", 0, "Random seed for reproducible stress tests (0 = random)")
+	runCmd.Flags().BoolVar(&web, "web", false, "Enable live web view for real-time simulation visualization")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(interactiveCmd)
@@ -161,6 +166,11 @@ func runScenario(cmd *cobra.Command, args []string) error {
 	if effectiveSeed != 0 {
 		opts = append(opts, simulator.WithSeed(effectiveSeed))
 		logger.Info("using seed", slog.Int64("seed", effectiveSeed))
+	}
+
+	// Enable live web view
+	if web {
+		opts = append(opts, simulator.WithWebView())
 	}
 
 	runner := simulator.NewRunner(scenario, opts...)
