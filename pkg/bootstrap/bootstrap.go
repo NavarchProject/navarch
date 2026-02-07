@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -14,8 +15,17 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// FileUpload specifies a local file to copy to the remote instance before
+// running setup commands.
+type FileUpload struct {
+	LocalPath  string // Path to local file
+	RemotePath string // Destination path on remote instance
+	Mode       string // File permissions (e.g., "0755"). Default: "0644"
+}
+
 type Config struct {
 	SetupCommands     []string
+	FileUploads       []FileUpload // Files to SCP before running commands
 	SSHUser           string
 	SSHPrivateKeyPath string
 }
@@ -46,9 +56,9 @@ func New(cfg Config, logger *slog.Logger) *Bootstrapper {
 	}
 }
 
-// Bootstrap connects to the instance via SSH and runs each setup command in order.
+// Bootstrap uploads files and runs setup commands on the instance via SSH.
 func (b *Bootstrapper) Bootstrap(ctx context.Context, ip string, vars TemplateVars) error {
-	if len(b.config.SetupCommands) == 0 {
+	if len(b.config.SetupCommands) == 0 && len(b.config.FileUploads) == 0 {
 		return nil
 	}
 	if b.config.SSHPrivateKeyPath == "" {
@@ -61,7 +71,12 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, ip string, vars TemplateVa
 		slog.Int("commands", len(b.config.SetupCommands)),
 	)
 
-	key, err := os.ReadFile(b.config.SSHPrivateKeyPath)
+	keyPath := b.config.SSHPrivateKeyPath
+	if strings.HasPrefix(keyPath, "~/") {
+		home, _ := os.UserHomeDir()
+		keyPath = filepath.Join(home, keyPath[2:])
+	}
+	key, err := os.ReadFile(keyPath)
 	if err != nil {
 		return fmt.Errorf("reading SSH private key: %w", err)
 	}
@@ -86,6 +101,12 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, ip string, vars TemplateVa
 		return fmt.Errorf("waiting for SSH: %w", err)
 	}
 	defer client.Close()
+
+	for _, upload := range b.config.FileUploads {
+		if err := b.uploadFile(client, upload); err != nil {
+			return fmt.Errorf("uploading %s: %w", upload.LocalPath, err)
+		}
+	}
 
 	for i, cmd := range b.config.SetupCommands {
 		renderedCmd, err := b.renderCommand(cmd, vars)
@@ -144,6 +165,42 @@ func (b *Bootstrapper) waitForSSH(ctx context.Context, ip string, config *ssh.Cl
 			}
 		}
 	}
+}
+
+func (b *Bootstrapper) uploadFile(client *ssh.Client, upload FileUpload) error {
+	data, err := os.ReadFile(upload.LocalPath)
+	if err != nil {
+		return fmt.Errorf("reading local file: %w", err)
+	}
+
+	mode := upload.Mode
+	if mode == "" {
+		mode = "0644"
+	}
+
+	b.logger.Info("uploading file",
+		slog.String("local", upload.LocalPath),
+		slog.String("remote", upload.RemotePath),
+		slog.String("size", fmt.Sprintf("%d bytes", len(data))),
+	)
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("creating SSH session: %w", err)
+	}
+	defer session.Close()
+
+	session.Stdin = bytes.NewReader(data)
+
+	var stderr bytes.Buffer
+	session.Stderr = &stderr
+
+	cmd := fmt.Sprintf("sudo sh -c 'cat > %s && chmod %s %s'", upload.RemotePath, mode, upload.RemotePath)
+	if err := session.Run(cmd); err != nil {
+		return fmt.Errorf("%w: stderr: %s", err, stderr.String())
+	}
+
+	return nil
 }
 
 func (b *Bootstrapper) runCommand(client *ssh.Client, cmd string) error {

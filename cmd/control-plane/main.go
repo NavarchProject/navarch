@@ -17,6 +17,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/NavarchProject/navarch/pkg/auth"
+	"github.com/NavarchProject/navarch/pkg/bootstrap"
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
@@ -250,9 +251,12 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 	}, metricsSource, instanceManager, logger)
 
 	providers := make(map[string]provider.Provider)
-	controlPlaneAddr := fmt.Sprintf("http://localhost%s", cfg.Server.Address)
-	if len(cfg.Server.Address) > 0 && cfg.Server.Address[0] != ':' {
-		controlPlaneAddr = "http://" + cfg.Server.Address
+	controlPlaneAddr := cfg.Server.ExternalAddress
+	if controlPlaneAddr == "" {
+		controlPlaneAddr = fmt.Sprintf("http://localhost%s", cfg.Server.Address)
+		if len(cfg.Server.Address) > 0 && cfg.Server.Address[0] != ':' {
+			controlPlaneAddr = "http://" + cfg.Server.Address
+		}
 	}
 
 	for poolName, poolCfg := range cfg.Pools {
@@ -277,6 +281,7 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 				AutoReplace:        config.GetAutoReplace(poolCfg.Health),
 				Labels:             labels,
 				SetupCommands:      poolCfg.SetupCommands,
+				FileUploads:        convertFileUploads(poolCfg.FileUploads),
 				SSHUser:            poolCfg.SSHUser,
 				SSHPrivateKeyPath:  poolCfg.SSHPrivateKeyPath,
 				ControlPlaneAddr:   controlPlaneAddr,
@@ -411,3 +416,14 @@ func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provi
 	return prov, nil
 }
 
+func convertFileUploads(cfgs []config.FileUploadCfg) []bootstrap.FileUpload {
+	uploads := make([]bootstrap.FileUpload, len(cfgs))
+	for i, cfg := range cfgs {
+		uploads[i] = bootstrap.FileUpload{
+			LocalPath:  cfg.Local,
+			RemotePath: cfg.Remote,
+			Mode:       cfg.Mode,
+		}
+	}
+	return uploads
+}

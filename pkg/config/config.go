@@ -18,12 +18,13 @@ type Config struct {
 
 // ServerConfig configures the control plane server.
 type ServerConfig struct {
-	Address              string        `yaml:"address,omitempty"` // Default: ":50051"
+	Address              string        `yaml:"address,omitempty"`              // Default: ":50051"
+	ExternalAddress      string        `yaml:"external_address,omitempty"`     // Public URL for nodes to reach the control plane (e.g., tunnel URL)
 	HeartbeatInterval    time.Duration `yaml:"heartbeat_interval,omitempty"`
-	HeartbeatTimeout     time.Duration `yaml:"heartbeat_timeout,omitempty"` // Mark node unhealthy after this. Default: 3x heartbeat_interval
+	HeartbeatTimeout     time.Duration `yaml:"heartbeat_timeout,omitempty"`
 	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty"`
 	AutoscaleInterval    time.Duration `yaml:"autoscale_interval,omitempty"`
-	HealthPolicy         string        `yaml:"health_policy,omitempty"` // Path to health policy YAML file
+	HealthPolicy         string        `yaml:"health_policy,omitempty"`
 }
 
 // ProviderCfg configures a cloud provider.
@@ -65,9 +66,17 @@ type PoolCfg struct {
 
 	Labels map[string]string `yaml:"labels,omitempty"`
 
-	SetupCommands     []string `yaml:"setup_commands,omitempty"`
-	SSHUser           string   `yaml:"ssh_user,omitempty"`
-	SSHPrivateKeyPath string   `yaml:"ssh_private_key_path,omitempty"`
+	SetupCommands     []string        `yaml:"setup_commands,omitempty"`
+	FileUploads       []FileUploadCfg `yaml:"file_uploads,omitempty"`
+	SSHUser           string          `yaml:"ssh_user,omitempty"`
+	SSHPrivateKeyPath string          `yaml:"ssh_private_key_path,omitempty"`
+}
+
+// FileUploadCfg specifies a file to SCP to the instance before running setup commands.
+type FileUploadCfg struct {
+	Local  string `yaml:"local"`
+	Remote string `yaml:"remote"`
+	Mode   string `yaml:"mode,omitempty"` // Default: "0644"
 }
 
 // PoolProviderEntry configures a provider within a multi-provider pool.
@@ -184,7 +193,7 @@ func (c *Config) Validate() error {
 			}
 		}
 
-		if len(pool.SetupCommands) > 0 {
+		if len(pool.SetupCommands) > 0 || len(pool.FileUploads) > 0 {
 			keyPath := pool.SSHPrivateKeyPath
 			if keyPath == "" {
 				keyPath = c.Defaults.SSHPrivateKeyPath
