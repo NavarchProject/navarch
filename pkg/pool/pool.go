@@ -275,7 +275,8 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 		}
 
 		bootstrapStatus := BootstrapSkipped
-		if len(p.config.SetupCommands) > 0 {
+		needsBootstrap := len(p.config.SetupCommands) > 0 && !p.providerSelfBootstraps(providerName)
+		if needsBootstrap {
 			bootstrapStatus = BootstrapPending
 		}
 
@@ -289,7 +290,7 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 		p.nodes[node.ID] = managedNode
 		nodes = append(nodes, node)
 
-		if len(p.config.SetupCommands) > 0 {
+		if needsBootstrap {
 			go p.bootstrapNode(context.Background(), managedNode)
 		}
 	}
@@ -545,6 +546,18 @@ func (p *Pool) getProvider(name string) provider.Provider {
 	return nil
 }
 
+// providerSelfBootstraps returns true if the provider handles node setup internally.
+func (p *Pool) providerSelfBootstraps(name string) bool {
+	prov := p.getProvider(name)
+	if prov == nil {
+		return false
+	}
+	if sb, ok := prov.(provider.SelfBootstrapping); ok {
+		return sb.SelfBootstraps()
+	}
+	return false
+}
+
 // selectForRemoval picks nodes to remove, preferring cordoned nodes first,
 // then oldest healthy nodes (by provision time) for deterministic behavior.
 func (p *Pool) selectForRemoval(count int) []string {
@@ -644,7 +657,8 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 	}
 
 	bootstrapStatus := BootstrapSkipped
-	if len(p.config.SetupCommands) > 0 {
+	needsBootstrap := len(p.config.SetupCommands) > 0 && !p.providerSelfBootstraps(providerName)
+	if needsBootstrap {
 		bootstrapStatus = BootstrapPending
 	}
 
@@ -657,7 +671,7 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 	}
 	p.nodes[node.ID] = managedNode
 
-	if len(p.config.SetupCommands) > 0 {
+	if needsBootstrap {
 		go p.bootstrapNode(context.Background(), managedNode)
 	}
 

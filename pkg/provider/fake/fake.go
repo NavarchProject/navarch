@@ -57,6 +57,11 @@ func (p *Provider) Name() string {
 	return "fake"
 }
 
+// SelfBootstraps returns true because the fake provider spawns node agents directly.
+func (p *Provider) SelfBootstraps() bool {
+	return true
+}
+
 func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest) (*provider.Node, error) {
 	id := fmt.Sprintf("fake-%d", p.nextID.Add(1))
 

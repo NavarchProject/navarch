@@ -51,3 +51,11 @@ type InstanceType struct {
 type InstanceTypeLister interface {
 	ListInstanceTypes(ctx context.Context) ([]InstanceType, error)
 }
+
+// SelfBootstrapping is an optional interface for providers that manage node setup internally.
+// When a provider implements this and returns true, the pool skips SSH bootstrap.
+// Examples: fake provider (spawns agents directly), Kubernetes (uses init containers).
+type SelfBootstrapping interface {
+	// SelfBootstraps returns true if the provider handles node agent installation.
+	SelfBootstraps() bool
+}
