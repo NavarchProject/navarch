@@ -7,19 +7,21 @@ repo_url: https://github.com/NavarchProject/navarch
 
 theme:
   name: material
+  logo: images/logo.svg
+  favicon: images/logo.svg
   font:
     text: Google Sans
     code: Roboto Mono
   palette:
     - scheme: default
       primary: white
-      accent: blue
+      accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - scheme: slate
       primary: black
-      accent: blue
+      accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
