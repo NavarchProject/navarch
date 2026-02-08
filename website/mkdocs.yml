@@ -57,11 +57,6 @@ nav:
     - Pool Management: pool-management.md
     - Deployment: deployment.md
     - Authentication: authentication.md
-    - Simulator:
-      - Overview: simulator/index.md
-      - Scenarios: simulator/scenarios.md
-      - Stress Testing: simulator/stress-testing.md
-    - Testing on Hardware: testing-on-gpu.md
   - Reference:
     - Configuration: configuration.md
     - Health Policy: health-policy.md
@@ -73,6 +68,13 @@ nav:
     - Architecture: architecture.md
     - Extending: extending.md
     - Contributing: contributing.md
+    - Testing:
+      - Overview: testing.md
+      - Simulator:
+        - Overview: simulator/index.md
+        - Scenarios: simulator/scenarios.md
+        - Stress Testing: simulator/stress-testing.md
+      - Hardware: testing-on-gpu.md
 
 markdown_extensions:
   - pymdownx.emoji:

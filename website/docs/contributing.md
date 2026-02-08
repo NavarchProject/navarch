@@ -8,8 +8,8 @@ This guide covers how to contribute to Navarch, from setting up your development
 
 - Go 1.21 or later
 - Make
-- Docker (for integration tests)
-- Access to a GPU machine (optional, for hardware testing)
+- Docker (optional, for Docker provider tests)
+- GPU machine (optional, for hardware testing)
 
 ### Clone and build
 
@@ -28,79 +28,36 @@ This produces binaries in `bin/`:
 ### Run tests
 
 ```bash
-# Unit tests
-make test
-
-# Unit tests with race detection
-make test-race
-
-# Integration tests (requires Docker)
-make test-integration
+make test          # Run all tests
+make test-race     # With race detection
+make test-all      # Format, lint, and test
 ```
 
-### Docker provider for SSH testing
-
-The `docker` provider spawns real containers with SSH servers, enabling end-to-end testing of the bootstrap flow without cloud infrastructure.
-
-```go
-import "github.com/NavarchProject/navarch/pkg/provider/docker"
-
-// Create provider
-provider, err := docker.New(docker.Config{
-    SSHPublicKeyPath: "~/.ssh/id_rsa.pub",
-    Logger:           logger,
-})
-if err != nil {
-    log.Fatal(err)
-}
-
-// Ensure the SSH image is available
-if err := provider.EnsureImage(ctx); err != nil {
-    log.Fatal(err)
-}
-
-// Provision a container
-node, err := provider.Provision(ctx, provider.ProvisionRequest{
-    Labels: map[string]string{"pool": "test"},
-})
-// node.IPAddress = "127.0.0.1"
-// node.SSHPort = <dynamically assigned port>
-
-// Clean up
-defer provider.TerminateAll()
-```
-
-The Docker provider:
-
-- Uses `linuxserver/openssh-server` image
-- Maps container port 22 to a random host port
-- Sets `SSHPort` on the returned node for bootstrap to use
-- Supports `TerminateAll()` for cleanup in tests
+See [Testing](testing.md) for the Docker provider and simulator.
 
 ## Code structure
 
 ```
 navarch/
 ├── cmd/                    # Entry points
-│   ├── control-plane/      # Control plane main
-│   ├── node/               # Node agent main
-│   ├── navarch/            # CLI main
-│   └── simulator/          # Simulator main
+│   ├── control-plane/      # Control plane server
+│   ├── node/               # Node agent
+│   ├── navarch/            # CLI
+│   └── simulator/          # Fleet simulator
 ├── pkg/
+│   ├── bootstrap/          # SSH bootstrap for setup commands
+│   ├── config/             # Configuration parsing
 │   ├── controlplane/       # Control plane logic
-│   │   ├── pool/           # Pool management
-│   │   ├── health/         # Health evaluation
-│   │   ├── autoscaler/     # Autoscaling strategies
-│   │   └── provider/       # Cloud provider interfaces
-│   │       └── docker/     # Docker provider for testing
+│   ├── health/             # Health policy evaluation
 │   ├── node/               # Node agent logic
-│   │   ├── gpu/            # GPU monitoring (NVML)
-│   │   └── metrics/        # Metrics collection
-│   ├── api/                # gRPC service definitions
-│   └── config/             # Configuration parsing
+│   ├── pool/               # Pool management and autoscaling
+│   └── provider/           # Cloud provider interfaces
+│       ├── docker/         # Docker provider (testing)
+│       ├── fake/           # Fake provider (testing)
+│       ├── gcp/            # Google Cloud
+│       └── lambda/         # Lambda Labs
 ├── proto/                  # Protocol buffer definitions
-├── scenarios/              # Simulator test scenarios
-└── docs/                   # Documentation source
+└── scenarios/              # Simulator test scenarios
 ```
 
 ## Making changes
