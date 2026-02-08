@@ -157,4 +157,4 @@ See [Extending Navarch](https://navarchproject.github.io/navarch/extending/) for
 
 ## License
 
-Apache 2.0
+MIT
