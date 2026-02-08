@@ -112,6 +112,8 @@ func formatStatus(status pb.NodeStatus) string {
 		return "Cordoned"
 	case pb.NodeStatus_NODE_STATUS_DRAINING:
 		return "Draining"
+	case pb.NodeStatus_NODE_STATUS_UNHEALTHY:
+		return "Unhealthy"
 	case pb.NodeStatus_NODE_STATUS_TERMINATED:
 		return "Terminated"
 	default:
