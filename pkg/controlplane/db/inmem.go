@@ -14,14 +14,15 @@ import (
 // InMemDB is an in-memory implementation of the DB interface.
 // Suitable for testing and development.
 type InMemDB struct {
-	mu           sync.RWMutex
-	clock        clock.Clock
-	nodes        map[string]*NodeRecord
-	healthChecks map[string][]*HealthCheckRecord // nodeID -> list of health checks
-	commands     map[string]*CommandRecord       // commandID -> command
-	nodeCommands map[string][]*CommandRecord     // nodeID -> list of commands
-	metrics      map[string][]*MetricsRecord     // nodeID -> list of metrics (max 100 per node)
-	instances    map[string]*InstanceRecord      // instanceID -> instance record
+	mu            sync.RWMutex
+	clock         clock.Clock
+	nodes         map[string]*NodeRecord
+	healthChecks  map[string][]*HealthCheckRecord  // nodeID -> list of health checks
+	commands      map[string]*CommandRecord        // commandID -> command
+	nodeCommands  map[string][]*CommandRecord      // nodeID -> list of commands
+	metrics       map[string][]*MetricsRecord      // nodeID -> list of metrics (max 100 per node)
+	instances     map[string]*InstanceRecord       // instanceID -> instance record
+	bootstrapLogs map[string][]*BootstrapLogRecord // nodeID -> list of bootstrap logs
 }
 
 // NewInMemDB creates a new in-memory database.
@@ -35,13 +36,14 @@ func NewInMemDBWithClock(clk clock.Clock) *InMemDB {
 		clk = clock.Real()
 	}
 	return &InMemDB{
-		clock:        clk,
-		nodes:        make(map[string]*NodeRecord),
-		healthChecks: make(map[string][]*HealthCheckRecord),
-		commands:     make(map[string]*CommandRecord),
-		nodeCommands: make(map[string][]*CommandRecord),
-		metrics:      make(map[string][]*MetricsRecord),
-		instances:    make(map[string]*InstanceRecord),
+		clock:         clk,
+		nodes:         make(map[string]*NodeRecord),
+		healthChecks:  make(map[string][]*HealthCheckRecord),
+		commands:      make(map[string]*CommandRecord),
+		nodeCommands:  make(map[string][]*CommandRecord),
+		metrics:       make(map[string][]*MetricsRecord),
+		instances:     make(map[string]*InstanceRecord),
+		bootstrapLogs: make(map[string][]*BootstrapLogRecord),
 	}
 }
 
@@ -83,6 +85,18 @@ func (db *InMemDB) UpdateNodeStatus(ctx context.Context, nodeID string, status p
 		return fmt.Errorf("node not found: %s", nodeID)
 	}
 	node.Status = status
+	return nil
+}
+
+// UpdateNodeHealthStatus updates the health status of a node.
+func (db *InMemDB) UpdateNodeHealthStatus(ctx context.Context, nodeID string, health pb.HealthStatus) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	node, ok := db.nodes[nodeID]
+	if !ok {
+		return fmt.Errorf("node not found: %s", nodeID)
+	}
+	node.HealthStatus = health
 	return nil
 }
 
@@ -489,6 +503,85 @@ func (db *InMemDB) copyInstanceRecord(src *InstanceRecord) *InstanceRecord {
 		for k, v := range src.Labels {
 			dst.Labels[k] = v
 		}
+	}
+
+	return dst
+}
+
+// RecordBootstrapLog stores a bootstrap execution log.
+func (db *InMemDB) RecordBootstrapLog(ctx context.Context, record *BootstrapLogRecord) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	logs := db.bootstrapLogs[record.NodeID]
+	logs = append(logs, db.copyBootstrapLogRecord(record))
+
+	// Keep only the most recent 50 bootstrap logs per node
+	if len(logs) > 50 {
+		logs = logs[len(logs)-50:]
+	}
+
+	db.bootstrapLogs[record.NodeID] = logs
+	return nil
+}
+
+// GetBootstrapLogs retrieves all bootstrap logs for a node.
+func (db *InMemDB) GetBootstrapLogs(ctx context.Context, nodeID string) ([]*BootstrapLogRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	logs := db.bootstrapLogs[nodeID]
+	result := make([]*BootstrapLogRecord, len(logs))
+	for i, log := range logs {
+		result[i] = db.copyBootstrapLogRecord(log)
+	}
+	return result, nil
+}
+
+// ListBootstrapLogsByPool returns recent bootstrap logs for a pool.
+func (db *InMemDB) ListBootstrapLogsByPool(ctx context.Context, pool string, limit int) ([]*BootstrapLogRecord, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var all []*BootstrapLogRecord
+	for _, logs := range db.bootstrapLogs {
+		for _, log := range logs {
+			if log.Pool == pool {
+				all = append(all, db.copyBootstrapLogRecord(log))
+			}
+		}
+	}
+
+	// Sort by start time descending and limit
+	// For simplicity, just return up to limit (already in order per node)
+	if limit > 0 && len(all) > limit {
+		all = all[len(all)-limit:]
+	}
+
+	return all, nil
+}
+
+// copyBootstrapLogRecord creates a deep copy of a BootstrapLogRecord.
+func (db *InMemDB) copyBootstrapLogRecord(src *BootstrapLogRecord) *BootstrapLogRecord {
+	if src == nil {
+		return nil
+	}
+
+	dst := &BootstrapLogRecord{
+		ID:          src.ID,
+		NodeID:      src.NodeID,
+		InstanceID:  src.InstanceID,
+		Pool:        src.Pool,
+		StartedAt:   src.StartedAt,
+		Duration:    src.Duration,
+		SSHWaitTime: src.SSHWaitTime,
+		Success:     src.Success,
+		Error:       src.Error,
+	}
+
+	if len(src.Commands) > 0 {
+		dst.Commands = make([]BootstrapCommandLog, len(src.Commands))
+		copy(dst.Commands, src.Commands)
 	}
 
 	return dst

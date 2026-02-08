@@ -478,7 +478,7 @@ navarch list
 
 ## What's next
 
-- For information about setting up the control plane, see [Control Plane documentation](control-plane.md).
-- For information about node daemon configuration, see [Node daemon configuration](node.md).
+- For information about control plane and node agent architecture, see [Architecture](architecture.md).
+- For deployment instructions, see [Deployment](deployment.md).
 - To learn about extending Navarch with custom providers and health checks, see [Extending Navarch](extending.md).
 

@@ -9,11 +9,13 @@ Navarch collects metrics from GPU nodes to enable autoscaling and health monitor
 Every heartbeat (5-30 seconds) includes:
 
 **Node-level metrics:**
+
 - CPU usage percentage
 - Memory usage percentage
 - Timestamp
 
 **Per-GPU metrics:**
+
 - GPU index
 - Utilization percentage (0-100)
 - Temperature in Celsius
@@ -21,6 +23,7 @@ Every heartbeat (5-30 seconds) includes:
 - Memory used in bytes
 
 **Health status:**
+
 - Boot check results
 - GPU communication status
 - Health event detection (XID errors, thermal, ECC)
@@ -405,6 +408,7 @@ For longer retention, implement custom database backend or export to time-series
 **Symptom:** Autoscaler always reports 0% utilization.
 
 **Causes:**
+
 1. Nodes not registered with pool label
 2. Nodes not sending metrics in heartbeats
 3. Pool name mismatch
@@ -426,6 +430,7 @@ grep "failed to get metrics" logs.json
 **Symptom:** Utilization high but no scale up.
 
 **Causes:**
+
 1. Cooldown period active
 2. At max nodes limit
 3. Provider provisioning failures
@@ -447,10 +452,12 @@ grep "cooldown active" logs.json
 **Symptom:** Control plane memory usage growing.
 
 **Causes:**
+
 1. Metrics retention with many nodes (100 samples × number of nodes)
 2. Memory leak (report bug)
 
 **Solutions:**
+
 1. Reduce metrics retention (requires code change)
 2. Restart control plane periodically
 3. Implement external database backend

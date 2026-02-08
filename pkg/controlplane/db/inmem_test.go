@@ -530,3 +530,76 @@ func TestInMemDB_HealthCheckUnknownNode(t *testing.T) {
 	}
 }
 
+func TestInMemDB_BootstrapLogs(t *testing.T) {
+	db := NewInMemDB()
+	ctx := context.Background()
+
+	// Record a bootstrap log
+	log1 := &BootstrapLogRecord{
+		ID:          "log-1",
+		NodeID:      "node-1",
+		InstanceID:  "instance-1",
+		Pool:        "gpu-pool",
+		StartedAt:   time.Now(),
+		Duration:    5 * time.Second,
+		SSHWaitTime: 2 * time.Second,
+		Success:     true,
+		Commands: []BootstrapCommandLog{
+			{Command: "echo hello", Stdout: "hello", ExitCode: 0, Duration: time.Second},
+		},
+	}
+
+	if err := db.RecordBootstrapLog(ctx, log1); err != nil {
+		t.Fatalf("RecordBootstrapLog failed: %v", err)
+	}
+
+	// Record a failed bootstrap for same node
+	log2 := &BootstrapLogRecord{
+		ID:         "log-2",
+		NodeID:     "node-1",
+		InstanceID: "instance-1",
+		Pool:       "gpu-pool",
+		StartedAt:  time.Now(),
+		Duration:   10 * time.Second,
+		Success:    false,
+		Error:      "connection refused",
+	}
+
+	if err := db.RecordBootstrapLog(ctx, log2); err != nil {
+		t.Fatalf("RecordBootstrapLog failed: %v", err)
+	}
+
+	// Get logs for node
+	logs, err := db.GetBootstrapLogs(ctx, "node-1")
+	if err != nil {
+		t.Fatalf("GetBootstrapLogs failed: %v", err)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("Expected 2 logs, got %d", len(logs))
+	}
+	if logs[0].ID != "log-1" {
+		t.Errorf("Expected first log ID 'log-1', got %q", logs[0].ID)
+	}
+	if logs[1].Success {
+		t.Error("Expected second log to be failure")
+	}
+
+	// List by pool
+	poolLogs, err := db.ListBootstrapLogsByPool(ctx, "gpu-pool", 10)
+	if err != nil {
+		t.Fatalf("ListBootstrapLogsByPool failed: %v", err)
+	}
+	if len(poolLogs) != 2 {
+		t.Errorf("Expected 2 pool logs, got %d", len(poolLogs))
+	}
+
+	// Unknown node returns empty
+	unknown, err := db.GetBootstrapLogs(ctx, "unknown")
+	if err != nil {
+		t.Fatalf("GetBootstrapLogs for unknown failed: %v", err)
+	}
+	if len(unknown) != 0 {
+		t.Errorf("Expected 0 logs for unknown node, got %d", len(unknown))
+	}
+}
+

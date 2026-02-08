@@ -3,10 +3,12 @@ package pool
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/bootstrap"
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -32,7 +34,22 @@ type Config struct {
 	AutoReplace        bool // Automatically replace unhealthy nodes
 
 	Labels map[string]string // Key-value labels for workload routing
+
+	SetupCommands     []string // Commands run via SSH after provisioning
+	SSHUser           string   // Default: ubuntu
+	SSHPrivateKeyPath string
+	ControlPlaneAddr  string
+
+	// Bootstrap timeouts (zero means use defaults)
+	IPWaitTimeout     time.Duration // Max time to wait for instance IP (default: 15m)
+	SSHTimeout        time.Duration // Max time to wait for SSH (default: 10m)
+	SSHConnectTimeout time.Duration // Timeout per SSH connection attempt (default: 30s)
+	CommandTimeout    time.Duration // Max time per bootstrap command (default: 5m)
 }
+
+const (
+	DefaultIPWaitTimeout = 15 * time.Minute
+)
 
 // ProviderConfig holds configuration for a single provider within a pool.
 type ProviderConfig struct {
@@ -46,44 +63,67 @@ type ProviderConfig struct {
 
 // Pool represents a managed group of GPU nodes backed by one or more providers.
 type Pool struct {
-	config    Config
-	providers []ProviderConfig
-	selector  ProviderSelector
-	clock     clock.Clock
-	mu        sync.RWMutex
-	nodes     map[string]*ManagedNode
-	lastScale time.Time
+	config            Config
+	providers         []ProviderConfig
+	selector          ProviderSelector
+	clock             clock.Clock
+	logger            *slog.Logger
+	mu                sync.RWMutex
+	nodes             map[string]*ManagedNode
+	lastScale         time.Time
+	onBootstrapResult BootstrapCallback
 }
+
+// BootstrapStatus represents the state of node bootstrap.
+type BootstrapStatus string
+
+const (
+	BootstrapPending   BootstrapStatus = "pending"
+	BootstrapRunning   BootstrapStatus = "running"
+	BootstrapCompleted BootstrapStatus = "completed"
+	BootstrapFailed    BootstrapStatus = "failed"
+	BootstrapSkipped   BootstrapStatus = "skipped" // No setup commands configured
+)
 
 // ManagedNode tracks a node within a pool.
 type ManagedNode struct {
-	Node            *provider.Node // Underlying provider node
-	Pool            string         // Name of the pool this node belongs to
-	ProviderName    string         // Which provider created this node
-	HealthFailures  int            // Consecutive health check failures
-	LastHealthCheck time.Time      // When the last health check ran
-	Cordoned        bool           // If true, node is unschedulable for new workloads
-	ProvisionedAt   time.Time      // When this node was created
+	Node            *provider.Node    // Underlying provider node
+	Pool            string            // Name of the pool this node belongs to
+	ProviderName    string            // Which provider created this node
+	HealthFailures  int               // Consecutive health check failures
+	LastHealthCheck time.Time         // When the last health check ran
+	Cordoned        bool              // If true, node is unschedulable for new workloads
+	ProvisionedAt   time.Time         // When this node was created
+	Bootstrap       BootstrapStatus   // Bootstrap status
+	BootstrapError  string            // Error message if bootstrap failed
+	BootstrapResult *bootstrap.Result // Detailed bootstrap output for debugging
 }
 
 // Status represents the current state of a pool.
 type Status struct {
-	Name           string  // Pool name
-	TotalNodes     int     // Total nodes in pool
-	HealthyNodes   int     // Nodes passing health checks
-	UnhealthyNodes int     // Nodes failing health checks
-	CordonedNodes  int     // Nodes marked unschedulable
-	Utilization    float64 // Average utilization percentage
-	CanScaleUp     bool    // True if pool is below MaxNodes
-	CanScaleDown   bool    // True if pool is above MinNodes
+	Name               string  // Pool name
+	TotalNodes         int     // Total nodes in pool
+	HealthyNodes       int     // Nodes passing health checks
+	UnhealthyNodes     int     // Nodes failing health checks
+	CordonedNodes      int     // Nodes marked unschedulable
+	Utilization        float64 // Average utilization percentage
+	CanScaleUp         bool    // True if pool is below MaxNodes
+	CanScaleDown       bool    // True if pool is above MinNodes
+	BootstrapFailed    int     // Nodes with failed bootstrap
+	BootstrapPending   int     // Nodes with bootstrap in progress or pending
 }
 
 // NewPoolOptions configures pool creation.
+// BootstrapCallback is called when a node bootstrap completes (success or failure).
+type BootstrapCallback func(result *bootstrap.Result)
+
 type NewPoolOptions struct {
-	Config           Config
-	Providers        []ProviderConfig
-	ProviderStrategy string      // priority, cost, availability, round-robin
-	Clock            clock.Clock // Clock for time operations. If nil, uses real time.
+	Config            Config
+	Providers         []ProviderConfig
+	ProviderStrategy  string            // priority, cost, availability, round-robin
+	Clock             clock.Clock       // Clock for time operations. If nil, uses real time.
+	Logger            *slog.Logger
+	OnBootstrapResult BootstrapCallback // Optional callback when bootstrap completes
 }
 
 // New creates a pool with a single provider.
@@ -136,12 +176,19 @@ func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
 		clk = clock.Real()
 	}
 
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &Pool{
-		config:    opts.Config,
-		providers: opts.Providers,
-		selector:  selector,
-		clock:     clk,
-		nodes:     make(map[string]*ManagedNode),
+		config:            opts.Config,
+		providers:         opts.Providers,
+		selector:          selector,
+		clock:             clk,
+		logger:            logger,
+		nodes:             make(map[string]*ManagedNode),
+		onBootstrapResult: opts.OnBootstrapResult,
 	}, nil
 }
 
@@ -161,6 +208,13 @@ func (p *Pool) Config() Config {
 	return p.config
 }
 
+// SetBootstrapCallback sets a callback to be invoked when bootstrap completes.
+func (p *Pool) SetBootstrapCallback(cb BootstrapCallback) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.onBootstrapResult = cb
+}
+
 // Status returns the current pool status.
 func (p *Pool) Status() Status {
 	p.mu.RLock()
@@ -178,6 +232,13 @@ func (p *Pool) Status() Status {
 			status.UnhealthyNodes++
 		} else {
 			status.HealthyNodes++
+		}
+
+		switch mn.Bootstrap {
+		case BootstrapPending, BootstrapRunning:
+			status.BootstrapPending++
+		case BootstrapFailed:
+			status.BootstrapFailed++
 		}
 	}
 
@@ -213,17 +274,173 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 			return nodes, fmt.Errorf("failed to provision node %d: %w", i+1, err)
 		}
 
-		p.nodes[node.ID] = &ManagedNode{
+		bootstrapStatus := BootstrapSkipped
+		needsBootstrap := len(p.config.SetupCommands) > 0 && !p.providerSelfBootstraps(providerName)
+		if needsBootstrap {
+			bootstrapStatus = BootstrapPending
+		}
+
+		managedNode := &ManagedNode{
 			Node:          node,
 			Pool:          p.config.Name,
 			ProviderName:  providerName,
 			ProvisionedAt: p.clock.Now(),
+			Bootstrap:     bootstrapStatus,
 		}
+		p.nodes[node.ID] = managedNode
 		nodes = append(nodes, node)
+
+		if needsBootstrap {
+			go p.bootstrapNode(context.Background(), managedNode)
+		}
 	}
 
 	p.lastScale = p.clock.Now()
 	return nodes, nil
+}
+
+func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
+	p.setBootstrapStatus(node.Node.ID, BootstrapRunning, "")
+
+	prov := p.getProvider(node.ProviderName)
+	if prov == nil {
+		p.logger.Error("bootstrap failed: provider not found",
+			slog.String("node_id", node.Node.ID),
+			slog.String("provider", node.ProviderName),
+		)
+		p.setBootstrapStatus(node.Node.ID, BootstrapFailed, "provider not found")
+		return
+	}
+
+	ip := node.Node.IPAddress
+	var err error
+	if ip == "" {
+		ip, err = p.waitForIP(ctx, prov, node.Node.ID)
+		if err != nil {
+			p.logger.Error("bootstrap failed: could not get IP",
+				slog.String("node_id", node.Node.ID),
+				slog.String("error", err.Error()),
+			)
+			p.setBootstrapStatus(node.Node.ID, BootstrapFailed, "could not get IP: "+err.Error())
+			return
+		}
+
+		p.mu.Lock()
+		if n, ok := p.nodes[node.Node.ID]; ok {
+			n.Node.IPAddress = ip
+		}
+		p.mu.Unlock()
+	}
+
+	bootstrapper := bootstrap.New(bootstrap.Config{
+		SetupCommands:     p.config.SetupCommands,
+		SSHUser:           p.config.SSHUser,
+		SSHPrivateKeyPath: p.config.SSHPrivateKeyPath,
+		SSHTimeout:        p.config.SSHTimeout,
+		SSHConnectTimeout: p.config.SSHConnectTimeout,
+		CommandTimeout:    p.config.CommandTimeout,
+	}, p.logger)
+
+	vars := bootstrap.TemplateVars{
+		ControlPlane: p.config.ControlPlaneAddr,
+		Pool:         p.config.Name,
+		NodeID:       node.Node.ID,
+		Provider:     node.ProviderName,
+		Region:       node.Node.Region,
+		InstanceType: node.Node.InstanceType,
+	}
+
+	result, err := bootstrapper.Bootstrap(ctx, ip, vars)
+	if err != nil {
+		p.logger.Error("bootstrap failed",
+			slog.String("node_id", node.Node.ID),
+			slog.String("ip", ip),
+			slog.String("error", err.Error()),
+		)
+		p.setBootstrapResult(node.Node.ID, BootstrapFailed, err.Error(), result)
+		p.notifyBootstrapResult(result)
+		return
+	}
+
+	p.setBootstrapResult(node.Node.ID, BootstrapCompleted, "", result)
+	p.notifyBootstrapResult(result)
+}
+
+func (p *Pool) notifyBootstrapResult(result *bootstrap.Result) {
+	if result == nil {
+		return
+	}
+	p.mu.RLock()
+	cb := p.onBootstrapResult
+	p.mu.RUnlock()
+	if cb != nil {
+		cb(result)
+	}
+}
+
+func (p *Pool) setBootstrapStatus(nodeID string, status BootstrapStatus, errMsg string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if n, ok := p.nodes[nodeID]; ok {
+		n.Bootstrap = status
+		n.BootstrapError = errMsg
+	}
+}
+
+func (p *Pool) setBootstrapResult(nodeID string, status BootstrapStatus, errMsg string, result *bootstrap.Result) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if n, ok := p.nodes[nodeID]; ok {
+		n.Bootstrap = status
+		n.BootstrapError = errMsg
+		n.BootstrapResult = result
+	}
+}
+
+func (p *Pool) waitForIP(ctx context.Context, prov provider.Provider, nodeID string) (string, error) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	ipTimeout := p.config.IPWaitTimeout
+	if ipTimeout == 0 {
+		ipTimeout = DefaultIPWaitTimeout
+	}
+	timeout := time.After(ipTimeout)
+
+	checkIP := func() (string, bool) {
+		nodes, err := prov.List(ctx)
+		if err != nil {
+			p.logger.Debug("failed to list nodes while waiting for IP",
+				slog.String("error", err.Error()),
+			)
+			return "", false
+		}
+		for _, n := range nodes {
+			if n.ID == nodeID && n.IPAddress != "" {
+				return n.IPAddress, true
+			}
+		}
+		p.logger.Debug("waiting for node IP", slog.String("node_id", nodeID))
+		return "", false
+	}
+
+	// Check immediately before waiting for the first tick.
+	if ip, ok := checkIP(); ok {
+		return ip, nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timeout waiting for IP")
+		case <-ticker.C:
+			if ip, ok := checkIP(); ok {
+				return ip, nil
+			}
+		}
+	}
 }
 
 // provisionWithFallback tries providers in order until one succeeds.
@@ -329,6 +546,18 @@ func (p *Pool) getProvider(name string) provider.Provider {
 	return nil
 }
 
+// providerSelfBootstraps returns true if the provider handles node setup internally.
+func (p *Pool) providerSelfBootstraps(name string) bool {
+	prov := p.getProvider(name)
+	if prov == nil {
+		return false
+	}
+	if sb, ok := prov.(provider.SelfBootstrapping); ok {
+		return sb.SelfBootstraps()
+	}
+	return false
+}
+
 // selectForRemoval picks nodes to remove, preferring cordoned nodes first,
 // then oldest healthy nodes (by provision time) for deterministic behavior.
 func (p *Pool) selectForRemoval(count int) []string {
@@ -427,11 +656,23 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		return nil, fmt.Errorf("failed to provision replacement: %w", err)
 	}
 
-	p.nodes[node.ID] = &ManagedNode{
+	bootstrapStatus := BootstrapSkipped
+	needsBootstrap := len(p.config.SetupCommands) > 0 && !p.providerSelfBootstraps(providerName)
+	if needsBootstrap {
+		bootstrapStatus = BootstrapPending
+	}
+
+	managedNode := &ManagedNode{
 		Node:          node,
 		Pool:          p.config.Name,
 		ProviderName:  providerName,
 		ProvisionedAt: p.clock.Now(),
+		Bootstrap:     bootstrapStatus,
+	}
+	p.nodes[node.ID] = managedNode
+
+	if needsBootstrap {
+		go p.bootstrapNode(context.Background(), managedNode)
 	}
 
 	return node, nil

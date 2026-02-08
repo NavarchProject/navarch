@@ -247,12 +247,16 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 	metricsSource := controlplane.NewDBMetricsSource(database, logger)
 	pm := controlplane.NewPoolManager(controlplane.PoolManagerConfig{
 		EvaluationInterval: cfg.Server.AutoscaleInterval,
+		DB:                 database,
 	}, metricsSource, instanceManager, logger)
 
 	providers := make(map[string]provider.Provider)
-	controlPlaneAddr := fmt.Sprintf("http://localhost%s", cfg.Server.Address)
-	if len(cfg.Server.Address) > 0 && cfg.Server.Address[0] != ':' {
-		controlPlaneAddr = "http://" + cfg.Server.Address
+	controlPlaneAddr := cfg.Server.ExternalAddress
+	if controlPlaneAddr == "" {
+		controlPlaneAddr = fmt.Sprintf("http://localhost%s", cfg.Server.Address)
+		if len(cfg.Server.Address) > 0 && cfg.Server.Address[0] != ':' {
+			controlPlaneAddr = "http://" + cfg.Server.Address
+		}
 	}
 
 	for poolName, poolCfg := range cfg.Pools {
@@ -275,10 +279,15 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 				CooldownPeriod:     poolCfg.Cooldown,
 				UnhealthyThreshold: config.GetUnhealthyThreshold(poolCfg.Health),
 				AutoReplace:        config.GetAutoReplace(poolCfg.Health),
-				Labels:             labels,
+				Labels:            labels,
+				SetupCommands:     poolCfg.SetupCommands,
+				SSHUser:           poolCfg.SSHUser,
+				SSHPrivateKeyPath:  poolCfg.SSHPrivateKeyPath,
+				ControlPlaneAddr:   controlPlaneAddr,
 			},
 			Providers:        poolProviders,
 			ProviderStrategy: poolCfg.Strategy,
+			Logger:           logger,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create pool %s: %w", poolName, err)

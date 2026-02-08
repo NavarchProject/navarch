@@ -52,6 +52,29 @@ type MetricsRecord struct {
 	Metrics   *pb.NodeMetrics
 }
 
+// BootstrapLogRecord represents a bootstrap execution attempt for an instance.
+type BootstrapLogRecord struct {
+	ID          string                  // Unique ID for this bootstrap attempt
+	NodeID      string                  // Node ID being bootstrapped
+	InstanceID  string                  // Cloud instance ID
+	Pool        string                  // Pool name
+	StartedAt   time.Time               // When bootstrap started
+	Duration    time.Duration           // Total duration
+	SSHWaitTime time.Duration           // Time waiting for SSH
+	Success     bool                    // Whether bootstrap succeeded
+	Error       string                  // Error message if failed
+	Commands    []BootstrapCommandLog   // Per-command results
+}
+
+// BootstrapCommandLog captures output from a single bootstrap command.
+type BootstrapCommandLog struct {
+	Command  string        // The command template (unexpanded)
+	Stdout   string        // Command stdout (truncated if too large)
+	Stderr   string        // Command stderr (truncated if too large)
+	ExitCode int           // Exit code (0 = success)
+	Duration time.Duration // How long the command took
+}
+
 // InstanceRecord represents a cloud instance tracked by the control plane.
 // This is separate from NodeRecord to capture the full instance lifecycle,
 // including cases where nodes fail to register or boot properly.
@@ -103,6 +126,7 @@ type DB interface {
 	RegisterNode(ctx context.Context, record *NodeRecord) error
 	GetNode(ctx context.Context, nodeID string) (*NodeRecord, error)
 	UpdateNodeStatus(ctx context.Context, nodeID string, status pb.NodeStatus) error
+	UpdateNodeHealthStatus(ctx context.Context, nodeID string, health pb.HealthStatus) error
 	UpdateNodeHeartbeat(ctx context.Context, nodeID string, timestamp time.Time) error
 	ListNodes(ctx context.Context) ([]*NodeRecord, error)
 	DeleteNode(ctx context.Context, nodeID string) error
@@ -129,6 +153,11 @@ type DB interface {
 	ListInstancesByState(ctx context.Context, state pb.InstanceState) ([]*InstanceRecord, error)
 	ListInstancesByPool(ctx context.Context, poolName string) ([]*InstanceRecord, error)
 	DeleteInstance(ctx context.Context, instanceID string) error
+
+	// Bootstrap log operations
+	RecordBootstrapLog(ctx context.Context, record *BootstrapLogRecord) error
+	GetBootstrapLogs(ctx context.Context, nodeID string) ([]*BootstrapLogRecord, error)
+	ListBootstrapLogsByPool(ctx context.Context, pool string, limit int) ([]*BootstrapLogRecord, error)
 
 	// Cleanup
 	Close() error

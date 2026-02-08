@@ -1,0 +1,35 @@
+# Local E2E test config - uses fake provider (no real cloud resources)
+# Run with: go run ./cmd/control-plane -config test-local-e2e.yaml
+
+server:
+  address: ":50051"
+  heartbeat_interval: 5s
+  heartbeat_timeout: 10s
+  health_check_interval: 30s
+
+providers:
+  fake:
+    type: fake
+
+pools:
+  test:
+    provider: fake
+    instance_type: fake-8xgpu
+    region: us-fake-1
+    min_nodes: 2
+    max_nodes: 5
+    cooldown: 10s
+    health:
+      unhealthy_after: 1
+      auto_replace: true
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+
+    # No setup_commands needed for fake provider - nodes register directly
+    # For real providers (lambda, gcp, aws), add:
+    # setup_commands:
+    #   - curl -sL https://example.com/navarch-node -o /usr/local/bin/navarch-node
+    #   - chmod +x /usr/local/bin/navarch-node
+    #   - nohup /usr/local/bin/navarch-node -server {{.ControlPlane}} -pool {{.Pool}} -node-id {{.NodeID}} &
