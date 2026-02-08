@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -151,23 +151,23 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		return nil, fmt.Errorf("failed to create container: %w", err)
 	}
 
-	if err := p.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		p.client.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true})
+	if err := p.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		p.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
 	// Get the assigned port
 	inspect, err := p.client.ContainerInspect(ctx, resp.ID)
 	if err != nil {
-		timeout := 10 * time.Second
-		p.client.ContainerStop(ctx, resp.ID, &timeout)
+		stopTimeout := 10
+		p.client.ContainerStop(ctx, resp.ID, container.StopOptions{Timeout: &stopTimeout})
 		return nil, fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	portBindings := inspect.NetworkSettings.Ports["22/tcp"]
 	if len(portBindings) == 0 {
-		timeout := 10 * time.Second
-		p.client.ContainerStop(ctx, resp.ID, &timeout)
+		stopTimeout := 10
+		p.client.ContainerStop(ctx, resp.ID, container.StopOptions{Timeout: &stopTimeout})
 		return nil, fmt.Errorf("no SSH port binding found")
 	}
 	sshPort := portBindings[0].HostPort
@@ -218,8 +218,8 @@ func (p *Provider) Terminate(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("node not found: %s", nodeID)
 	}
 
-	timeout := 10 * time.Second
-	if err := p.client.ContainerStop(ctx, info.containerID, &timeout); err != nil {
+	stopTimeout := 10
+	if err := p.client.ContainerStop(ctx, info.containerID, container.StopOptions{Timeout: &stopTimeout}); err != nil {
 		p.logger.Warn("failed to stop container",
 			slog.String("node_id", nodeID),
 			slog.String("error", err.Error()),
@@ -259,8 +259,8 @@ func (p *Provider) TerminateAll() {
 	defer cancel()
 
 	for nodeID, info := range containers {
-		timeout := 5 * time.Second
-		if err := p.client.ContainerStop(ctx, info.containerID, &timeout); err != nil {
+		stopTimeout := 5
+		if err := p.client.ContainerStop(ctx, info.containerID, container.StopOptions{Timeout: &stopTimeout}); err != nil {
 			p.logger.Warn("failed to stop container during cleanup",
 				slog.String("node_id", nodeID),
 				slog.String("error", err.Error()),
@@ -279,7 +279,7 @@ func (p *Provider) EnsureImage(ctx context.Context) error {
 
 	// Try to pull linuxserver/openssh-server as a fallback
 	p.logger.Info("pulling SSH test image", slog.String("image", "lscr.io/linuxserver/openssh-server:latest"))
-	reader, err := p.client.ImagePull(ctx, "lscr.io/linuxserver/openssh-server:latest", types.ImagePullOptions{})
+	reader, err := p.client.ImagePull(ctx, "lscr.io/linuxserver/openssh-server:latest", image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}
