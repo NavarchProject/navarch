@@ -336,6 +336,7 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 		SetupCommands:     p.config.SetupCommands,
 		SSHUser:           p.config.SSHUser,
 		SSHPrivateKeyPath: p.config.SSHPrivateKeyPath,
+		SSHPort:           node.Node.SSHPort,
 		SSHTimeout:        p.config.SSHTimeout,
 		SSHConnectTimeout: p.config.SSHConnectTimeout,
 		CommandTimeout:    p.config.CommandTimeout,

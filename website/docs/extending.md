@@ -109,7 +109,7 @@ func (p *MyCloudProvider) List(ctx context.Context) ([]*provider.Instance, error
 }
 ```
 
-See `pkg/provider/lambda/` for a complete implementation.
+See `pkg/provider/lambda/` for a production implementation. For testing, see the [Docker provider](testing.md#docker-provider).
 
 ### Registering your provider
 

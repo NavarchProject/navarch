@@ -4,53 +4,59 @@ hide:
   - toc
 ---
 
-# Navarch
+<div style="text-align: center; padding: 2rem 1rem 1.5rem;">
 
-**Open-source GPU fleet management**
+<img src="images/logo.svg" alt="Navarch" style="width: 100px; height: auto; margin-bottom: 1rem;">
 
-Navarch automates provisioning, health monitoring, and lifecycle management of GPU nodes across cloud providers.
+<h1 style="font-size: 2.5rem; font-weight: 700; margin: 0 0 0.25rem; letter-spacing: -0.02em; color: var(--md-default-fg-color);">Navarch</h1>
 
-<p style="margin-top: 1.5rem;">
+<p style="font-size: 1.25rem; font-weight: 500; margin: 0 0 0.75rem; opacity: 0.8;">Open-source GPU fleet management</p>
+
+<p style="font-size: 0.875rem; max-width: 520px; margin: 0 auto 1.5rem; line-height: 1.6; opacity: 0.7;">Navarch automates provisioning, health monitoring, and lifecycle management of GPU nodes across cloud providers.</p>
+
+<div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
 <a href="getting-started/" class="md-button md-button--primary">Get Started</a>
 <a href="concepts/" class="md-button">Learn Concepts</a>
 <a href="https://github.com/NavarchProject/navarch" class="md-button">GitHub</a>
-</p>
+</div>
+
+</div>
 
 ---
 
 <div class="grid cards" markdown>
 
--   :material-heart-pulse: **Health Monitoring**
+-   :material-heart-pulse: **[Health Monitoring](concepts/health.md)**
 
     ---
 
     Detect GPU failures in real time. Catches XID errors, thermal issues, ECC faults, and NVLink failures via NVML before they crash your workloads.
 
--   :material-refresh-auto: **Auto-Replacement**
+-   :material-refresh-auto: **[Auto-Replacement](concepts/lifecycle.md)**
 
     ---
 
     Unhealthy nodes get terminated and replaced automatically. Define health policies with CEL expressions. Your pool stays at capacity.
 
--   :material-cloud-sync: **Multi-Cloud**
+-   :material-cloud-sync: **[Multi-Cloud](concepts/pools.md)**
 
     ---
 
     Provision across Lambda Labs, GCP, and AWS from a single config. Failover between providers or optimize for cost.
 
--   :material-arrow-expand-all: **Autoscaling**
+-   :material-arrow-expand-all: **[Autoscaling](concepts/autoscaling.md)**
 
     ---
 
     Scale based on GPU utilization, queue depth, schedules, or predictions. Cooldown prevents thrashing. Combine multiple strategies.
 
--   :material-view-grid-outline: **Pool Management**
+-   :material-view-grid-outline: **[Pool Management](pool-management.md)**
 
     ---
 
     Group nodes by instance type, region, or workload. Set scaling limits, health policies, and labels per pool.
 
--   :material-flask-outline: **Simulator**
+-   :material-flask-outline: **[Simulator](simulator/index.md)**
 
     ---
 

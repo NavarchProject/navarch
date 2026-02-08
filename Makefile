@@ -27,7 +27,15 @@ build:
 # Run tests
 test:
 	@echo "Running tests..."
-	@go test ./pkg/controlplane/... -v
+	@go test ./...
+
+# Run tests with race detection
+test-race:
+	@echo "Running tests with race detection..."
+	@go test -race ./...
+
+# Run all tests (alias for check)
+test-all: check
 
 # Run tests with coverage
 test-coverage:
@@ -107,6 +115,8 @@ help:
 	@echo "  make generate      - Generate proto files"
 	@echo "  make build         - Build all Go binaries"
 	@echo "  make test          - Run all tests"
+	@echo "  make test-race     - Run tests with race detection"
+	@echo "  make test-all      - Run format, lint, and tests"
 	@echo "  make test-coverage - Run tests with coverage report"
 	@echo "  make clean         - Remove all generated files and binaries"
 	@echo "  make proto-clean   - Remove only generated proto files"

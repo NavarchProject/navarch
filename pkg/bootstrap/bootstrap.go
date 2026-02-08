@@ -20,6 +20,7 @@ type Config struct {
 	SetupCommands     []string
 	SSHUser           string
 	SSHPrivateKeyPath string
+	SSHPort           int // SSH port (default: 22)
 
 	// Timeouts (zero means use defaults)
 	SSHTimeout        time.Duration // Max time to wait for SSH to become available (default: 10m)
@@ -100,6 +101,13 @@ func (b *Bootstrapper) commandTimeout() time.Duration {
 		return b.config.CommandTimeout
 	}
 	return DefaultCommandTimeout
+}
+
+func (b *Bootstrapper) sshPort() string {
+	if b.config.SSHPort > 0 {
+		return fmt.Sprintf("%d", b.config.SSHPort)
+	}
+	return "22"
 }
 
 // Bootstrap runs setup commands on the instance via SSH.
@@ -246,7 +254,7 @@ func (b *Bootstrapper) executeCommand(ctx context.Context, client *ssh.Client, c
 }
 
 func (b *Bootstrapper) waitForSSH(ctx context.Context, ip string, config *ssh.ClientConfig) (*ssh.Client, error) {
-	addr := net.JoinHostPort(ip, "22")
+	addr := net.JoinHostPort(ip, b.sshPort())
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	timeout := time.After(b.sshTimeout())

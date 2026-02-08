@@ -8,8 +8,8 @@ This guide covers how to contribute to Navarch, from setting up your development
 
 - Go 1.21 or later
 - Make
-- Docker (for integration tests)
-- Access to a GPU machine (optional, for hardware testing)
+- Docker (optional, for Docker provider tests)
+- GPU machine (optional, for hardware testing)
 
 ### Clone and build
 
@@ -28,39 +28,36 @@ This produces binaries in `bin/`:
 ### Run tests
 
 ```bash
-# Unit tests
-make test
-
-# Unit tests with race detection
-make test-race
-
-# Integration tests (requires Docker)
-make test-integration
+make test          # Run all tests
+make test-race     # With race detection
+make test-all      # Format, lint, and test
 ```
+
+See [Testing](testing.md) for the Docker provider and simulator.
 
 ## Code structure
 
 ```
 navarch/
 ├── cmd/                    # Entry points
-│   ├── control-plane/      # Control plane main
-│   ├── node/               # Node agent main
-│   ├── navarch/            # CLI main
-│   └── simulator/          # Simulator main
+│   ├── control-plane/      # Control plane server
+│   ├── node/               # Node agent
+│   ├── navarch/            # CLI
+│   └── simulator/          # Fleet simulator
 ├── pkg/
+│   ├── bootstrap/          # SSH bootstrap for setup commands
+│   ├── config/             # Configuration parsing
 │   ├── controlplane/       # Control plane logic
-│   │   ├── pool/           # Pool management
-│   │   ├── health/         # Health evaluation
-│   │   ├── autoscaler/     # Autoscaling strategies
-│   │   └── provider/       # Cloud provider interfaces
+│   ├── health/             # Health policy evaluation
 │   ├── node/               # Node agent logic
-│   │   ├── gpu/            # GPU monitoring (NVML)
-│   │   └── metrics/        # Metrics collection
-│   ├── api/                # gRPC service definitions
-│   └── config/             # Configuration parsing
+│   ├── pool/               # Pool management and autoscaling
+│   └── provider/           # Cloud provider interfaces
+│       ├── docker/         # Docker provider (testing)
+│       ├── fake/           # Fake provider (testing)
+│       ├── gcp/            # Google Cloud
+│       └── lambda/         # Lambda Labs
 ├── proto/                  # Protocol buffer definitions
-├── scenarios/              # Simulator test scenarios
-└── docs/                   # Documentation source
+└── scenarios/              # Simulator test scenarios
 ```
 
 ## Making changes
