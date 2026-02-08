@@ -76,15 +76,16 @@ const (
 
 // ManagedNode tracks a node within a pool.
 type ManagedNode struct {
-	Node            *provider.Node  // Underlying provider node
-	Pool            string          // Name of the pool this node belongs to
-	ProviderName    string          // Which provider created this node
-	HealthFailures  int             // Consecutive health check failures
-	LastHealthCheck time.Time       // When the last health check ran
-	Cordoned        bool            // If true, node is unschedulable for new workloads
-	ProvisionedAt   time.Time       // When this node was created
-	Bootstrap       BootstrapStatus // Bootstrap status
-	BootstrapError  string          // Error message if bootstrap failed
+	Node            *provider.Node    // Underlying provider node
+	Pool            string            // Name of the pool this node belongs to
+	ProviderName    string            // Which provider created this node
+	HealthFailures  int               // Consecutive health check failures
+	LastHealthCheck time.Time         // When the last health check ran
+	Cordoned        bool              // If true, node is unschedulable for new workloads
+	ProvisionedAt   time.Time         // When this node was created
+	Bootstrap       BootstrapStatus   // Bootstrap status
+	BootstrapError  string            // Error message if bootstrap failed
+	BootstrapResult *bootstrap.Result // Detailed bootstrap output for debugging
 }
 
 // Status represents the current state of a pool.
@@ -322,17 +323,18 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 		InstanceType: node.Node.InstanceType,
 	}
 
-	if err := bootstrapper.Bootstrap(ctx, ip, vars); err != nil {
+	result, err := bootstrapper.Bootstrap(ctx, ip, vars)
+	if err != nil {
 		p.logger.Error("bootstrap failed",
 			slog.String("node_id", node.Node.ID),
 			slog.String("ip", ip),
 			slog.String("error", err.Error()),
 		)
-		p.setBootstrapStatus(node.Node.ID, BootstrapFailed, err.Error())
+		p.setBootstrapResult(node.Node.ID, BootstrapFailed, err.Error(), result)
 		return
 	}
 
-	p.setBootstrapStatus(node.Node.ID, BootstrapCompleted, "")
+	p.setBootstrapResult(node.Node.ID, BootstrapCompleted, "", result)
 }
 
 func (p *Pool) setBootstrapStatus(nodeID string, status BootstrapStatus, errMsg string) {
@@ -341,6 +343,16 @@ func (p *Pool) setBootstrapStatus(nodeID string, status BootstrapStatus, errMsg 
 	if n, ok := p.nodes[nodeID]; ok {
 		n.Bootstrap = status
 		n.BootstrapError = errMsg
+	}
+}
+
+func (p *Pool) setBootstrapResult(nodeID string, status BootstrapStatus, errMsg string, result *bootstrap.Result) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if n, ok := p.nodes[nodeID]; ok {
+		n.Bootstrap = status
+		n.BootstrapError = errMsg
+		n.BootstrapResult = result
 	}
 }
 

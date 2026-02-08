@@ -159,10 +159,16 @@ func TestBootstrap_NoCommands(t *testing.T) {
 
 	vars := TemplateVars{NodeID: "test-node"}
 
-	// Should return nil without error when no commands configured
-	err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
+	// Should return success without error when no commands configured
+	result, err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
 	if err != nil {
 		t.Errorf("expected no error for empty commands, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected result, got nil")
+	}
+	if !result.Success {
+		t.Errorf("expected success=true, got false")
 	}
 }
 
@@ -175,9 +181,15 @@ func TestBootstrap_MissingSSHKey(t *testing.T) {
 
 	vars := TemplateVars{NodeID: "test-node"}
 
-	err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
+	result, err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
 	if err == nil {
 		t.Error("expected error for missing SSH key path")
+	}
+	if result == nil {
+		t.Fatal("expected result even on error")
+	}
+	if result.Error == "" {
+		t.Error("expected error message in result")
 	}
 }
 
@@ -194,8 +206,11 @@ func TestBootstrap_ContextCancellation(t *testing.T) {
 	vars := TemplateVars{NodeID: "test-node"}
 
 	// Should fail quickly due to cancelled context or missing key
-	err := b.Bootstrap(ctx, "10.0.0.1", vars)
+	result, err := b.Bootstrap(ctx, "10.0.0.1", vars)
 	if err == nil {
 		t.Error("expected error for cancelled context or missing key")
+	}
+	if result == nil {
+		t.Fatal("expected result even on error")
 	}
 }
