@@ -247,6 +247,7 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 	metricsSource := controlplane.NewDBMetricsSource(database, logger)
 	pm := controlplane.NewPoolManager(controlplane.PoolManagerConfig{
 		EvaluationInterval: cfg.Server.AutoscaleInterval,
+		DB:                 database,
 	}, metricsSource, instanceManager, logger)
 
 	providers := make(map[string]provider.Provider)
