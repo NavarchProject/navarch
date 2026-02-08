@@ -11,6 +11,7 @@ type Node struct {
 	InstanceType string            // Instance type name
 	Status       string            // Instance state: provisioning, running, terminating, terminated
 	IPAddress    string            // Public or private IP address
+	SSHPort      int               // SSH port (default: 22). Used by docker provider for port mapping.
 	GPUCount     int               // Number of GPUs attached
 	GPUType      string            // GPU model description (e.g., "NVIDIA H100 80GB")
 	Labels       map[string]string // User-defined key-value labels
