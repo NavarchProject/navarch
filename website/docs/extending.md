@@ -109,7 +109,7 @@ func (p *MyCloudProvider) List(ctx context.Context) ([]*provider.Instance, error
 }
 ```
 
-See `pkg/provider/lambda/` for a complete implementation.
+See `pkg/provider/lambda/` for a production implementation, or `pkg/provider/docker/` for a testing provider that spawns SSH-enabled containers.
 
 ### Registering your provider
 

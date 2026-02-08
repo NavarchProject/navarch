@@ -38,6 +38,45 @@ make test-race
 make test-integration
 ```
 
+### Docker provider for SSH testing
+
+The `docker` provider spawns real containers with SSH servers, enabling end-to-end testing of the bootstrap flow without cloud infrastructure.
+
+```go
+import "github.com/NavarchProject/navarch/pkg/provider/docker"
+
+// Create provider
+provider, err := docker.New(docker.Config{
+    SSHPublicKeyPath: "~/.ssh/id_rsa.pub",
+    Logger:           logger,
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+// Ensure the SSH image is available
+if err := provider.EnsureImage(ctx); err != nil {
+    log.Fatal(err)
+}
+
+// Provision a container
+node, err := provider.Provision(ctx, provider.ProvisionRequest{
+    Labels: map[string]string{"pool": "test"},
+})
+// node.IPAddress = "127.0.0.1"
+// node.SSHPort = <dynamically assigned port>
+
+// Clean up
+defer provider.TerminateAll()
+```
+
+The Docker provider:
+
+- Uses `linuxserver/openssh-server` image
+- Maps container port 22 to a random host port
+- Sets `SSHPort` on the returned node for bootstrap to use
+- Supports `TerminateAll()` for cleanup in tests
+
 ## Code structure
 
 ```
@@ -53,6 +92,7 @@ navarch/
 │   │   ├── health/         # Health evaluation
 │   │   ├── autoscaler/     # Autoscaling strategies
 │   │   └── provider/       # Cloud provider interfaces
+│   │       └── docker/     # Docker provider for testing
 │   ├── node/               # Node agent logic
 │   │   ├── gpu/            # GPU monitoring (NVML)
 │   │   └── metrics/        # Metrics collection
