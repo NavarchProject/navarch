@@ -28,6 +28,10 @@ pools:
 | `setup_commands` | No | List of shell commands to run on the node after provisioning |
 | `ssh_user` | No | SSH username (default: `ubuntu`) |
 | `ssh_private_key_path` | Yes* | Path to SSH private key file |
+| `ip_wait_timeout` | No | Max time to wait for instance IP (default: `15m`) |
+| `ssh_timeout` | No | Max time to wait for SSH to become available (default: `10m`) |
+| `ssh_connect_timeout` | No | Timeout for each SSH connection attempt (default: `30s`) |
+| `command_timeout` | No | Max time for each command to execute (default: `5m`) |
 
 *Required when `setup_commands` is specified.
 
@@ -54,10 +58,38 @@ Setup commands support Go template syntax. The following variables are available
 
 ## How it works
 
-1. When Navarch provisions a new instance, it waits for SSH to become available (up to 10 minutes).
-2. Once connected, it runs each setup command in order.
-3. If any command fails, the bootstrap is aborted and the node is marked as failed.
-4. On success, the node is ready to receive workloads.
+1. When Navarch provisions a new instance, it waits for the instance to receive an IP address.
+2. Once the IP is available, it waits for SSH to become available.
+3. Once connected, it runs each setup command in order, enforcing the command timeout.
+4. If any command fails or times out, the bootstrap is aborted and the node is marked as failed.
+5. On success, the node is ready to receive workloads.
+
+Commands that exceed `command_timeout` receive a `SIGKILL` signal on the remote host.
+
+## Timeouts
+
+Configure timeouts based on your infrastructure:
+
+```yaml
+pools:
+  training:
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    setup_commands:
+      - ./long-running-setup.sh
+
+    # Fast-booting instances with long setup scripts
+    ip_wait_timeout: 5m
+    ssh_timeout: 3m
+    command_timeout: 30m
+```
+
+| Timeout | Default | Use case |
+|---------|---------|----------|
+| `ip_wait_timeout` | 15m | Increase for slow cloud providers or complex networking |
+| `ssh_timeout` | 10m | Decrease for pre-configured images with fast boot |
+| `ssh_connect_timeout` | 30s | Increase for high-latency networks |
+| `command_timeout` | 5m | Increase for large downloads or compilations |
 
 The control plane logs detailed information about each bootstrap phase:
 
