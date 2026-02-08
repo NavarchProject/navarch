@@ -1,0 +1,97 @@
+site_name: Navarch
+site_description: Open-source GPU fleet management
+site_url: https://navarch.dev
+
+repo_name: NavarchProject/navarch
+repo_url: https://github.com/NavarchProject/navarch
+
+theme:
+  name: material
+  font:
+    text: Google Sans
+    code: Roboto Mono
+  palette:
+    - scheme: default
+      primary: white
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Concepts:
+    - Overview: concepts/index.md
+    - Components: concepts/components.md
+    - Pools & Providers: concepts/pools.md
+    - Health Monitoring: concepts/health.md
+    - Node Lifecycle: concepts/lifecycle.md
+    - Autoscaling: concepts/autoscaling.md
+  - Guides:
+    - Pool Management: pool-management.md
+    - Deployment: deployment.md
+    - Authentication: authentication.md
+    - Simulator:
+      - Overview: simulator/index.md
+      - Scenarios: simulator/scenarios.md
+      - Stress Testing: simulator/stress-testing.md
+    - Testing on Hardware: testing-on-gpu.md
+  - Reference:
+    - Configuration: configuration.md
+    - CLI: cli.md
+    - Metrics: metrics.md
+    - Troubleshooting: troubleshooting.md
+  - Development:
+    - Architecture: architecture.md
+    - Extending: extending.md
+    - Contributing: contributing.md
+
+markdown_extensions:
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.details
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: ""
+
+plugins:
+  - search
