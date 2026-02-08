@@ -39,7 +39,17 @@ type Config struct {
 	SSHUser           string   // Default: ubuntu
 	SSHPrivateKeyPath string
 	ControlPlaneAddr  string
+
+	// Bootstrap timeouts (zero means use defaults)
+	IPWaitTimeout     time.Duration // Max time to wait for instance IP (default: 15m)
+	SSHTimeout        time.Duration // Max time to wait for SSH (default: 10m)
+	SSHConnectTimeout time.Duration // Timeout per SSH connection attempt (default: 30s)
+	CommandTimeout    time.Duration // Max time per bootstrap command (default: 5m)
 }
+
+const (
+	DefaultIPWaitTimeout = 15 * time.Minute
+)
 
 // ProviderConfig holds configuration for a single provider within a pool.
 type ProviderConfig struct {
@@ -325,6 +335,9 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 		SetupCommands:     p.config.SetupCommands,
 		SSHUser:           p.config.SSHUser,
 		SSHPrivateKeyPath: p.config.SSHPrivateKeyPath,
+		SSHTimeout:        p.config.SSHTimeout,
+		SSHConnectTimeout: p.config.SSHConnectTimeout,
+		CommandTimeout:    p.config.CommandTimeout,
 	}, p.logger)
 
 	vars := bootstrap.TemplateVars{
@@ -353,8 +366,14 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 }
 
 func (p *Pool) notifyBootstrapResult(result *bootstrap.Result) {
-	if p.onBootstrapResult != nil && result != nil {
-		p.onBootstrapResult(result)
+	if result == nil {
+		return
+	}
+	p.mu.RLock()
+	cb := p.onBootstrapResult
+	p.mu.RUnlock()
+	if cb != nil {
+		cb(result)
 	}
 }
 
@@ -381,7 +400,11 @@ func (p *Pool) waitForIP(ctx context.Context, prov provider.Provider, nodeID str
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	timeout := time.After(15 * time.Minute)
+	ipTimeout := p.config.IPWaitTimeout
+	if ipTimeout == 0 {
+		ipTimeout = DefaultIPWaitTimeout
+	}
+	timeout := time.After(ipTimeout)
 
 	checkIP := func() (string, bool) {
 		nodes, err := prov.List(ctx)
