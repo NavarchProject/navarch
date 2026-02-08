@@ -39,6 +39,8 @@ type managedPool struct {
 // Implement this interface to connect your workload system.
 type MetricsSource interface {
 	GetPoolMetrics(ctx context.Context, poolName string) (*PoolMetrics, error)
+	GetPoolNodeCounts(ctx context.Context, poolName string) (PoolNodeCounts, error)
+	GetNodePool(ctx context.Context, nodeID string) (string, error)
 }
 
 // PoolMetrics contains current metrics for a pool.
@@ -228,13 +230,35 @@ func (pm *PoolManager) evaluate(ctx context.Context, name string, mp *managedPoo
 
 func (pm *PoolManager) buildPoolState(ctx context.Context, name string, mp *managedPool) (pool.PoolState, error) {
 	cfg := mp.pool.Config()
-	status := mp.pool.Status()
 	now := pm.clock.Now()
+
+	// Get node counts from the database (includes all registered nodes with pool label)
+	var currentNodes, healthyNodes int
+	if pm.metrics != nil {
+		counts, err := pm.metrics.GetPoolNodeCounts(ctx, name)
+		if err != nil {
+			pm.logger.Warn("failed to get pool node counts, using pool internal state",
+				slog.String("pool", name),
+				slog.String("error", err.Error()),
+			)
+			status := mp.pool.Status()
+			currentNodes = status.TotalNodes
+			healthyNodes = status.HealthyNodes
+		} else {
+			currentNodes = counts.Total
+			healthyNodes = counts.Healthy
+		}
+	} else {
+		// Fallback to pool's internal tracking if no metrics source
+		status := mp.pool.Status()
+		currentNodes = status.TotalNodes
+		healthyNodes = status.HealthyNodes
+	}
 
 	state := pool.PoolState{
 		Name:           name,
-		CurrentNodes:   status.TotalNodes,
-		HealthyNodes:   status.HealthyNodes,
+		CurrentNodes:   currentNodes,
+		HealthyNodes:   healthyNodes,
 		MinNodes:       cfg.MinNodes,
 		MaxNodes:       cfg.MaxNodes,
 		CooldownPeriod: cfg.CooldownPeriod,
@@ -401,21 +425,35 @@ func (pm *PoolManager) ScalePool(ctx context.Context, name string, target int) e
 // OnNodeUnhealthy implements NodeHealthObserver. It finds the pool containing
 // the node and triggers replacement if configured.
 func (pm *PoolManager) OnNodeUnhealthy(ctx context.Context, nodeID string) {
-	pm.mu.RLock()
-	var targetPool *managedPool
+	// Look up the node's pool from the database (via pool label)
 	var poolName string
-	for name, mp := range pm.pools {
-		if mp.pool.HasNode(nodeID) {
-			targetPool = mp
-			poolName = name
-			break
+	if pm.metrics != nil {
+		var err error
+		poolName, err = pm.metrics.GetNodePool(ctx, nodeID)
+		if err != nil {
+			pm.logger.Error("failed to look up node pool",
+				slog.String("node_id", nodeID),
+				slog.String("error", err.Error()),
+			)
+			return
 		}
 	}
+
+	if poolName == "" {
+		pm.logger.Debug("unhealthy node has no pool label",
+			slog.String("node_id", nodeID),
+		)
+		return
+	}
+
+	pm.mu.RLock()
+	targetPool, exists := pm.pools[poolName]
 	pm.mu.RUnlock()
 
-	if targetPool == nil {
-		pm.logger.Debug("unhealthy node not found in any pool",
+	if !exists {
+		pm.logger.Debug("unhealthy node's pool not managed",
 			slog.String("node_id", nodeID),
+			slog.String("pool", poolName),
 		)
 		return
 	}

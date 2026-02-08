@@ -42,6 +42,7 @@ func (m *mockProvider) List(ctx context.Context) ([]*provider.Node, error) {
 type mockMetrics struct {
 	utilization float64
 	queueDepth  int
+	nodePools   map[string]string // nodeID -> poolName
 }
 
 func (m *mockMetrics) GetPoolMetrics(ctx context.Context, name string) (*PoolMetrics, error) {
@@ -49,6 +50,17 @@ func (m *mockMetrics) GetPoolMetrics(ctx context.Context, name string) (*PoolMet
 		Utilization: m.utilization,
 		QueueDepth:  m.queueDepth,
 	}, nil
+}
+
+func (m *mockMetrics) GetPoolNodeCounts(ctx context.Context, name string) (PoolNodeCounts, error) {
+	return PoolNodeCounts{}, nil
+}
+
+func (m *mockMetrics) GetNodePool(ctx context.Context, nodeID string) (string, error) {
+	if m.nodePools != nil {
+		return m.nodePools[nodeID], nil
+	}
+	return "", nil
 }
 
 func TestPoolManager_AddRemovePool(t *testing.T) {
@@ -239,7 +251,9 @@ func TestPoolManager_AutoscalerLoop(t *testing.T) {
 
 func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
 	t.Run("node_in_pool_with_auto_replace", func(t *testing.T) {
-		pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+		// Create mock metrics that we can update after getting the node ID
+		metrics := &mockMetrics{nodePools: make(map[string]string)}
+		pm := NewPoolManager(PoolManagerConfig{}, metrics, nil, nil)
 
 		prov := &mockProvider{}
 		p, _ := pool.NewSimple(pool.Config{
@@ -258,6 +272,9 @@ func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
 			t.Fatal("Failed to add node to pool")
 		}
 		nodeID := nodes[0].ID
+
+		// Register the node's pool in the mock metrics (simulating database lookup)
+		metrics.nodePools[nodeID] = "test-pool"
 
 		// Trigger unhealthy notification
 		pm.OnNodeUnhealthy(ctx, nodeID)
@@ -325,7 +342,8 @@ func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
 	})
 
 	t.Run("threshold_not_reached", func(t *testing.T) {
-		pm := NewPoolManager(PoolManagerConfig{}, nil, nil, nil)
+		metrics := &mockMetrics{nodePools: make(map[string]string)}
+		pm := NewPoolManager(PoolManagerConfig{}, metrics, nil, nil)
 
 		prov := &mockProvider{}
 		p, _ := pool.NewSimple(pool.Config{
@@ -344,6 +362,9 @@ func TestPoolManager_OnNodeUnhealthy(t *testing.T) {
 			t.Fatal("Failed to add node to pool")
 		}
 		nodeID := nodes[0].ID
+
+		// Register the node's pool in the mock metrics
+		metrics.nodePools[nodeID] = "test-pool"
 
 		// First unhealthy notification - threshold not reached
 		pm.OnNodeUnhealthy(ctx, nodeID)
