@@ -53,14 +53,15 @@ type ProviderConfig struct {
 
 // Pool represents a managed group of GPU nodes backed by one or more providers.
 type Pool struct {
-	config    Config
-	providers []ProviderConfig
-	selector  ProviderSelector
-	clock     clock.Clock
-	logger    *slog.Logger
-	mu        sync.RWMutex
-	nodes     map[string]*ManagedNode
-	lastScale time.Time
+	config            Config
+	providers         []ProviderConfig
+	selector          ProviderSelector
+	clock             clock.Clock
+	logger            *slog.Logger
+	mu                sync.RWMutex
+	nodes             map[string]*ManagedNode
+	lastScale         time.Time
+	onBootstrapResult BootstrapCallback
 }
 
 // BootstrapStatus represents the state of node bootstrap.
@@ -103,12 +104,16 @@ type Status struct {
 }
 
 // NewPoolOptions configures pool creation.
+// BootstrapCallback is called when a node bootstrap completes (success or failure).
+type BootstrapCallback func(result *bootstrap.Result)
+
 type NewPoolOptions struct {
-	Config           Config
-	Providers        []ProviderConfig
-	ProviderStrategy string       // priority, cost, availability, round-robin
-	Clock            clock.Clock  // Clock for time operations. If nil, uses real time.
-	Logger           *slog.Logger
+	Config            Config
+	Providers         []ProviderConfig
+	ProviderStrategy  string            // priority, cost, availability, round-robin
+	Clock             clock.Clock       // Clock for time operations. If nil, uses real time.
+	Logger            *slog.Logger
+	OnBootstrapResult BootstrapCallback // Optional callback when bootstrap completes
 }
 
 // New creates a pool with a single provider.
@@ -167,12 +172,13 @@ func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
 	}
 
 	return &Pool{
-		config:    opts.Config,
-		providers: opts.Providers,
-		selector:  selector,
-		clock:     clk,
-		logger:    logger,
-		nodes:     make(map[string]*ManagedNode),
+		config:            opts.Config,
+		providers:         opts.Providers,
+		selector:          selector,
+		clock:             clk,
+		logger:            logger,
+		nodes:             make(map[string]*ManagedNode),
+		onBootstrapResult: opts.OnBootstrapResult,
 	}, nil
 }
 
@@ -331,10 +337,18 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 			slog.String("error", err.Error()),
 		)
 		p.setBootstrapResult(node.Node.ID, BootstrapFailed, err.Error(), result)
+		p.notifyBootstrapResult(result)
 		return
 	}
 
 	p.setBootstrapResult(node.Node.ID, BootstrapCompleted, "", result)
+	p.notifyBootstrapResult(result)
+}
+
+func (p *Pool) notifyBootstrapResult(result *bootstrap.Result) {
+	if p.onBootstrapResult != nil && result != nil {
+		p.onBootstrapResult(result)
+	}
 }
 
 func (p *Pool) setBootstrapStatus(nodeID string, status BootstrapStatus, errMsg string) {
