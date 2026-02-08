@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	connectrpc.com/connect v1.19.1
 	github.com/NVIDIA/go-nvml v0.13.0-1
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/google/cel-go v0.27.0
 	github.com/google/uuid v1.6.0
 	github.com/olekukonko/tablewriter v1.1.3

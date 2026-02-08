@@ -10,11 +10,12 @@ import (
 
 	"connectrpc.com/connect"
 
+	backoff "github.com/cenkalti/backoff/v4"
+
 	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node/metrics"
-	"github.com/NavarchProject/navarch/pkg/retry"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
@@ -171,9 +172,18 @@ func (n *Node) Start(ctx context.Context) error {
 	)
 
 	// Register with retry logic
-	err := retry.Do(ctx, retry.NetworkConfig(), func(ctx context.Context) error {
+	registerBackoff := backoff.WithContext(backoff.WithMaxRetries(
+		&backoff.ExponentialBackOff{
+			InitialInterval:     2 * time.Second,
+			MaxInterval:         16 * time.Second,
+			Multiplier:          2.0,
+			RandomizationFactor: 0.2,
+			Clock:               backoff.SystemClock,
+			Stop:                backoff.Stop,
+		}, 3), ctx) // 3 retries = 4 total attempts
+	err := backoff.Retry(func() error {
 		return n.register(ctx)
-	})
+	}, registerBackoff)
 	if err != nil {
 		return fmt.Errorf("failed to register with control plane: %w", err)
 	}
@@ -300,24 +310,25 @@ func (n *Node) heartbeatLoop(ctx context.Context) {
 	ticker := n.clock.NewTicker(n.heartbeatInterval)
 	defer ticker.Stop()
 
-	// Retry config for heartbeats - faster retries since they're periodic
-	retryCfg := retry.Config{
-		MaxAttempts:  3,
-		InitialDelay: 500 * time.Millisecond,
-		MaxDelay:     2 * time.Second,
-		Multiplier:   2.0,
-		Jitter:       0.1,
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
 			n.logger.InfoContext(ctx, "heartbeat loop stopped")
 			return
 		case <-ticker.C():
-			err := retry.Do(ctx, retryCfg, func(ctx context.Context) error {
+			// Faster retries for heartbeats since they're periodic
+			heartbeatBackoff := backoff.WithContext(backoff.WithMaxRetries(
+				&backoff.ExponentialBackOff{
+					InitialInterval:     500 * time.Millisecond,
+					MaxInterval:         2 * time.Second,
+					Multiplier:          2.0,
+					RandomizationFactor: 0.1,
+					Clock:               backoff.SystemClock,
+					Stop:                backoff.Stop,
+				}, 2), ctx) // 2 retries = 3 total attempts
+			err := backoff.Retry(func() error {
 				return n.sendHeartbeat(ctx)
-			})
+			}, heartbeatBackoff)
 			if err != nil {
 				n.logger.ErrorContext(ctx, "failed to send heartbeat after retries",
 					slog.String("error", err.Error()),
