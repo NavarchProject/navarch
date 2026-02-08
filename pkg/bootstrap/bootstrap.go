@@ -180,7 +180,7 @@ func (b *Bootstrapper) connect(ctx context.Context, ip, nodeID string) (*ssh.Cli
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		// TODO(security): use known_hosts or TOFU instead of InsecureIgnoreHostKey
+		// TODO(#27): use known_hosts or TOFU instead of InsecureIgnoreHostKey
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         b.sshConnectTimeout(),
 	}
