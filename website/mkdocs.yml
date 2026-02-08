@@ -64,6 +64,8 @@ nav:
     - Testing on Hardware: testing-on-gpu.md
   - Reference:
     - Configuration: configuration.md
+    - Health Policy: health-policy.md
+    - Node Bootstrap: bootstrap.md
     - CLI: cli.md
     - Metrics: metrics.md
     - Troubleshooting: troubleshooting.md

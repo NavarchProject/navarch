@@ -63,27 +63,42 @@ type Pool struct {
 	lastScale time.Time
 }
 
+// BootstrapStatus represents the state of node bootstrap.
+type BootstrapStatus string
+
+const (
+	BootstrapPending   BootstrapStatus = "pending"
+	BootstrapRunning   BootstrapStatus = "running"
+	BootstrapCompleted BootstrapStatus = "completed"
+	BootstrapFailed    BootstrapStatus = "failed"
+	BootstrapSkipped   BootstrapStatus = "skipped" // No setup commands configured
+)
+
 // ManagedNode tracks a node within a pool.
 type ManagedNode struct {
-	Node            *provider.Node // Underlying provider node
-	Pool            string         // Name of the pool this node belongs to
-	ProviderName    string         // Which provider created this node
-	HealthFailures  int            // Consecutive health check failures
-	LastHealthCheck time.Time      // When the last health check ran
-	Cordoned        bool           // If true, node is unschedulable for new workloads
-	ProvisionedAt   time.Time      // When this node was created
+	Node            *provider.Node  // Underlying provider node
+	Pool            string          // Name of the pool this node belongs to
+	ProviderName    string          // Which provider created this node
+	HealthFailures  int             // Consecutive health check failures
+	LastHealthCheck time.Time       // When the last health check ran
+	Cordoned        bool            // If true, node is unschedulable for new workloads
+	ProvisionedAt   time.Time       // When this node was created
+	Bootstrap       BootstrapStatus // Bootstrap status
+	BootstrapError  string          // Error message if bootstrap failed
 }
 
 // Status represents the current state of a pool.
 type Status struct {
-	Name           string  // Pool name
-	TotalNodes     int     // Total nodes in pool
-	HealthyNodes   int     // Nodes passing health checks
-	UnhealthyNodes int     // Nodes failing health checks
-	CordonedNodes  int     // Nodes marked unschedulable
-	Utilization    float64 // Average utilization percentage
-	CanScaleUp     bool    // True if pool is below MaxNodes
-	CanScaleDown   bool    // True if pool is above MinNodes
+	Name               string  // Pool name
+	TotalNodes         int     // Total nodes in pool
+	HealthyNodes       int     // Nodes passing health checks
+	UnhealthyNodes     int     // Nodes failing health checks
+	CordonedNodes      int     // Nodes marked unschedulable
+	Utilization        float64 // Average utilization percentage
+	CanScaleUp         bool    // True if pool is below MaxNodes
+	CanScaleDown       bool    // True if pool is above MinNodes
+	BootstrapFailed    int     // Nodes with failed bootstrap
+	BootstrapPending   int     // Nodes with bootstrap in progress or pending
 }
 
 // NewPoolOptions configures pool creation.
@@ -194,6 +209,13 @@ func (p *Pool) Status() Status {
 		} else {
 			status.HealthyNodes++
 		}
+
+		switch mn.Bootstrap {
+		case BootstrapPending, BootstrapRunning:
+			status.BootstrapPending++
+		case BootstrapFailed:
+			status.BootstrapFailed++
+		}
 	}
 
 	status.CanScaleUp = status.TotalNodes < p.config.MaxNodes
@@ -228,11 +250,17 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 			return nodes, fmt.Errorf("failed to provision node %d: %w", i+1, err)
 		}
 
+		bootstrapStatus := BootstrapSkipped
+		if len(p.config.SetupCommands) > 0 {
+			bootstrapStatus = BootstrapPending
+		}
+
 		managedNode := &ManagedNode{
 			Node:          node,
 			Pool:          p.config.Name,
 			ProviderName:  providerName,
 			ProvisionedAt: p.clock.Now(),
+			Bootstrap:     bootstrapStatus,
 		}
 		p.nodes[node.ID] = managedNode
 		nodes = append(nodes, node)
@@ -247,12 +275,15 @@ func (p *Pool) ScaleUp(ctx context.Context, count int) ([]*provider.Node, error)
 }
 
 func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
+	p.setBootstrapStatus(node.Node.ID, BootstrapRunning, "")
+
 	prov := p.getProvider(node.ProviderName)
 	if prov == nil {
 		p.logger.Error("bootstrap failed: provider not found",
 			slog.String("node_id", node.Node.ID),
 			slog.String("provider", node.ProviderName),
 		)
+		p.setBootstrapStatus(node.Node.ID, BootstrapFailed, "provider not found")
 		return
 	}
 
@@ -265,6 +296,7 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 				slog.String("node_id", node.Node.ID),
 				slog.String("error", err.Error()),
 			)
+			p.setBootstrapStatus(node.Node.ID, BootstrapFailed, "could not get IP: "+err.Error())
 			return
 		}
 
@@ -296,6 +328,19 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 			slog.String("ip", ip),
 			slog.String("error", err.Error()),
 		)
+		p.setBootstrapStatus(node.Node.ID, BootstrapFailed, err.Error())
+		return
+	}
+
+	p.setBootstrapStatus(node.Node.ID, BootstrapCompleted, "")
+}
+
+func (p *Pool) setBootstrapStatus(nodeID string, status BootstrapStatus, errMsg string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if n, ok := p.nodes[nodeID]; ok {
+		n.Bootstrap = status
+		n.BootstrapError = errMsg
 	}
 }
 
@@ -542,11 +587,17 @@ func (p *Pool) ReplaceNode(ctx context.Context, nodeID string) (*provider.Node, 
 		return nil, fmt.Errorf("failed to provision replacement: %w", err)
 	}
 
+	bootstrapStatus := BootstrapSkipped
+	if len(p.config.SetupCommands) > 0 {
+		bootstrapStatus = BootstrapPending
+	}
+
 	managedNode := &ManagedNode{
 		Node:          node,
 		Pool:          p.config.Name,
 		ProviderName:  providerName,
 		ProvisionedAt: p.clock.Now(),
+		Bootstrap:     bootstrapStatus,
 	}
 	p.nodes[node.ID] = managedNode
 

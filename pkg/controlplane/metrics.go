@@ -127,3 +127,57 @@ func (m *DBMetricsSource) StoreMetrics(ctx context.Context, nodeID string, metri
 	})
 }
 
+// PoolNodeCounts holds counts of nodes in various states within a pool.
+type PoolNodeCounts struct {
+	Total     int
+	Healthy   int
+	Unhealthy int
+}
+
+// GetPoolNodeCounts returns the count of nodes in each state for a pool.
+func (m *DBMetricsSource) GetPoolNodeCounts(ctx context.Context, poolName string) (*PoolNodeCounts, error) {
+	nodes, err := m.db.ListNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := &PoolNodeCounts{}
+	for _, node := range nodes {
+		if node.Metadata == nil || node.Metadata.Labels == nil {
+			continue
+		}
+		if node.Metadata.Labels["pool"] != poolName {
+			continue
+		}
+		// Skip terminated nodes
+		if node.Status == pb.NodeStatus_NODE_STATUS_TERMINATED {
+			continue
+		}
+
+		counts.Total++
+		if node.Status == pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+			counts.Unhealthy++
+		} else {
+			counts.Healthy++
+		}
+	}
+
+	return counts, nil
+}
+
+// GetNodePool returns the pool name for a node, or empty string if not found.
+func (m *DBMetricsSource) GetNodePool(ctx context.Context, nodeID string) (string, error) {
+	node, err := m.db.GetNode(ctx, nodeID)
+	if err != nil {
+		// Node not found is not an error, just return empty string
+		return "", nil
+	}
+	if node == nil {
+		return "", nil
+	}
+	if node.Metadata == nil || node.Metadata.Labels == nil {
+		return "", nil
+	}
+	return node.Metadata.Labels["pool"], nil
+}
+

@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"time"
 
+	"al.essio.dev/pkg/shellescape"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -50,60 +51,57 @@ func New(cfg Config, logger *slog.Logger) *Bootstrapper {
 // Bootstrap runs setup commands on the instance via SSH.
 func (b *Bootstrapper) Bootstrap(ctx context.Context, ip string, vars TemplateVars) error {
 	if len(b.config.SetupCommands) == 0 {
-		b.logger.Debug("bootstrap skipped: no commands configured",
-			slog.String("node_id", vars.NodeID),
-		)
 		return nil
 	}
 	if b.config.SSHPrivateKeyPath == "" {
 		return fmt.Errorf("ssh_private_key_path is required for bootstrap")
 	}
 
-	bootstrapStart := time.Now()
+	start := time.Now()
 	b.logger.Info("bootstrap starting",
 		slog.String("node_id", vars.NodeID),
 		slog.String("ip", ip),
 		slog.String("pool", vars.Pool),
-		slog.String("provider", vars.Provider),
-		slog.String("region", vars.Region),
-		slog.String("instance_type", vars.InstanceType),
-		slog.String("control_plane", vars.ControlPlane),
-		slog.Int("setup_commands", len(b.config.SetupCommands)),
-		slog.String("ssh_user", b.config.SSHUser),
+		slog.Int("commands", len(b.config.SetupCommands)),
 	)
 
-	// Load SSH key
+	client, err := b.connect(ctx, ip, vars.NodeID)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	for i, cmd := range b.config.SetupCommands {
+		if err := b.executeCommand(client, cmd, vars, i+1, len(b.config.SetupCommands)); err != nil {
+			return err
+		}
+	}
+
+	b.logger.Info("bootstrap completed",
+		slog.String("node_id", vars.NodeID),
+		slog.String("ip", ip),
+		slog.Duration("duration", time.Since(start)),
+		slog.Int("commands", len(b.config.SetupCommands)),
+	)
+	return nil
+}
+
+func (b *Bootstrapper) connect(ctx context.Context, ip, nodeID string) (*ssh.Client, error) {
 	keyPath := b.config.SSHPrivateKeyPath
 	if strings.HasPrefix(keyPath, "~/") {
 		home, _ := os.UserHomeDir()
 		keyPath = filepath.Join(home, keyPath[2:])
 	}
 
-	b.logger.Debug("loading SSH private key",
-		slog.String("path", keyPath),
-	)
-
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		b.logger.Error("failed to read SSH private key",
-			slog.String("path", keyPath),
-			slog.String("error", err.Error()),
-		)
-		return fmt.Errorf("reading SSH private key: %w", err)
+		return nil, fmt.Errorf("reading SSH private key: %w", err)
 	}
 
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		b.logger.Error("failed to parse SSH private key",
-			slog.String("path", keyPath),
-			slog.String("error", err.Error()),
-		)
-		return fmt.Errorf("parsing SSH private key: %w", err)
+		return nil, fmt.Errorf("parsing SSH private key: %w", err)
 	}
-
-	b.logger.Debug("SSH key loaded successfully",
-		slog.String("key_type", signer.PublicKey().Type()),
-	)
 
 	sshConfig := &ssh.ClientConfig{
 		User: b.config.SSHUser,
@@ -115,162 +113,77 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, ip string, vars TemplateVa
 		Timeout:         30 * time.Second,
 	}
 
-	// Wait for SSH to become available
-	b.logger.Info("waiting for SSH to become available",
+	b.logger.Info("waiting for SSH",
 		slog.String("ip", ip),
-		slog.String("node_id", vars.NodeID),
+		slog.String("node_id", nodeID),
 	)
 
-	sshWaitStart := time.Now()
+	start := time.Now()
 	client, err := b.waitForSSH(ctx, ip, sshConfig)
 	if err != nil {
-		b.logger.Error("SSH connection failed",
-			slog.String("ip", ip),
-			slog.String("node_id", vars.NodeID),
-			slog.Duration("wait_duration", time.Since(sshWaitStart)),
-			slog.String("error", err.Error()),
-		)
-		return fmt.Errorf("waiting for SSH: %w", err)
-	}
-	defer client.Close()
-
-	b.logger.Info("SSH connection established",
-		slog.String("ip", ip),
-		slog.String("node_id", vars.NodeID),
-		slog.Duration("wait_duration", time.Since(sshWaitStart)),
-	)
-
-	// Run setup commands
-	b.logger.Info("starting setup commands",
-		slog.String("node_id", vars.NodeID),
-		slog.Int("count", len(b.config.SetupCommands)),
-	)
-
-	for i, cmd := range b.config.SetupCommands {
-		renderedCmd, err := b.renderCommand(cmd, vars)
-		if err != nil {
-			b.logger.Error("failed to render command template",
-				slog.String("node_id", vars.NodeID),
-				slog.Int("command_num", i+1),
-				slog.String("template", cmd),
-				slog.String("error", err.Error()),
-			)
-			return fmt.Errorf("rendering command %d: %w", i+1, err)
-		}
-
-		cmdStart := time.Now()
-		b.logger.Info("executing setup command",
-			slog.String("node_id", vars.NodeID),
-			slog.Int("command_num", i+1),
-			slog.Int("command_total", len(b.config.SetupCommands)),
-			slog.String("command", renderedCmd),
-		)
-
-		stdout, stderr, err := b.runCommand(client, renderedCmd)
-		if err != nil {
-			b.logger.Error("setup command failed",
-				slog.String("node_id", vars.NodeID),
-				slog.Int("command_num", i+1),
-				slog.String("command", renderedCmd),
-				slog.Duration("duration", time.Since(cmdStart)),
-				slog.String("stdout", stdout),
-				slog.String("stderr", stderr),
-				slog.String("error", err.Error()),
-			)
-			return fmt.Errorf("command %d failed: %w", i+1, err)
-		}
-
-		b.logger.Info("setup command completed",
-			slog.String("node_id", vars.NodeID),
-			slog.Int("command_num", i+1),
-			slog.Duration("duration", time.Since(cmdStart)),
-		)
-
-		if stdout != "" {
-			b.logger.Debug("command stdout",
-				slog.String("node_id", vars.NodeID),
-				slog.Int("command_num", i+1),
-				slog.String("stdout", stdout),
-			)
-		}
+		return nil, fmt.Errorf("SSH connection failed after %v: %w", time.Since(start), err)
 	}
 
-	b.logger.Info("all setup commands completed",
-		slog.String("node_id", vars.NodeID),
-		slog.Int("count", len(b.config.SetupCommands)),
-	)
-
-	b.logger.Info("bootstrap completed successfully",
-		slog.String("node_id", vars.NodeID),
+	b.logger.Info("SSH connected",
 		slog.String("ip", ip),
-		slog.Duration("total_duration", time.Since(bootstrapStart)),
-		slog.Int("commands_executed", len(b.config.SetupCommands)),
+		slog.String("node_id", nodeID),
+		slog.Duration("wait", time.Since(start)),
+	)
+	return client, nil
+}
+
+func (b *Bootstrapper) executeCommand(client *ssh.Client, cmd string, vars TemplateVars, num, total int) error {
+	rendered, err := b.renderCommand(cmd, vars)
+	if err != nil {
+		return fmt.Errorf("rendering command %d: %w", num, err)
+	}
+
+	start := time.Now()
+	b.logger.Info("executing command",
+		slog.String("node_id", vars.NodeID),
+		slog.Int("command", num),
+		slog.Int("total", total),
 	)
 
+	stdout, stderr, err := b.runCommand(client, rendered)
+	if err != nil {
+		b.logger.Error("command failed",
+			slog.String("node_id", vars.NodeID),
+			slog.Int("command", num),
+			slog.Duration("duration", time.Since(start)),
+			slog.String("stdout", stdout),
+			slog.String("stderr", stderr),
+		)
+		return fmt.Errorf("command %d failed: %w", num, err)
+	}
+
+	b.logger.Info("command succeeded",
+		slog.String("node_id", vars.NodeID),
+		slog.Int("command", num),
+		slog.Duration("duration", time.Since(start)),
+	)
 	return nil
 }
 
 func (b *Bootstrapper) waitForSSH(ctx context.Context, ip string, config *ssh.ClientConfig) (*ssh.Client, error) {
 	addr := net.JoinHostPort(ip, "22")
-
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-
 	timeout := time.After(10 * time.Minute)
-	attempt := 0
 
-	dial := func() (*ssh.Client, error) {
-		attempt++
-		dialStart := time.Now()
-
-		b.logger.Debug("SSH connection attempt",
-			slog.String("addr", addr),
-			slog.Int("attempt", attempt),
-		)
-
+	for attempts := 1; ; attempts++ {
 		client, err := ssh.Dial("tcp", addr, config)
-		if err != nil {
-			b.logger.Debug("SSH connection attempt failed",
-				slog.String("addr", addr),
-				slog.Int("attempt", attempt),
-				slog.Duration("duration", time.Since(dialStart)),
-				slog.String("error", err.Error()),
-			)
-			return nil, err
+		if err == nil {
+			return client, nil
 		}
 
-		b.logger.Debug("SSH connection attempt succeeded",
-			slog.String("addr", addr),
-			slog.Int("attempt", attempt),
-			slog.Duration("duration", time.Since(dialStart)),
-		)
-		return client, nil
-	}
-
-	if client, err := dial(); err == nil {
-		return client, nil
-	}
-
-	for {
 		select {
 		case <-ctx.Done():
-			b.logger.Warn("SSH wait cancelled",
-				slog.String("addr", addr),
-				slog.Int("attempts", attempt),
-				slog.String("reason", "context cancelled"),
-			)
 			return nil, ctx.Err()
 		case <-timeout:
-			b.logger.Warn("SSH wait timed out",
-				slog.String("addr", addr),
-				slog.Int("attempts", attempt),
-				slog.String("reason", "10 minute timeout"),
-			)
-			return nil, fmt.Errorf("timeout waiting for SSH on %s after %d attempts", addr, attempt)
+			return nil, fmt.Errorf("timeout waiting for SSH on %s after %d attempts", addr, attempts)
 		case <-ticker.C:
-			if client, err := dial(); err == nil {
-				return client, nil
-			}
+			// retry
 		}
 	}
 }
@@ -298,13 +211,24 @@ func (b *Bootstrapper) runCommand(client *ssh.Client, cmd string) (string, strin
 }
 
 func (b *Bootstrapper) renderCommand(cmd string, vars TemplateVars) (string, error) {
+	// Shell-escape template variables to prevent injection attacks.
+	// Uses shellescape.Quote which properly quotes strings for POSIX shells.
+	escapedVars := TemplateVars{
+		ControlPlane: shellescape.Quote(vars.ControlPlane),
+		Pool:         shellescape.Quote(vars.Pool),
+		NodeID:       shellescape.Quote(vars.NodeID),
+		Provider:     shellescape.Quote(vars.Provider),
+		Region:       shellescape.Quote(vars.Region),
+		InstanceType: shellescape.Quote(vars.InstanceType),
+	}
+
 	tmpl, err := template.New("cmd").Parse(cmd)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, vars); err != nil {
+	if err := tmpl.Execute(&buf, escapedVars); err != nil {
 		return "", fmt.Errorf("executing template: %w", err)
 	}
 

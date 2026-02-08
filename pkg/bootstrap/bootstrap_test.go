@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"context"
+	"strings"
 	"testing"
 )
 
@@ -90,5 +92,110 @@ func TestNew(t *testing.T) {
 	}
 	if b.config.SSHUser != "ubuntu" {
 		t.Errorf("expected SSHUser 'ubuntu', got %q", b.config.SSHUser)
+	}
+}
+
+func TestRenderCommand_EscapesVariables(t *testing.T) {
+	b := &Bootstrapper{}
+
+	tests := []struct {
+		name     string
+		cmd      string
+		vars     TemplateVars
+		contains string // Expected substring in output
+	}{
+		{
+			name: "command injection attempt is quoted",
+			cmd:  "echo {{.NodeID}}",
+			vars: TemplateVars{
+				NodeID: "node-1; rm -rf /",
+			},
+			contains: "'node-1; rm -rf /'", // shellescape uses single quotes
+		},
+		{
+			name: "backtick injection is quoted",
+			cmd:  "echo {{.NodeID}}",
+			vars: TemplateVars{
+				NodeID: "node-`whoami`",
+			},
+			contains: "'node-`whoami`'",
+		},
+		{
+			name: "variable expansion is quoted",
+			cmd:  "echo {{.NodeID}}",
+			vars: TemplateVars{
+				NodeID: "node-${HOME}",
+			},
+			contains: "'node-${HOME}'",
+		},
+		{
+			name: "clean strings are unquoted",
+			cmd:  "echo {{.NodeID}}",
+			vars: TemplateVars{
+				NodeID: "node-123",
+			},
+			contains: "node-123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := b.renderCommand(tt.cmd, tt.vars)
+			if err != nil {
+				t.Fatalf("renderCommand failed: %v", err)
+			}
+			if !strings.Contains(result, tt.contains) {
+				t.Errorf("expected output to contain %q, got %q", tt.contains, result)
+			}
+		})
+	}
+}
+
+func TestBootstrap_NoCommands(t *testing.T) {
+	b := New(Config{
+		SetupCommands: []string{},
+		SSHUser:       "ubuntu",
+	}, nil)
+
+	vars := TemplateVars{NodeID: "test-node"}
+
+	// Should return nil without error when no commands configured
+	err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
+	if err != nil {
+		t.Errorf("expected no error for empty commands, got %v", err)
+	}
+}
+
+func TestBootstrap_MissingSSHKey(t *testing.T) {
+	b := New(Config{
+		SetupCommands:     []string{"echo hello"},
+		SSHUser:           "ubuntu",
+		SSHPrivateKeyPath: "", // Missing
+	}, nil)
+
+	vars := TemplateVars{NodeID: "test-node"}
+
+	err := b.Bootstrap(context.Background(), "10.0.0.1", vars)
+	if err == nil {
+		t.Error("expected error for missing SSH key path")
+	}
+}
+
+func TestBootstrap_ContextCancellation(t *testing.T) {
+	b := New(Config{
+		SetupCommands:     []string{"echo hello"},
+		SSHUser:           "ubuntu",
+		SSHPrivateKeyPath: "/nonexistent/key",
+	}, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	vars := TemplateVars{NodeID: "test-node"}
+
+	// Should fail quickly due to cancelled context or missing key
+	err := b.Bootstrap(ctx, "10.0.0.1", vars)
+	if err == nil {
+		t.Error("expected error for cancelled context or missing key")
 	}
 }

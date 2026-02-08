@@ -119,4 +119,50 @@ func TestPool_NoBootstrapWithoutCommands(t *testing.T) {
 	if status.TotalNodes != 1 {
 		t.Errorf("expected 1 total node, got %d", status.TotalNodes)
 	}
+	// Without setup commands, bootstrap status should be skipped (not counted)
+	if status.BootstrapFailed != 0 || status.BootstrapPending != 0 {
+		t.Errorf("expected no bootstrap tracking for skipped, got failed=%d pending=%d",
+			status.BootstrapFailed, status.BootstrapPending)
+	}
+}
+
+func TestPool_BootstrapStatusTracking(t *testing.T) {
+	prov := &bootstrapTestProvider{nodeIP: "10.0.0.1"}
+
+	p, err := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:              "bootstrap-status-test",
+			MinNodes:          0,
+			MaxNodes:          5,
+			SetupCommands:     []string{"echo hello"},
+			SSHUser:           "ubuntu",
+			SSHPrivateKeyPath: "/nonexistent/key",
+			ControlPlaneAddr:  "http://localhost:50051",
+		},
+		Providers: []ProviderConfig{
+			{Name: "bootstrap-test", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = p.ScaleUp(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Give bootstrap goroutine time to fail (missing SSH key)
+	time.Sleep(500 * time.Millisecond)
+
+	status := p.Status()
+	if status.TotalNodes != 1 {
+		t.Errorf("expected 1 total node, got %d", status.TotalNodes)
+	}
+	// Bootstrap should have failed due to missing SSH key
+	if status.BootstrapFailed != 1 {
+		t.Errorf("expected 1 bootstrap failed node, got %d (pending=%d)",
+			status.BootstrapFailed, status.BootstrapPending)
+	}
 }
