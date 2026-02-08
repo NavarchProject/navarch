@@ -66,17 +66,9 @@ type PoolCfg struct {
 
 	Labels map[string]string `yaml:"labels,omitempty"`
 
-	SetupCommands     []string        `yaml:"setup_commands,omitempty"`
-	FileUploads       []FileUploadCfg `yaml:"file_uploads,omitempty"`
-	SSHUser           string          `yaml:"ssh_user,omitempty"`
-	SSHPrivateKeyPath string          `yaml:"ssh_private_key_path,omitempty"`
-}
-
-// FileUploadCfg specifies a file to SCP to the instance before running setup commands.
-type FileUploadCfg struct {
-	Local  string `yaml:"local"`
-	Remote string `yaml:"remote"`
-	Mode   string `yaml:"mode,omitempty"` // Default: "0644"
+	SetupCommands     []string `yaml:"setup_commands,omitempty"`
+	SSHUser           string   `yaml:"ssh_user,omitempty"`
+	SSHPrivateKeyPath string   `yaml:"ssh_private_key_path,omitempty"`
 }
 
 // PoolProviderEntry configures a provider within a multi-provider pool.
@@ -193,7 +185,7 @@ func (c *Config) Validate() error {
 			}
 		}
 
-		if len(pool.SetupCommands) > 0 || len(pool.FileUploads) > 0 {
+		if len(pool.SetupCommands) > 0 {
 			keyPath := pool.SSHPrivateKeyPath
 			if keyPath == "" {
 				keyPath = c.Defaults.SSHPrivateKeyPath

@@ -17,7 +17,6 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/NavarchProject/navarch/pkg/auth"
-	"github.com/NavarchProject/navarch/pkg/bootstrap"
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
@@ -279,10 +278,9 @@ func initPoolManager(cfg *config.Config, database db.DB, instanceManager *contro
 				CooldownPeriod:     poolCfg.Cooldown,
 				UnhealthyThreshold: config.GetUnhealthyThreshold(poolCfg.Health),
 				AutoReplace:        config.GetAutoReplace(poolCfg.Health),
-				Labels:             labels,
-				SetupCommands:      poolCfg.SetupCommands,
-				FileUploads:        convertFileUploads(poolCfg.FileUploads),
-				SSHUser:            poolCfg.SSHUser,
+				Labels:            labels,
+				SetupCommands:     poolCfg.SetupCommands,
+				SSHUser:           poolCfg.SSHUser,
 				SSHPrivateKeyPath:  poolCfg.SSHPrivateKeyPath,
 				ControlPlaneAddr:   controlPlaneAddr,
 			},
@@ -416,14 +414,3 @@ func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provi
 	return prov, nil
 }
 
-func convertFileUploads(cfgs []config.FileUploadCfg) []bootstrap.FileUpload {
-	uploads := make([]bootstrap.FileUpload, len(cfgs))
-	for i, cfg := range cfgs {
-		uploads[i] = bootstrap.FileUpload{
-			LocalPath:  cfg.Local,
-			RemotePath: cfg.Remote,
-			Mode:       cfg.Mode,
-		}
-	}
-	return uploads
-}

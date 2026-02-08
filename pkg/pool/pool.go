@@ -35,9 +35,8 @@ type Config struct {
 
 	Labels map[string]string // Key-value labels for workload routing
 
-	SetupCommands     []string              // Commands run via SSH after provisioning
-	FileUploads       []bootstrap.FileUpload // Files to SCP before running commands
-	SSHUser           string                 // Default: ubuntu
+	SetupCommands     []string // Commands run via SSH after provisioning
+	SSHUser           string   // Default: ubuntu
 	SSHPrivateKeyPath string
 	ControlPlaneAddr  string
 }
@@ -278,7 +277,6 @@ func (p *Pool) bootstrapNode(ctx context.Context, node *ManagedNode) {
 
 	bootstrapper := bootstrap.New(bootstrap.Config{
 		SetupCommands:     p.config.SetupCommands,
-		FileUploads:       p.config.FileUploads,
 		SSHUser:           p.config.SSHUser,
 		SSHPrivateKeyPath: p.config.SSHPrivateKeyPath,
 	}, p.logger)
