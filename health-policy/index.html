@@ -10,11 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://navarch.dev/contributing/">
+        <link rel="canonical" href="https://navarch.dev/health-policy/">
       
       
-        <link rel="prev" href="../extending/">
+        <link rel="prev" href="../configuration/">
       
+      
+        <link rel="next" href="../bootstrap/">
       
       
         
@@ -25,7 +27,7 @@
     
     
       
-        <title>Contributing - Navarch</title>
+        <title>Health Policy - Navarch</title>
       
     
     
@@ -78,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing-to-navarch" class="md-skip">
+        <a href="#health-policy" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing
+              Health Policy
             
           </span>
         </div>
@@ -301,10 +303,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../configuration/" class="md-tabs__link">
           
   
@@ -321,12 +325,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../architecture/" class="md-tabs__link">
           
   
@@ -990,28 +992,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -1029,7 +1034,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1072,10 +1077,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../health-policy/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Policy
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1091,6 +1123,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#enabling-a-custom-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling a custom policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#policy-file-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy file format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cel-event-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CEL event fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example policies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example policies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strict-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#permissive-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permissive policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-specific-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU-specific policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1219,31 +1376,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1261,7 +1415,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1332,37 +1486,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1378,220 +1505,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development setup
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Development setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#clone-and-build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Clone and build
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#run-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Run tests
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code structure
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#making-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Making changes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Making changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#branch-naming" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Branch naming
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#commit-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Commit messages
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing requirements
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pull-request-process" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pull request process
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pull request process">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pr-description-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PR description template
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-cloud-provider" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new cloud provider
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-autoscaler" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new autoscaler
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-help" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Getting help
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-of-conduct" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code of conduct
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1631,22 +1544,66 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
+  <a href="#enabling-a-custom-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Development setup
+        Enabling a custom policy
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Development setup">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#policy-file-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy file format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cel-event-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CEL event fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example policies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example policies">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#strict-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Strict policy
       
     </span>
   </a>
@@ -1654,10 +1611,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#clone-and-build" class="md-nav__link">
+  <a href="#permissive-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Clone and build
+        Permissive policy
       
     </span>
   </a>
@@ -1665,10 +1622,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#run-tests" class="md-nav__link">
+  <a href="#gpu-specific-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Run tests
+        GPU-specific policy
       
     </span>
   </a>
@@ -1681,143 +1638,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#code-structure" class="md-nav__link">
+  <a href="#testing-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Code structure
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#making-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Making changes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Making changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#branch-naming" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Branch naming
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#commit-messages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Commit messages
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#testing-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing requirements
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pull-request-process" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pull request process
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pull request process">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pr-description-template" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PR description template
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-cloud-provider" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new cloud provider
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-a-new-autoscaler" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a new autoscaler
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-help" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Getting help
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#code-of-conduct" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code of conduct
+        Testing policies
       
     </span>
   </a>
@@ -1844,127 +1668,194 @@
   
 
 
-<h1 id="contributing-to-navarch">Contributing to Navarch<a class="headerlink" href="#contributing-to-navarch" title="Permanent link"></a></h1>
-<p>This guide covers how to contribute to Navarch, from setting up your development environment to submitting pull requests.</p>
-<h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link"></a></h2>
-<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h3>
-<ul>
-<li>Go 1.21 or later</li>
-<li>Make</li>
-<li>Docker (for integration tests)</li>
-<li>Access to a GPU machine (optional, for hardware testing)</li>
-</ul>
-<h3 id="clone-and-build">Clone and build<a class="headerlink" href="#clone-and-build" title="Permanent link"></a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>navarch
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>make<span class="w"> </span>build
+<h1 id="health-policy">Health Policy<a class="headerlink" href="#health-policy" title="Permanent link"></a></h1>
+<p>Navarch uses <a href="https://github.com/google/cel-spec">CEL (Common Expression Language)</a> to evaluate GPU health events and determine node health status. You can customize this logic by providing a health policy file.</p>
+<p>If no policy is specified, Navarch uses a built-in default policy that classifies fatal XID errors (like XID 79 "GPU has fallen off the bus") as unhealthy and recoverable errors as degraded.</p>
+<h2 id="enabling-a-custom-policy">Enabling a custom policy<a class="headerlink" href="#enabling-a-custom-policy" title="Permanent link"></a></h2>
+<p>Reference the policy file in your configuration:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">server</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">health_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./health-policy.yaml</span>
 </span></code></pre></div>
-<p>This produces binaries in <code>bin/</code>:
-- <code>control-plane</code> - the control plane server
-- <code>node</code> - the node agent
-- <code>navarch</code> - the CLI
-- <code>simulator</code> - the fleet simulator</p>
-<h3 id="run-tests">Run tests<a class="headerlink" href="#run-tests" title="Permanent link"></a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Unit tests</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>make<span class="w"> </span><span class="nb">test</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Unit tests with race detection</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>make<span class="w"> </span>test-race
+<h2 id="policy-file-format">Policy file format<a class="headerlink" href="#policy-file-format" title="Permanent link"></a></h2>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-policy</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Custom health policy for my fleet</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Integration tests (requires Docker)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>make<span class="w"> </span>test-integration
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="c1"># More specific rules first</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fatal-xid</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XID errors indicating unrecoverable GPU failure</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="no">event.event_type == &quot;xid&quot; &amp;&amp; event.metrics.xid_code in [48, 79, 95]</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">recoverable-xid</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XID errors that may recover</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">event.event_type == &quot;xid&quot;</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">degraded</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal-critical</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">      </span><span class="no">event.event_type == &quot;thermal&quot; &amp;&amp;</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">      </span><span class="no">event.metrics.temperature &gt;= 95</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">  </span><span class="c1"># Default rule must be last</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h2 id="code-structure">Code structure<a class="headerlink" href="#code-structure" title="Permanent link"></a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>navarch/
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── cmd/                    # Entry points
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│   ├── control-plane/      # Control plane main
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│   ├── node/               # Node agent main
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│   ├── navarch/            # CLI main
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│   └── simulator/          # Simulator main
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>├── pkg/
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│   ├── controlplane/       # Control plane logic
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│   │   ├── pool/           # Pool management
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│   │   ├── health/         # Health evaluation
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│   │   ├── autoscaler/     # Autoscaling strategies
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>│   │   └── provider/       # Cloud provider interfaces
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>│   ├── node/               # Node agent logic
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>│   │   ├── gpu/            # GPU monitoring (NVML)
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>│   │   └── metrics/        # Metrics collection
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>│   ├── api/                # gRPC service definitions
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>│   └── config/             # Configuration parsing
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>├── proto/                  # Protocol buffer definitions
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>├── scenarios/              # Simulator test scenarios
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>└── docs/                   # Documentation source
+<p>Rules are evaluated in order; the first matching rule determines the result. Place more specific rules before general ones, and always include a default rule at the end.</p>
+<h2 id="rule-fields">Rule fields<a class="headerlink" href="#rule-fields" title="Permanent link"></a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Yes</td>
+<td>Unique rule identifier</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>No</td>
+<td>Human-readable description</td>
+</tr>
+<tr>
+<td><code>condition</code></td>
+<td>Yes</td>
+<td>CEL expression that returns true when rule matches</td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td>Yes</td>
+<td>Result when rule matches: <code>healthy</code>, <code>degraded</code>, or <code>unhealthy</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cel-event-fields">CEL event fields<a class="headerlink" href="#cel-event-fields" title="Permanent link"></a></h2>
+<p>The following fields are available in CEL expressions:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>event.event_type</code></td>
+<td>string</td>
+<td>Event type: <code>xid</code>, <code>thermal</code>, <code>ecc_dbe</code>, <code>ecc_sbe</code>, <code>nvlink</code>, <code>pcie</code>, <code>power</code></td>
+</tr>
+<tr>
+<td><code>event.system</code></td>
+<td>string</td>
+<td>DCGM health watch system identifier</td>
+</tr>
+<tr>
+<td><code>event.gpu_index</code></td>
+<td>int</td>
+<td>GPU index (0-based, -1 for node-level)</td>
+</tr>
+<tr>
+<td><code>event.metrics</code></td>
+<td>map</td>
+<td>Event-specific metrics</td>
+</tr>
+<tr>
+<td><code>event.message</code></td>
+<td>string</td>
+<td>Human-readable description</td>
+</tr>
+</tbody>
+</table>
+<p>Common metrics by event type:</p>
+<table>
+<thead>
+<tr>
+<th>Event Type</th>
+<th>Metric</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>xid</code></td>
+<td><code>xid_code</code></td>
+<td>int</td>
+<td>NVIDIA XID error code</td>
+</tr>
+<tr>
+<td><code>thermal</code></td>
+<td><code>temperature</code></td>
+<td>int</td>
+<td>GPU temperature in Celsius</td>
+</tr>
+<tr>
+<td><code>ecc_dbe</code></td>
+<td><code>ecc_dbe_count</code></td>
+<td>int</td>
+<td>Double-bit ECC error count</td>
+</tr>
+<tr>
+<td><code>ecc_sbe</code></td>
+<td><code>ecc_sbe_count</code></td>
+<td>int</td>
+<td>Single-bit ECC error count</td>
+</tr>
+</tbody>
+</table>
+<h2 id="example-policies">Example policies<a class="headerlink" href="#example-policies" title="Permanent link"></a></h2>
+<h3 id="strict-policy">Strict policy<a class="headerlink" href="#strict-policy" title="Permanent link"></a></h3>
+<p>Treat all XID errors as fatal:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">any-xid-fatal</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">event.event_type == &quot;xid&quot;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h2 id="making-changes">Making changes<a class="headerlink" href="#making-changes" title="Permanent link"></a></h2>
-<h3 id="branch-naming">Branch naming<a class="headerlink" href="#branch-naming" title="Permanent link"></a></h3>
-<p>Use descriptive branch names:
-- <code>feature/add-azure-provider</code>
-- <code>fix/health-check-timeout</code>
-- <code>docs/improve-deployment-guide</code></p>
-<h3 id="commit-messages">Commit messages<a class="headerlink" href="#commit-messages" title="Permanent link"></a></h3>
-<p>Write clear commit messages that explain what and why:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Add cooldown period to autoscaler
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>The autoscaler was scaling up and down too frequently when utilization
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>hovered near the threshold. This adds a configurable cooldown period
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>that prevents scaling actions within a specified duration of each other.
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Fixes #123
+<h3 id="permissive-policy">Permissive policy<a class="headerlink" href="#permissive-policy" title="Permanent link"></a></h3>
+<p>Only fail on the most severe errors:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bus-error-only</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="no">event.event_type == &quot;xid&quot; &amp;&amp; event.metrics.xid_code == 79</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h3 id="testing-requirements">Testing requirements<a class="headerlink" href="#testing-requirements" title="Permanent link"></a></h3>
-<p>All changes must include tests:
-- Unit tests for new functions
-- Integration tests for new features
-- Simulator scenarios for behavior changes</p>
-<p>Run the full test suite before submitting:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>test-all
+<h3 id="gpu-specific-policy">GPU-specific policy<a class="headerlink" href="#gpu-specific-policy" title="Permanent link"></a></h3>
+<p>Different thresholds for different GPUs:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">rules</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu0-strict</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GPU 0 is critical, any error is fatal</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">event.gpu_index == 0 &amp;&amp; event.event_type == &quot;xid&quot;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">other-gpu-permissive</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">event.event_type == &quot;xid&quot;</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">degraded</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h2 id="pull-request-process">Pull request process<a class="headerlink" href="#pull-request-process" title="Permanent link"></a></h2>
-<ol>
-<li><strong>Fork and branch</strong>: Create a feature branch from <code>main</code></li>
-<li><strong>Make changes</strong>: Write code and tests</li>
-<li><strong>Test locally</strong>: Run <code>make test-all</code></li>
-<li><strong>Push and open PR</strong>: Include a clear description of the change</li>
-<li><strong>Address feedback</strong>: Respond to code review comments</li>
-<li><strong>Merge</strong>: A maintainer will merge once approved</li>
-</ol>
-<h3 id="pr-description-template">PR description template<a class="headerlink" href="#pr-description-template" title="Permanent link"></a></h3>
-<div class="language-markdown highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gu">## What</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Brief description of the change.
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="gu">## Why</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Why is this change needed? Link to issue if applicable.
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="gu">## How</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>How does this change work? Any design decisions worth noting?
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="gu">## Testing</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>How was this tested? Include simulator scenarios if applicable.
+<h2 id="testing-policies">Testing policies<a class="headerlink" href="#testing-policies" title="Permanent link"></a></h2>
+<p>Use the <a href="../simulator/">simulator</a> to test health policies before deploying to production. The simulator HTML report includes a "Policy Rules" section showing which rules matched for each failure.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/xid-classification.yaml<span class="w"> </span>-v
 </span></code></pre></div>
-<h2 id="adding-a-new-cloud-provider">Adding a new cloud provider<a class="headerlink" href="#adding-a-new-cloud-provider" title="Permanent link"></a></h2>
-<p>See <a href="../extending/#custom-providers">Extending Navarch</a> for the provider interface and implementation guide.</p>
-<h2 id="adding-a-new-autoscaler">Adding a new autoscaler<a class="headerlink" href="#adding-a-new-autoscaler" title="Permanent link"></a></h2>
-<p>See <a href="../extending/#custom-autoscalers">Extending Navarch</a> for the autoscaler interface and implementation guide.</p>
-<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link"></a></h2>
-<p>Documentation lives in the <code>website/</code> directory and uses MkDocs Material.</p>
-<p>To preview documentation changes:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>website
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pip<span class="w"> </span>install<span class="w"> </span>mkdocs-material
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>mkdocs<span class="w"> </span>serve
-</span></code></pre></div>
-<h2 id="getting-help">Getting help<a class="headerlink" href="#getting-help" title="Permanent link"></a></h2>
-<ul>
-<li>Open an issue for bugs or feature requests</li>
-<li>Start a discussion for questions or ideas</li>
-<li>Join the community chat (coming soon)</li>
-</ul>
-<h2 id="code-of-conduct">Code of conduct<a class="headerlink" href="#code-of-conduct" title="Permanent link"></a></h2>
-<p>Be respectful and constructive. We're all here to build something useful.</p>
+<p>See <a href="../concepts/health/">Health Monitoring</a> for background on health events and XID errors.</p>
 
 
 
@@ -2002,7 +1893,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../extending/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Extending">
+          <a href="../configuration/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2012,11 +1903,27 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Extending
+                Configuration
               </div>
             </div>
           </a>
         
+        
+          
+          <a href="../bootstrap/" class="md-footer__link md-footer__link--next" aria-label="Next: Node Bootstrap">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Node Bootstrap
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
         
       </nav>
     
