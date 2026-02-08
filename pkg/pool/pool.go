@@ -198,6 +198,13 @@ func (p *Pool) Config() Config {
 	return p.config
 }
 
+// SetBootstrapCallback sets a callback to be invoked when bootstrap completes.
+func (p *Pool) SetBootstrapCallback(cb BootstrapCallback) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.onBootstrapResult = cb
+}
+
 // Status returns the current pool status.
 func (p *Pool) Status() Status {
 	p.mu.RLock()
