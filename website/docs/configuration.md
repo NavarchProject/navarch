@@ -42,7 +42,7 @@ server:
   health_policy: ./health-policy.yaml  # Custom health policy file
 ```
 
-All fields are optional and have sensible defaults.
+All fields are optional and have [sensible defaults](https://github.com/NavarchProject/navarch/blob/main/pkg/config/config.go#L216).
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -61,7 +61,7 @@ export NAVARCH_AUTH_TOKEN="your-secret-token"
 control-plane --config config.yaml
 ```
 
-For details on client configuration and custom authentication methods, see [authentication](authentication.md).
+For details on client configuration and custom authentication methods, see [Authentication](authentication.md).
 
 ### Providers
 
@@ -378,7 +378,7 @@ rules:
 
 ### Testing policies
 
-Use the [simulator](simulator.md) to test health policies before deploying to production. The simulator HTML report includes a "Policy Rules" section showing which rules matched for each failure.
+Use the [simulator](simulator/index.md) to test health policies before deploying to production. The simulator HTML report includes a "Policy Rules" section showing which rules matched for each failure.
 
 ```bash
 ./bin/simulator run scenarios/xid-classification.yaml -v

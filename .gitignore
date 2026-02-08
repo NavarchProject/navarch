@@ -52,3 +52,6 @@ sim-runs/
 # Local test configs (may contain personal paths/keys)
 test-bootstrap-e2e.yaml
 test-*.yaml
+
+# Documentation build output
+website/site/

@@ -138,7 +138,7 @@ Then use the CLI in another terminal:
 ./navarch -s http://localhost:8080 list
 ```
 
-For more information, see [simulator documentation](simulator.md).
+For more information, see [simulator documentation](simulator/index.md).
 
 ## Troubleshooting
 

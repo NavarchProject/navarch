@@ -180,6 +180,14 @@ func (m *HeartbeatMonitor) markNodeUnhealthy(ctx context.Context, nodeID string,
 		return
 	}
 
+	// Also mark health as unhealthy since we can't verify it
+	if err := m.db.UpdateNodeHealthStatus(ctx, nodeID, pb.HealthStatus_HEALTH_STATUS_UNHEALTHY); err != nil {
+		m.logger.Error("failed to update node health status",
+			slog.String("node_id", nodeID),
+			slog.String("error", err.Error()),
+		)
+	}
+
 	// Notify observer if set
 	if m.observer != nil {
 		go m.observer.OnNodeUnhealthy(ctx, nodeID)
