@@ -100,6 +100,128 @@ func TestDBMetricsSource_NoNodesInPool(t *testing.T) {
 	}
 }
 
+func TestDBMetricsSource_GetPoolNodeCounts(t *testing.T) {
+	ctx := context.Background()
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	metricsSource := NewDBMetricsSource(database, nil)
+
+	node1 := &db.NodeRecord{
+		NodeID:   "node-1",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_ACTIVE,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "test-pool"},
+		},
+	}
+	node2 := &db.NodeRecord{
+		NodeID:   "node-2",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_ACTIVE,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "test-pool"},
+		},
+	}
+	node3 := &db.NodeRecord{
+		NodeID:   "node-3",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_UNHEALTHY,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "test-pool"},
+		},
+	}
+	node4 := &db.NodeRecord{ // different pool
+		NodeID:   "node-4",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_ACTIVE,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "other-pool"},
+		},
+	}
+	node5 := &db.NodeRecord{ // terminated, should not be counted
+		NodeID:   "node-5",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_TERMINATED,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "test-pool"},
+		},
+	}
+
+	for _, node := range []*db.NodeRecord{node1, node2, node3, node4, node5} {
+		if err := database.RegisterNode(ctx, node); err != nil {
+			t.Fatalf("failed to register %s: %v", node.NodeID, err)
+		}
+	}
+
+	counts, err := metricsSource.GetPoolNodeCounts(ctx, "test-pool")
+	if err != nil {
+		t.Fatalf("GetPoolNodeCounts failed: %v", err)
+	}
+
+	if counts.Total != 3 {
+		t.Errorf("Expected total=3, got %d", counts.Total)
+	}
+	if counts.Healthy != 2 {
+		t.Errorf("Expected healthy=2, got %d", counts.Healthy)
+	}
+	if counts.Unhealthy != 1 {
+		t.Errorf("Expected unhealthy=1, got %d", counts.Unhealthy)
+	}
+
+	counts, err = metricsSource.GetPoolNodeCounts(ctx, "other-pool")
+	if err != nil {
+		t.Fatalf("GetPoolNodeCounts failed: %v", err)
+	}
+	if counts.Total != 1 {
+		t.Errorf("Expected total=1 for other-pool, got %d", counts.Total)
+	}
+
+	counts, err = metricsSource.GetPoolNodeCounts(ctx, "nonexistent")
+	if err != nil {
+		t.Fatalf("GetPoolNodeCounts failed: %v", err)
+	}
+	if counts.Total != 0 {
+		t.Errorf("Expected total=0 for nonexistent pool, got %d", counts.Total)
+	}
+}
+
+func TestDBMetricsSource_GetNodePool(t *testing.T) {
+	ctx := context.Background()
+	database := db.NewInMemDB()
+	defer database.Close()
+
+	metricsSource := NewDBMetricsSource(database, nil)
+
+	node := &db.NodeRecord{
+		NodeID:   "test-node",
+		Provider: "fake",
+		Status:   pb.NodeStatus_NODE_STATUS_ACTIVE,
+		Metadata: &pb.NodeMetadata{
+			Labels: map[string]string{"pool": "my-pool"},
+		},
+	}
+	if err := database.RegisterNode(ctx, node); err != nil {
+		t.Fatalf("failed to register node: %v", err)
+	}
+
+	poolName, err := metricsSource.GetNodePool(ctx, "test-node")
+	if err != nil {
+		t.Fatalf("GetNodePool failed: %v", err)
+	}
+	if poolName != "my-pool" {
+		t.Errorf("Expected pool 'my-pool', got '%s'", poolName)
+	}
+
+	poolName, err = metricsSource.GetNodePool(ctx, "nonexistent")
+	if err != nil {
+		t.Fatalf("GetNodePool failed for nonexistent node: %v", err)
+	}
+	if poolName != "" {
+		t.Errorf("Expected empty pool for nonexistent node, got '%s'", poolName)
+	}
+}
+
 func TestDBMetricsSource_MetricsRetention(t *testing.T) {
 	ctx := context.Background()
 	database := db.NewInMemDB()

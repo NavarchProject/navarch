@@ -1,0 +1,42 @@
+# E2E test config - Lambda 3-node fleet with auto-bootstrap
+# COST: ~$4.47/hr ($1.49/hr × 3 nodes)
+
+server:
+  address: ":50051"
+  heartbeat_interval: 10s
+  heartbeat_timeout: 15s  # Mark unhealthy after 15s without heartbeat
+  health_check_interval: 30s
+
+providers:
+  lambda:
+    type: lambda
+    api_key_env: LAMBDA_API_KEY
+
+defaults:
+  ssh_user: ubuntu
+  ssh_private_key_path: ~/.ssh/navarch-test  # Private key matching ssh_keys below
+
+pools:
+  test:
+    provider: lambda
+    instance_type: gpu_1x_gh200
+    region: us-east-3
+    ssh_keys:
+      - navarch-test
+    min_nodes: 3
+    max_nodes: 3
+    cooldown: 30s
+    health:
+      unhealthy_after: 1
+      auto_replace: true
+    autoscaling:
+      type: reactive
+      scale_up_at: 80
+      scale_down_at: 20
+
+    # Bootstrap commands - run via SSH after instance is ready
+    # These commands start the node daemon which registers with the control plane
+    setup_commands:
+      - curl -sL https://github.com/NavarchProject/navarch/releases/latest/download/navarch-node-linux-amd64 -o /usr/local/bin/navarch-node
+      - chmod +x /usr/local/bin/navarch-node
+      - nohup /usr/local/bin/navarch-node -server {{.ControlPlane}} -pool {{.Pool}} -node-id {{.NodeID}} -provider {{.Provider}} -region {{.Region}} > /var/log/navarch-node.log 2>&1 &

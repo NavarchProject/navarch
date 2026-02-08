@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NavarchProject/navarch/pkg/bootstrap"
 	"github.com/NavarchProject/navarch/pkg/clock"
+	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -24,6 +26,7 @@ type PoolManager struct {
 	interval        time.Duration
 	metrics         MetricsSource
 	instanceManager *InstanceManager
+	db              db.DB
 }
 
 type managedPool struct {
@@ -50,6 +53,7 @@ type PoolMetrics struct {
 type PoolManagerConfig struct {
 	EvaluationInterval time.Duration // How often to run autoscaler (default: 30s)
 	Clock              clock.Clock   // Clock for time operations. If nil, uses real time.
+	DB                 db.DB         // Database for storing bootstrap logs. Optional.
 }
 
 // NewPoolManager creates a new pool manager.
@@ -73,6 +77,7 @@ func NewPoolManager(cfg PoolManagerConfig, metrics MetricsSource, instanceManage
 		interval:        interval,
 		metrics:         metrics,
 		instanceManager: instanceManager,
+		db:              cfg.DB,
 	}
 }
 
@@ -84,6 +89,11 @@ func (pm *PoolManager) AddPool(p *pool.Pool, autoscaler pool.Autoscaler) error {
 	name := p.Config().Name
 	if _, exists := pm.pools[name]; exists {
 		return fmt.Errorf("pool %q already exists", name)
+	}
+
+	// Wire up bootstrap log recording if DB is available
+	if pm.db != nil {
+		p.SetBootstrapCallback(pm.makeBootstrapCallback(name))
 	}
 
 	pm.pools[name] = &managedPool{
@@ -474,6 +484,56 @@ func (pm *PoolManager) HandleUnhealthyNode(ctx context.Context, nodeID, poolName
 		return fmt.Errorf("pool %q not found", poolName)
 	}
 	return pm.handleUnhealthyNode(ctx, nodeID, poolName, mp)
+}
+
+// makeBootstrapCallback creates a callback that records bootstrap results to the database.
+func (pm *PoolManager) makeBootstrapCallback(poolName string) pool.BootstrapCallback {
+	return func(result *bootstrap.Result) {
+		if result == nil || pm.db == nil {
+			return
+		}
+
+		record := &db.BootstrapLogRecord{
+			ID:          fmt.Sprintf("%s-%d", result.NodeID, result.StartTime.UnixNano()),
+			NodeID:      result.NodeID,
+			Pool:        poolName,
+			StartedAt:   result.StartTime,
+			Duration:    result.Duration,
+			SSHWaitTime: result.SSHWaitTime,
+			Success:     result.Success,
+			Error:       result.Error,
+		}
+
+		// Convert command results
+		for _, cmd := range result.Commands {
+			record.Commands = append(record.Commands, db.BootstrapCommandLog{
+				Command:  cmd.Command,
+				Stdout:   truncate(cmd.Stdout, 64*1024), // 64KB max
+				Stderr:   truncate(cmd.Stderr, 64*1024),
+				ExitCode: cmd.ExitCode,
+				Duration: cmd.Duration,
+			})
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := pm.db.RecordBootstrapLog(ctx, record); err != nil {
+			pm.logger.Warn("failed to record bootstrap log",
+				slog.String("node_id", result.NodeID),
+				slog.String("pool", poolName),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+}
+
+// truncate returns s truncated to maxLen bytes.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }
 
 // ProviderFactory creates providers by name.

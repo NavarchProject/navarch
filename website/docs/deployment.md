@@ -42,6 +42,15 @@ The control plane is the single source of truth. It provisions instances through
 
 ## Node agent deployment
 
+There are several ways to deploy the node agent. Choose the approach that best fits your infrastructure:
+
+| Method | Best for | Pros | Cons |
+|--------|----------|------|------|
+| [Custom images](#option-1-custom-machine-images-recommended) | Production | Fast startup, consistent | Requires image pipeline |
+| [Cloud-init](#option-2-cloud-init-user-data) | Getting started | Simple, no image build | Slower startup |
+| [SSH bootstrap](#option-4-ssh-bootstrap) | Managed fleets | Control plane manages setup | Requires SSH access |
+| [Container](#option-3-container-deployment) | Kubernetes | Cloud-native | Additional abstraction |
+
 ### Option 1: Custom machine images (recommended)
 
 Create custom images with the Navarch agent pre-installed.
@@ -186,6 +195,52 @@ spec:
       nodeSelector:
         nvidia.com/gpu: "true"
 ```
+
+### Option 4: SSH bootstrap
+
+Let the control plane automatically install and configure the agent via SSH when nodes are provisioned. This is useful when you want centralized control over node setup without building custom images.
+
+Configuration:
+
+```yaml
+pools:
+  training:
+    provider: lambda
+    instance_type: gpu_8x_h100_sxm5
+    min_nodes: 2
+    max_nodes: 20
+    ssh_user: ubuntu
+    ssh_private_key_path: ~/.ssh/navarch-key
+    setup_commands:
+      - |
+        curl -L https://github.com/NavarchProject/navarch/releases/latest/download/navarch-node-linux-amd64 \
+          -o /usr/local/bin/navarch-node && chmod +x /usr/local/bin/navarch-node
+      - |
+        cat > /etc/systemd/system/navarch-node.service << EOF
+        [Unit]
+        Description=Navarch Node Agent
+        After=network.target
+
+        [Service]
+        ExecStart=/usr/local/bin/navarch-node --server {{.ControlPlane}} --node-id {{.NodeID}}
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target
+        EOF
+      - systemctl daemon-reload && systemctl enable navarch-node && systemctl start navarch-node
+```
+
+The control plane:
+
+1. Provisions the instance through the provider API
+2. Waits for SSH to become available (up to 10 minutes)
+3. Connects and runs each setup command in order
+4. Logs detailed timing and output for each phase
+
+Template variables like `{{.ControlPlane}}`, `{{.NodeID}}`, `{{.Pool}}`, `{{.Provider}}`, `{{.Region}}`, and `{{.InstanceType}}` are available in setup commands.
+
+For full details, see [Node Bootstrap](bootstrap.md).
 
 ## Systemd service configuration
 
