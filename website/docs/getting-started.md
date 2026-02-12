@@ -9,20 +9,20 @@ This guide walks you through setting up Navarch for local development and testin
 
 ## Installation
 
-To clone and build Navarch:
+Clone and build Navarch:
 
 ```bash
 git clone https://github.com/NavarchProject/navarch.git
 cd navarch
-go build ./...
+make
 ```
 
-This creates the following binaries:
+This builds the following binaries in `bin/`:
 
-- `control-plane` - The central management server.
-- `navarch` - The command-line interface.
-- `node` - The node agent (runs on GPU instances).
-- `simulator` - A testing tool for simulating GPU fleets.
+- `bin/control-plane` - The central management server.
+- `bin/navarch` - The command-line interface.
+- `bin/node` - The node agent (runs on GPU instances).
+- `bin/simulator` - A testing tool for simulating GPU fleets.
 
 ## Quick start with fake provider
 
@@ -62,7 +62,7 @@ pools:
 ### Step 2: Start the control plane
 
 ```bash
-./control-plane --config config.yaml
+./bin/control-plane --config config.yaml
 ```
 
 The control plane starts and provisions two fake nodes (the `min_nodes` value).
@@ -72,7 +72,7 @@ The control plane starts and provisions two fake nodes (the `min_nodes` value).
 In a new terminal:
 
 ```bash
-./navarch list
+./bin/navarch list
 ```
 
 Output:
@@ -91,19 +91,19 @@ Output:
 To cordon a node (prevent new workloads):
 
 ```bash
-./navarch cordon fake-1
+./bin/navarch cordon fake-1
 ```
 
 To drain a node (evict workloads and cordon):
 
 ```bash
-./navarch drain fake-1
+./bin/navarch drain fake-1
 ```
 
 To view node details:
 
 ```bash
-./navarch get fake-1
+./bin/navarch get fake-1
 ```
 
 ## Next steps
@@ -121,7 +121,7 @@ The simulator tests Navarch behavior without running the full system. It uses sc
 ### Run a scenario
 
 ```bash
-./simulator --scenario examples/scenarios/basic-fleet.yaml
+./bin/simulator run scenarios/basic-fleet.yaml
 ```
 
 ### Interactive mode
@@ -129,13 +129,13 @@ The simulator tests Navarch behavior without running the full system. It uses sc
 Run the simulator in interactive mode to test CLI commands:
 
 ```bash
-./simulator --scenario examples/scenarios/basic-fleet.yaml --interactive
+./bin/simulator interactive scenarios/basic-fleet.yaml
 ```
 
 Then use the CLI in another terminal:
 
 ```bash
-./navarch -s http://localhost:8080 list
+./bin/navarch -s http://localhost:8080 list
 ```
 
 For more information, see [simulator documentation](simulator/index.md).

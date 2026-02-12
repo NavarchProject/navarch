@@ -116,6 +116,12 @@ func NewRunner(scenario *Scenario, opts ...RunnerOption) *Runner {
 	return r
 }
 
+// ControlPlaneAddr returns the control plane address.
+// This is only valid after Run() has started the control plane.
+func (r *Runner) ControlPlaneAddr() string {
+	return r.controlPlaneAddr
+}
+
 // Run executes the scenario.
 func (r *Runner) Run(ctx context.Context) error {
 	if r.scenario.IsStressTest() {
@@ -478,9 +484,15 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	path, handler := protoconnect.NewControlPlaneServiceHandler(r.cpServer)
 	mux.Handle(path, handler)
 
-	listener, err := net.Listen("tcp", ":0")
+	// Use port 8080 by default for interactive mode, otherwise random port
+	listenAddr := ":8080"
+	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		return fmt.Errorf("failed to create listener: %w", err)
+		// Fall back to random port if 8080 is in use
+		listener, err = net.Listen("tcp", ":0")
+		if err != nil {
+			return fmt.Errorf("failed to create listener: %w", err)
+		}
 	}
 
 	addr := listener.Addr().(*net.TCPAddr)

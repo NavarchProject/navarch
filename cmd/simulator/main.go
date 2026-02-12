@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -224,17 +225,23 @@ func runInteractive(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	// Wait for server to start
+	time.Sleep(500 * time.Millisecond)
+
+	// Get actual address (may differ from 8080 if port was in use)
+	addr := runner.ControlPlaneAddr()
+
 	fmt.Println()
 	fmt.Println("Navarch Fleet Simulator - Interactive Mode")
 	fmt.Println("==========================================")
 	fmt.Println()
-	fmt.Println("Control plane running at http://localhost:8080")
+	fmt.Printf("Control plane running at %s\n", addr)
 	fmt.Println("Fleet nodes: node-1, node-2")
 	fmt.Println()
 	fmt.Println("Use the navarch CLI to interact with the fleet:")
-	fmt.Println("  navarch list -s http://localhost:8080")
-	fmt.Println("  navarch get node-1 -s http://localhost:8080")
-	fmt.Println("  navarch cordon node-1 -s http://localhost:8080")
+	fmt.Printf("  navarch list -s %s\n", addr)
+	fmt.Printf("  navarch get node-1 -s %s\n", addr)
+	fmt.Printf("  navarch cordon node-1 -s %s\n", addr)
 	fmt.Println()
 	fmt.Println("Press Ctrl+C to stop the simulation")
 	fmt.Println()

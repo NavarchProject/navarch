@@ -9,9 +9,7 @@ theme:
   name: material
   logo: images/logo.svg
   favicon: images/logo.svg
-  font:
-    text: Google Sans
-    code: Roboto Mono
+  font: false  # Using custom Geist font via CSS
   palette:
     - scheme: default
       primary: white

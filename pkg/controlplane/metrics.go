@@ -135,13 +135,13 @@ type PoolNodeCounts struct {
 }
 
 // GetPoolNodeCounts returns the count of nodes in each state for a pool.
-func (m *DBMetricsSource) GetPoolNodeCounts(ctx context.Context, poolName string) (*PoolNodeCounts, error) {
+func (m *DBMetricsSource) GetPoolNodeCounts(ctx context.Context, poolName string) (PoolNodeCounts, error) {
 	nodes, err := m.db.ListNodes(ctx)
 	if err != nil {
-		return nil, err
+		return PoolNodeCounts{}, err
 	}
 
-	counts := &PoolNodeCounts{}
+	counts := PoolNodeCounts{}
 	for _, node := range nodes {
 		if node.Metadata == nil || node.Metadata.Labels == nil {
 			continue
