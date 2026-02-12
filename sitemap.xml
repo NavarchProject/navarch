@@ -1,103 +1,103 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://navarch.dev/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/architecture/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/architecture/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/authentication/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/authentication/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/bootstrap/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/bootstrap/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/cli/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/cli/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/configuration/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/configuration/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/contributing/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/contributing/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/deployment/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/deployment/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/extending/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/extending/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/getting-started/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/getting-started/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/health-policy/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/health-policy/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/metrics/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/metrics/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/pool-management/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/pool-management/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/testing-on-gpu/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/testing-on-gpu/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/testing/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/testing/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/troubleshooting/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/troubleshooting/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/autoscaling/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/autoscaling/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/components/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/components/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/health/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/health/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/lifecycle/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/lifecycle/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/concepts/pools/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/concepts/pools/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/simulator/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/simulator/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/simulator/scenarios/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/simulator/scenarios/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
-         <loc>https://navarch.dev/simulator/stress-testing/</loc>
-         <lastmod>2026-02-08</lastmod>
+         <loc>https://navarchproject.github.io/navarch/simulator/stress-testing/</loc>
+         <lastmod>2026-02-12</lastmod>
     </url>
 </urlset>
