@@ -13,6 +13,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/health"
+	"github.com/NavarchProject/navarch/pkg/coordinator"
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
@@ -32,6 +33,7 @@ type Server struct {
 	instanceManager *InstanceManager
 	healthObserver  NodeHealthObserver
 	healthEvaluator *health.Evaluator
+	coordinator     coordinator.Coordinator
 }
 
 // Config holds configuration for the control plane server.
@@ -92,6 +94,13 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 // SetHealthObserver sets the observer to be notified on health status changes.
 func (s *Server) SetHealthObserver(observer NodeHealthObserver) {
 	s.healthObserver = observer
+}
+
+// SetCoordinator sets the coordinator for cordon/drain operations.
+// If not set, cordon/drain only update internal status without notifying
+// an external workload system.
+func (s *Server) SetCoordinator(coord coordinator.Coordinator) {
+	s.coordinator = coord
 }
 
 func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.RegisterNodeRequest]) (*connect.Response[pb.RegisterNodeResponse], error) {
@@ -445,8 +454,19 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 	}
 
 	// Handle node status updates for cordon/uncordon commands
+	reason := req.Msg.Parameters["reason"]
 	switch req.Msg.CommandType {
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
+		// Notify external scheduler first
+		if s.coordinator != nil {
+			if err := s.coordinator.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler cordon failed",
+					slog.String("node_id", req.Msg.NodeId),
+					slog.String("error", err.Error()),
+				)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node in scheduler: %w", err))
+			}
+		}
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_CORDONED); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to cordoned",
 				slog.String("node_id", req.Msg.NodeId),
@@ -458,6 +478,16 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", req.Msg.NodeId, node.Status.String()))
 		}
+		// Notify external scheduler first
+		if s.coordinator != nil {
+			if err := s.coordinator.Uncordon(ctx, req.Msg.NodeId); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler uncordon failed",
+					slog.String("node_id", req.Msg.NodeId),
+					slog.String("error", err.Error()),
+				)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node in scheduler: %w", err))
+			}
+		}
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_ACTIVE); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to active",
 				slog.String("node_id", req.Msg.NodeId),
@@ -466,6 +496,16 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
 		}
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
+		// Notify external scheduler first
+		if s.coordinator != nil {
+			if err := s.coordinator.Drain(ctx, req.Msg.NodeId, reason); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler drain failed",
+					slog.String("node_id", req.Msg.NodeId),
+					slog.String("error", err.Error()),
+				)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node in scheduler: %w", err))
+			}
+		}
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to draining",
 				slog.String("node_id", req.Msg.NodeId),
