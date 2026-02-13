@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -167,26 +168,157 @@ func (g *FleetGenerator) selectZone(region string) string {
 }
 
 func (g *FleetGenerator) getInstanceType(template NodeTemplate, provider string) string {
-	if template.InstanceType != "" {
-		return template.InstanceType
-	}
+	// Map GPU type to provider-specific instance types
+	gpuType := template.GPUType
 
 	switch provider {
 	case "gcp":
-		if template.GPUCount == 8 {
-			return "a3-highgpu-8g"
-		}
-		return fmt.Sprintf("a3-highgpu-%dg", template.GPUCount)
+		return g.getGCPInstanceType(gpuType, template.GPUCount)
 	case "aws":
-		if template.GPUCount == 8 {
-			return "p5.48xlarge"
-		}
-		return "p4d.24xlarge"
+		return g.getAWSInstanceType(gpuType, template.GPUCount)
 	case "lambda":
-		return fmt.Sprintf("gpu_%dx_%s", template.GPUCount, "h100")
+		return g.getLambdaInstanceType(gpuType, template.GPUCount)
 	default:
 		return "generic-gpu"
 	}
+}
+
+func (g *FleetGenerator) getGCPInstanceType(gpuType string, gpuCount int) string {
+	switch {
+	case containsIgnoreCase(gpuType, "H100"):
+		// A3 instances for H100
+		switch gpuCount {
+		case 8:
+			return "a3-highgpu-8g"
+		default:
+			return fmt.Sprintf("a3-highgpu-%dg", gpuCount)
+		}
+	case containsIgnoreCase(gpuType, "A100"):
+		// A2 instances for A100
+		if containsIgnoreCase(gpuType, "80GB") {
+			switch gpuCount {
+			case 8:
+				return "a2-ultragpu-8g"
+			case 4:
+				return "a2-ultragpu-4g"
+			case 2:
+				return "a2-ultragpu-2g"
+			case 1:
+				return "a2-ultragpu-1g"
+			default:
+				return "a2-ultragpu-8g"
+			}
+		}
+		switch gpuCount {
+		case 16:
+			return "a2-megagpu-16g"
+		case 8:
+			return "a2-highgpu-8g"
+		case 4:
+			return "a2-highgpu-4g"
+		case 2:
+			return "a2-highgpu-2g"
+		case 1:
+			return "a2-highgpu-1g"
+		default:
+			return "a2-highgpu-8g"
+		}
+	case containsIgnoreCase(gpuType, "L4"):
+		// G2 instances for L4
+		switch gpuCount {
+		case 8:
+			return "g2-standard-96"
+		case 4:
+			return "g2-standard-48"
+		case 2:
+			return "g2-standard-24"
+		case 1:
+			return "g2-standard-12"
+		default:
+			return "g2-standard-48"
+		}
+	case containsIgnoreCase(gpuType, "T4"):
+		// N1 instances with T4
+		return fmt.Sprintf("n1-standard-8") // T4 uses n1 instances
+	default:
+		return "a3-highgpu-8g"
+	}
+}
+
+func (g *FleetGenerator) getAWSInstanceType(gpuType string, gpuCount int) string {
+	switch {
+	case containsIgnoreCase(gpuType, "H100"):
+		// P5 instances for H100
+		return "p5.48xlarge" // 8x H100
+	case containsIgnoreCase(gpuType, "A100"):
+		// P4d/P4de instances for A100
+		if containsIgnoreCase(gpuType, "80GB") {
+			return "p4de.24xlarge" // 8x A100 80GB
+		}
+		return "p4d.24xlarge" // 8x A100 40GB
+	case containsIgnoreCase(gpuType, "A10G"):
+		// G5 instances for A10G
+		switch gpuCount {
+		case 8:
+			return "g5.48xlarge"
+		case 4:
+			return "g5.24xlarge"
+		case 2:
+			return "g5.12xlarge"
+		case 1:
+			return "g5.xlarge"
+		default:
+			return "g5.48xlarge"
+		}
+	case containsIgnoreCase(gpuType, "L4"):
+		// G6 instances for L4
+		switch gpuCount {
+		case 8:
+			return "g6.48xlarge"
+		case 4:
+			return "g6.24xlarge"
+		case 2:
+			return "g6.12xlarge"
+		case 1:
+			return "g6.xlarge"
+		default:
+			return "g6.48xlarge"
+		}
+	case containsIgnoreCase(gpuType, "T4"):
+		// G4dn instances for T4
+		switch gpuCount {
+		case 8:
+			return "g4dn.metal"
+		case 4:
+			return "g4dn.12xlarge"
+		case 1:
+			return "g4dn.xlarge"
+		default:
+			return "g4dn.12xlarge"
+		}
+	default:
+		return "p5.48xlarge"
+	}
+}
+
+func (g *FleetGenerator) getLambdaInstanceType(gpuType string, gpuCount int) string {
+	// Lambda Labs uses a simpler naming scheme
+	gpuName := "h100"
+	switch {
+	case containsIgnoreCase(gpuType, "H100"):
+		gpuName = "h100"
+	case containsIgnoreCase(gpuType, "A100"):
+		gpuName = "a100"
+	case containsIgnoreCase(gpuType, "A10"):
+		gpuName = "a10"
+	case containsIgnoreCase(gpuType, "RTX"):
+		gpuName = "rtx6000"
+	}
+	return fmt.Sprintf("gpu_%dx_%s", gpuCount, gpuName)
+}
+
+func containsIgnoreCase(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // NodeStarter handles starting nodes with various patterns.

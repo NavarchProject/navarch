@@ -22,9 +22,10 @@ func main() {
 }
 
 var (
-	verbose bool
-	debug   bool
-	seed    int64
+	verbose   bool
+	debug     bool
+	seed      int64
+	keepAlive bool
 )
 
 var rootCmd = &cobra.Command{
@@ -84,6 +85,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug output")
 
 	runCmd.Flags().Int64Var(&seed, "seed", 0, "Random seed for reproducible stress tests (0 = random)")
+	runCmd.Flags().BoolVar(&keepAlive, "keep-alive", false, "Keep server running after scenario completes")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(interactiveCmd)
@@ -152,6 +154,10 @@ func runScenario(cmd *cobra.Command, args []string) error {
 	// Create runner with options
 	opts := []simulator.RunnerOption{
 		simulator.WithLogger(logger),
+	}
+
+	if keepAlive {
+		opts = append(opts, simulator.WithWaitForCancel())
 	}
 
 	// Use seed from flag or scenario
