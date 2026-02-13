@@ -1,19 +1,19 @@
-// Package coordinator provides integration with workload management systems.
+// Package notifier provides integration with workload management systems.
 //
 // Navarch manages GPU infrastructure but doesn't schedule workloads.
 // When Navarch needs to take a node out of service (for maintenance,
-// health issues, or scaling down), it coordinates with external systems
+// health issues, or scaling down), it notifies external systems
 // so workloads can be migrated gracefully.
-package coordinator
+package notifier
 
 import (
 	"context"
 )
 
-// Coordinator defines the interface for workload coordination.
+// Notifier defines the interface for workload system notifications.
 // Implementations notify external systems (Kubernetes, Slurm, custom schedulers)
 // about node lifecycle events and query drain status.
-type Coordinator interface {
+type Notifier interface {
 	// Cordon marks a node as unschedulable. The workload system should stop
 	// placing new workloads on this node. Existing workloads continue.
 	Cordon(ctx context.Context, nodeID string, reason string) error
@@ -29,7 +29,7 @@ type Coordinator interface {
 	// the node and it's safe to terminate.
 	IsDrained(ctx context.Context, nodeID string) (bool, error)
 
-	// Name returns the coordinator name for logging.
+	// Name returns the notifier name for logging.
 	Name() string
 }
 

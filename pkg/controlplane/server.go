@@ -13,7 +13,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/health"
-	"github.com/NavarchProject/navarch/pkg/coordinator"
+	"github.com/NavarchProject/navarch/pkg/notifier"
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
@@ -33,7 +33,7 @@ type Server struct {
 	instanceManager *InstanceManager
 	healthObserver  NodeHealthObserver
 	healthEvaluator *health.Evaluator
-	coordinator     coordinator.Coordinator
+	notifier        notifier.Notifier
 }
 
 // Config holds configuration for the control plane server.
@@ -96,11 +96,11 @@ func (s *Server) SetHealthObserver(observer NodeHealthObserver) {
 	s.healthObserver = observer
 }
 
-// SetCoordinator sets the coordinator for cordon/drain operations.
+// SetNotifier sets the notifier for cordon/drain operations.
 // If not set, cordon/drain only update internal status without notifying
 // an external workload system.
-func (s *Server) SetCoordinator(coord coordinator.Coordinator) {
-	s.coordinator = coord
+func (s *Server) SetNotifier(n notifier.Notifier) {
+	s.notifier = n
 }
 
 func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.RegisterNodeRequest]) (*connect.Response[pb.RegisterNodeResponse], error) {
@@ -454,8 +454,8 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 	}
 
 	// Handle node status updates for cordon/uncordon/drain commands.
-	// Order of operations: update local state first, then notify coordinator.
-	// If coordinator fails, roll back local state to maintain consistency.
+	// Order of operations: update local state first, then notify notifier.
+	// If notifier fails, roll back local state to maintain consistency.
 	reason := req.Msg.Parameters["reason"]
 	previousStatus := node.Status
 	switch req.Msg.CommandType {
@@ -469,15 +469,15 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node: %w", err))
 		}
 		// Then notify external scheduler
-		if s.coordinator != nil {
-			if err := s.coordinator.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
+		if s.notifier != nil {
+			if err := s.notifier.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
 				s.logger.ErrorContext(ctx, "scheduler cordon failed, rolling back",
 					slog.String("node_id", req.Msg.NodeId),
 					slog.String("error", err.Error()),
 				)
 				// Roll back local state
 				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
 						slog.String("node_id", req.Msg.NodeId),
 						slog.String("error", rbErr.Error()),
 					)
@@ -498,15 +498,15 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
 		}
 		// Then notify external scheduler
-		if s.coordinator != nil {
-			if err := s.coordinator.Uncordon(ctx, req.Msg.NodeId); err != nil {
+		if s.notifier != nil {
+			if err := s.notifier.Uncordon(ctx, req.Msg.NodeId); err != nil {
 				s.logger.ErrorContext(ctx, "scheduler uncordon failed, rolling back",
 					slog.String("node_id", req.Msg.NodeId),
 					slog.String("error", err.Error()),
 				)
 				// Roll back local state
 				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
 						slog.String("node_id", req.Msg.NodeId),
 						slog.String("error", rbErr.Error()),
 					)
@@ -524,15 +524,15 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node: %w", err))
 		}
 		// Then notify external scheduler
-		if s.coordinator != nil {
-			if err := s.coordinator.Drain(ctx, req.Msg.NodeId, reason); err != nil {
+		if s.notifier != nil {
+			if err := s.notifier.Drain(ctx, req.Msg.NodeId, reason); err != nil {
 				s.logger.ErrorContext(ctx, "scheduler drain failed, rolling back",
 					slog.String("node_id", req.Msg.NodeId),
 					slog.String("error", err.Error()),
 				)
 				// Roll back local state
 				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
 						slog.String("node_id", req.Msg.NodeId),
 						slog.String("error", rbErr.Error()),
 					)

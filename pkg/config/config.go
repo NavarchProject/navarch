@@ -25,19 +25,19 @@ type ServerConfig struct {
 	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty"`
 	AutoscaleInterval    time.Duration `yaml:"autoscale_interval,omitempty"`
 	HealthPolicy         string        `yaml:"health_policy,omitempty"`
-	Coordinator          *CoordinatorCfg `yaml:"coordinator,omitempty"`
+	Notifier             *NotifierCfg `yaml:"notifier,omitempty"`
 }
 
-// CoordinatorCfg configures integration with workload systems.
-type CoordinatorCfg struct {
+// NotifierCfg configures integration with workload systems.
+type NotifierCfg struct {
 	Type string `yaml:"type"` // noop, webhook, kubernetes, slurm
 
 	// Webhook configuration
-	Webhook *WebhookCoordinatorCfg `yaml:"webhook,omitempty"`
+	Webhook *WebhookNotifierCfg `yaml:"webhook,omitempty"`
 }
 
-// WebhookCoordinatorCfg configures webhook-based coordination.
-type WebhookCoordinatorCfg struct {
+// WebhookNotifierCfg configures webhook-based notifications.
+type WebhookNotifierCfg struct {
 	CordonURL      string            `yaml:"cordon_url,omitempty"`
 	UncordonURL    string            `yaml:"uncordon_url,omitempty"`
 	DrainURL       string            `yaml:"drain_url,omitempty"`

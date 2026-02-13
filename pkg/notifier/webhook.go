@@ -1,4 +1,4 @@
-package coordinator
+package notifier
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// WebhookConfig configures the webhook coordinator.
+// WebhookConfig configures the webhook notifier.
 type WebhookConfig struct {
 	// CordonURL is called when a node is cordoned.
 	CordonURL string `yaml:"cordon_url"`
@@ -48,7 +48,7 @@ type WebhookDrainStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// Webhook implements coordination via HTTP webhooks.
+// Webhook implements notifications via HTTP webhooks.
 // This allows users to integrate with any workload system by providing
 // HTTP endpoints that handle node lifecycle events.
 type Webhook struct {
@@ -57,7 +57,7 @@ type Webhook struct {
 	logger *slog.Logger
 }
 
-// NewWebhook creates a new webhook coordinator.
+// NewWebhook creates a new webhook notifier.
 func NewWebhook(config WebhookConfig, logger *slog.Logger) *Webhook {
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
@@ -72,7 +72,7 @@ func NewWebhook(config WebhookConfig, logger *slog.Logger) *Webhook {
 	}
 }
 
-// Name returns the coordinator name.
+// Name returns the notifier name.
 func (w *Webhook) Name() string {
 	return "webhook"
 }
@@ -217,5 +217,5 @@ func (w *Webhook) sendWebhook(ctx context.Context, url string, event WebhookEven
 	return nil
 }
 
-// Ensure Webhook implements Coordinator.
-var _ Coordinator = (*Webhook)(nil)
+// Ensure Webhook implements Notifier.
+var _ Notifier = (*Webhook)(nil)

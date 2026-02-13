@@ -38,7 +38,7 @@ server:
   health_check_interval: 60s     # Health check frequency
   autoscale_interval: 30s        # Autoscaler evaluation frequency
   health_policy: ./health-policy.yaml  # Custom health policy file
-  coordinator:                   # Workload system integration
+  notifier:                   # Workload system integration
     type: webhook
     webhook:
       cordon_url: https://scheduler.example.com/api/cordon
@@ -54,7 +54,7 @@ All fields are optional with sensible defaults.
 | `health_check_interval` | `60s` | How often health checks run |
 | `autoscale_interval` | `30s` | How often autoscaler evaluates |
 | `health_policy` | (none) | Path to [health policy](health-policy.md) file |
-| `coordinator` | (none) | [Coordinator configuration](#coordinator) for workload system integration |
+| `notifier` | (none) | [Notifier configuration](#notifier) for workload system integration |
 
 ## Authentication
 
@@ -207,17 +207,17 @@ See [Health Monitoring](concepts/health.md) for details on health events and XID
 
 For custom health evaluation logic, see [Health Policy](health-policy.md).
 
-## Coordinator
+## Notifier
 
-The coordinator integrates Navarch with external workload systems (job schedulers, Kubernetes, etc.). When nodes are cordoned or drained, the coordinator notifies your workload system so it can stop scheduling new work and migrate existing workloads.
+The notifier integrates Navarch with external workload systems (job schedulers, Kubernetes, etc.). When nodes are cordoned or drained, the notifier notifies your workload system so it can stop scheduling new work and migrate existing workloads.
 
-### Webhook coordinator
+### Webhook notifier
 
 Send HTTP notifications to your workload system:
 
 ```yaml
 server:
-  coordinator:
+  notifier:
     type: webhook
     webhook:
       cordon_url: https://scheduler.example.com/api/v1/nodes/cordon
@@ -262,9 +262,9 @@ server:
 }
 ```
 
-### No coordinator (default)
+### No notifier (default)
 
-Without a coordinator configured, cordon/drain/uncordon operations only update Navarch's internal state. Use this when:
+Without a notifier configured, cordon/drain/uncordon operations only update Navarch's internal state. Use this when:
 
 - Running standalone without external schedulers
 - Your workload system doesn't need notifications
@@ -272,7 +272,7 @@ Without a coordinator configured, cordon/drain/uncordon operations only update N
 
 ```yaml
 server:
-  coordinator:
+  notifier:
     type: noop
 ```
 
