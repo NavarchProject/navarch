@@ -45,12 +45,6 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Roboto Mono"}</style>
-      
     
     
       <link rel="stylesheet" href="../stylesheets/extra.css">
@@ -1917,17 +1911,17 @@
 <li>Git for cloning the repository.</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
-<p>To clone and build Navarch:</p>
+<p>Clone and build Navarch:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>navarch
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>go<span class="w"> </span>build<span class="w"> </span>./...
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>make
 </span></code></pre></div>
-<p>This creates the following binaries:</p>
+<p>This builds the following binaries in <code>bin/</code>:</p>
 <ul>
-<li><code>control-plane</code> - The central management server.</li>
-<li><code>navarch</code> - The command-line interface.</li>
-<li><code>node</code> - The node agent (runs on GPU instances).</li>
-<li><code>simulator</code> - A testing tool for simulating GPU fleets.</li>
+<li><code>bin/control-plane</code> - The central management server.</li>
+<li><code>bin/navarch</code> - The command-line interface.</li>
+<li><code>bin/node</code> - The node agent (runs on GPU instances).</li>
+<li><code>bin/simulator</code> - A testing tool for simulating GPU fleets.</li>
 </ul>
 <h2 id="quick-start-with-fake-provider">Quick start with fake provider<a class="headerlink" href="#quick-start-with-fake-provider" title="Permanent link"></a></h2>
 <p>The fake provider simulates GPU instances without cloud costs. Use it for local development and testing.</p>
@@ -1959,12 +1953,12 @@
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">      </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
 <h3 id="step-2-start-the-control-plane">Step 2: Start the control plane<a class="headerlink" href="#step-2-start-the-control-plane" title="Permanent link"></a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./control-plane<span class="w"> </span>--config<span class="w"> </span>config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./bin/control-plane<span class="w"> </span>--config<span class="w"> </span>config.yaml
 </span></code></pre></div>
 <p>The control plane starts and provisions two fake nodes (the <code>min_nodes</code> value).</p>
 <h3 id="step-3-list-nodes">Step 3: List nodes<a class="headerlink" href="#step-3-list-nodes" title="Permanent link"></a></h3>
 <p>In a new terminal:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./navarch<span class="w"> </span>list
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./bin/navarch<span class="w"> </span>list
 </span></code></pre></div>
 <p>Output:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>┌───────────┬──────────┬────────┬──────┬───────────────┬────────┬─────────┬────────────────┬──────┐
@@ -1976,13 +1970,13 @@
 </span></code></pre></div>
 <h3 id="step-4-manage-nodes">Step 4: Manage nodes<a class="headerlink" href="#step-4-manage-nodes" title="Permanent link"></a></h3>
 <p>To cordon a node (prevent new workloads):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./navarch<span class="w"> </span>cordon<span class="w"> </span>fake-1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/navarch<span class="w"> </span>cordon<span class="w"> </span>fake-1
 </span></code></pre></div>
 <p>To drain a node (evict workloads and cordon):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./navarch<span class="w"> </span>drain<span class="w"> </span>fake-1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./bin/navarch<span class="w"> </span>drain<span class="w"> </span>fake-1
 </span></code></pre></div>
 <p>To view node details:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>./navarch<span class="w"> </span>get<span class="w"> </span>fake-1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>./bin/navarch<span class="w"> </span>get<span class="w"> </span>fake-1
 </span></code></pre></div>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link"></a></h2>
 <p>To connect real cloud providers, see the <a href="../configuration/">configuration reference</a>.</p>
@@ -1991,14 +1985,14 @@
 <h2 id="using-the-simulator">Using the simulator<a class="headerlink" href="#using-the-simulator" title="Permanent link"></a></h2>
 <p>The simulator tests Navarch behavior without running the full system. It uses scenario files to define fleet configurations and events.</p>
 <h3 id="run-a-scenario">Run a scenario<a class="headerlink" href="#run-a-scenario" title="Permanent link"></a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./simulator<span class="w"> </span>--scenario<span class="w"> </span>examples/scenarios/basic-fleet.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/basic-fleet.yaml
 </span></code></pre></div>
 <h3 id="interactive-mode">Interactive mode<a class="headerlink" href="#interactive-mode" title="Permanent link"></a></h3>
 <p>Run the simulator in interactive mode to test CLI commands:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./simulator<span class="w"> </span>--scenario<span class="w"> </span>examples/scenarios/basic-fleet.yaml<span class="w"> </span>--interactive
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./bin/simulator<span class="w"> </span>interactive<span class="w"> </span>scenarios/basic-fleet.yaml
 </span></code></pre></div>
 <p>Then use the CLI in another terminal:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>./navarch<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080<span class="w"> </span>list
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>./bin/navarch<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080<span class="w"> </span>list
 </span></code></pre></div>
 <p>For more information, see <a href="../simulator/">simulator documentation</a>.</p>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>

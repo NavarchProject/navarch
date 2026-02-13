@@ -45,12 +45,6 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Roboto Mono"}</style>
-      
     
     
       <link rel="stylesheet" href="../../stylesheets/extra.css">
@@ -1928,6 +1922,7 @@
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>navarch<span class="w"> </span>cordon<span class="w"> </span>node-1
 </span></code></pre></div>
+<p>When a notifier is configured, Navarch notifies your workload system (e.g., Kubernetes, Slurm) to mark the node unschedulable. See <a href="../../configuration/#notifier">Notifier Configuration</a>.</p>
 <p>See <a href="../../cli/#navarch-cordon">CLI Reference</a> for details.</p>
 <h3 id="draining">Draining<a class="headerlink" href="#draining" title="Permanent link"></a></h3>
 <p>The node is evicting workloads and will be terminated. No new workloads scheduled.</p>
@@ -1939,6 +1934,7 @@
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>navarch<span class="w"> </span>drain<span class="w"> </span>node-1
 </span></code></pre></div>
+<p>When a notifier is configured, Navarch notifies your workload system to evacuate workloads from the node. You can poll drain status to wait for completion before termination. See <a href="../../configuration/#notifier">Notifier Configuration</a>.</p>
 <p>See <a href="../../cli/#navarch-drain">CLI Reference</a> for details.</p>
 <h3 id="terminated">Terminated<a class="headerlink" href="#terminated" title="Permanent link"></a></h3>
 <p>The instance has been terminated by the provider. The node record remains for historical reference.</p>
