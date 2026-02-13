@@ -149,7 +149,6 @@ mkdocs serve
 
 - Open an issue for bugs or feature requests
 - Start a discussion for questions or ideas
-- Join the community chat (coming soon)
 
 ## Code of conduct
 

@@ -89,8 +89,8 @@ providers:
 | Type | Description |
 |------|-------------|
 | `lambda` | Lambda Labs Cloud |
-| `gcp` | Google Cloud Platform (coming soon) |
-| `aws` | Amazon Web Services (coming soon) |
+| `gcp` | Google Cloud Platform |
+| `aws` | Amazon Web Services |
 | `fake` | Fake provider for local development |
 
 ## Pools

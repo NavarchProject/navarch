@@ -1,6 +1,6 @@
 # Extending Navarch
 
-Navarch is designed to be extended. You can add custom cloud providers, autoscaling strategies, and health check logic without modifying the core codebase.
+Navarch is designed to be extended. You can add custom cloud providers, autoscaling strategies, workload notifiers, and metrics sources without modifying the core codebase.
 
 ## Custom providers
 
@@ -306,6 +306,184 @@ func (m *SlurmMetricsSource) GetPoolMetrics(ctx context.Context, poolName string
     }, nil
 }
 ```
+
+## Custom notifiers
+
+Notifiers integrate Navarch with your workload management system. When Navarch cordons, drains, or uncordons a node, the notifier tells your scheduler (Kubernetes, Slurm, Ray, or custom) to stop scheduling work and migrate existing workloads.
+
+### Notifier interface
+
+```go
+type Notifier interface {
+    // Cordon marks a node as unschedulable. The workload system should stop
+    // placing new workloads on this node. Existing workloads continue.
+    Cordon(ctx context.Context, nodeID string, reason string) error
+
+    // Uncordon marks a node as schedulable again.
+    Uncordon(ctx context.Context, nodeID string) error
+
+    // Drain requests the workload system to migrate workloads off the node.
+    Drain(ctx context.Context, nodeID string, reason string) error
+
+    // IsDrained returns true if all workloads have been migrated off
+    // the node and it's safe to terminate.
+    IsDrained(ctx context.Context, nodeID string) (bool, error)
+
+    // Name returns the notifier name for logging.
+    Name() string
+}
+```
+
+### Example: Kubernetes notifier
+
+```go
+package k8snotifier
+
+import (
+    "context"
+    "fmt"
+
+    corev1 "k8s.io/api/core/v1"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/client-go/kubernetes"
+)
+
+type K8sNotifier struct {
+    client *kubernetes.Clientset
+}
+
+func New(client *kubernetes.Clientset) *K8sNotifier {
+    return &K8sNotifier{client: client}
+}
+
+func (n *K8sNotifier) Name() string {
+    return "kubernetes"
+}
+
+func (n *K8sNotifier) Cordon(ctx context.Context, nodeID string, reason string) error {
+    node, err := n.client.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+    if err != nil {
+        return fmt.Errorf("get node: %w", err)
+    }
+
+    node.Spec.Unschedulable = true
+    _, err = n.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+    return err
+}
+
+func (n *K8sNotifier) Uncordon(ctx context.Context, nodeID string) error {
+    node, err := n.client.CoreV1().Nodes().Get(ctx, nodeID, metav1.GetOptions{})
+    if err != nil {
+        return fmt.Errorf("get node: %w", err)
+    }
+
+    node.Spec.Unschedulable = false
+    _, err = n.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+    return err
+}
+
+func (n *K8sNotifier) Drain(ctx context.Context, nodeID string, reason string) error {
+    // List pods on the node
+    pods, err := n.client.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+        FieldSelector: "spec.nodeName=" + nodeID,
+    })
+    if err != nil {
+        return fmt.Errorf("list pods: %w", err)
+    }
+
+    // Evict each pod
+    for _, pod := range pods.Items {
+        if pod.Namespace == "kube-system" {
+            continue // Skip system pods
+        }
+        eviction := &policyv1.Eviction{
+            ObjectMeta: metav1.ObjectMeta{
+                Name:      pod.Name,
+                Namespace: pod.Namespace,
+            },
+        }
+        n.client.CoreV1().Pods(pod.Namespace).Evict(ctx, eviction)
+    }
+    return nil
+}
+
+func (n *K8sNotifier) IsDrained(ctx context.Context, nodeID string) (bool, error) {
+    pods, err := n.client.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+        FieldSelector: "spec.nodeName=" + nodeID,
+    })
+    if err != nil {
+        return false, fmt.Errorf("list pods: %w", err)
+    }
+
+    // Check if only system pods remain
+    for _, pod := range pods.Items {
+        if pod.Namespace != "kube-system" && pod.Status.Phase == corev1.PodRunning {
+            return false, nil
+        }
+    }
+    return true, nil
+}
+```
+
+### Example: Slurm notifier
+
+```go
+package slurmnotifier
+
+import (
+    "context"
+    "fmt"
+    "os/exec"
+    "strings"
+)
+
+type SlurmNotifier struct{}
+
+func New() *SlurmNotifier {
+    return &SlurmNotifier{}
+}
+
+func (n *SlurmNotifier) Name() string {
+    return "slurm"
+}
+
+func (n *SlurmNotifier) Cordon(ctx context.Context, nodeID string, reason string) error {
+    // Set node to drain state (no new jobs)
+    cmd := exec.CommandContext(ctx, "scontrol", "update", "nodename="+nodeID, "state=drain", "reason="+reason)
+    return cmd.Run()
+}
+
+func (n *SlurmNotifier) Uncordon(ctx context.Context, nodeID string) error {
+    cmd := exec.CommandContext(ctx, "scontrol", "update", "nodename="+nodeID, "state=resume")
+    return cmd.Run()
+}
+
+func (n *SlurmNotifier) Drain(ctx context.Context, nodeID string, reason string) error {
+    // Slurm drain state already prevents new jobs; jobs finish naturally
+    return n.Cordon(ctx, nodeID, reason)
+}
+
+func (n *SlurmNotifier) IsDrained(ctx context.Context, nodeID string) (bool, error) {
+    // Check if any jobs are running on this node
+    cmd := exec.CommandContext(ctx, "squeue", "-w", nodeID, "-h", "-o", "%i")
+    out, err := cmd.Output()
+    if err != nil {
+        return false, fmt.Errorf("squeue: %w", err)
+    }
+    return strings.TrimSpace(string(out)) == "", nil
+}
+```
+
+### Built-in notifiers
+
+Navarch includes two built-in notifiers:
+
+| Notifier | Description |
+|----------|-------------|
+| `noop` | Logs operations but takes no action. Default when no notifier is configured. |
+| `webhook` | Sends HTTP requests to your workload system. See [configuration](configuration.md#notifier). |
+
+See `pkg/notifier/` for implementation details.
 
 ## Testing extensions
 

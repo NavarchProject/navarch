@@ -318,13 +318,15 @@ func (s *SlurmMetrics) GetPoolMetrics(ctx context.Context, poolName string) (*co
 
 ### Prometheus metrics
 
-Future work: Expose metrics in Prometheus format at `/metrics` endpoint.
+The control plane exposes Prometheus metrics at `/metrics`.
 
-Planned metrics:
-- `navarch_pool_nodes_total{pool="name",status="healthy|unhealthy"}`
-- `navarch_pool_gpu_utilization{pool="name"}`
-- `navarch_pool_autoscaler_recommendations{pool="name"}`
-- `navarch_pool_scaling_events_total{pool="name",direction="up|down"}`
+Available metrics:
+
+| Metric | Description |
+|--------|-------------|
+| `navarch_nodes_total` | Total number of nodes by status |
+| `navarch_nodes_healthy` | Number of healthy nodes |
+| `navarch_nodes_unhealthy` | Number of unhealthy nodes |
 
 ### Structured logging
 

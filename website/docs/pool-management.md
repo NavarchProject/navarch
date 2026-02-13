@@ -23,7 +23,7 @@ Pools enable you to manage heterogeneous GPU resources with independent scaling 
 Pools are configured via a YAML file passed to the control plane:
 
 ```bash
-navarch-control-plane --pools-config pools.yaml
+control-plane --config pools.yaml
 ```
 
 ### Basic pool configuration
