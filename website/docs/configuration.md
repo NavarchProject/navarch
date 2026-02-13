@@ -38,6 +38,11 @@ server:
   health_check_interval: 60s     # Health check frequency
   autoscale_interval: 30s        # Autoscaler evaluation frequency
   health_policy: ./health-policy.yaml  # Custom health policy file
+  coordinator:                   # Workload system integration
+    type: webhook
+    webhook:
+      cordon_url: https://scheduler.example.com/api/cordon
+      drain_url: https://scheduler.example.com/api/drain
 ```
 
 All fields are optional with sensible defaults.
@@ -49,6 +54,7 @@ All fields are optional with sensible defaults.
 | `health_check_interval` | `60s` | How often health checks run |
 | `autoscale_interval` | `30s` | How often autoscaler evaluates |
 | `health_policy` | (none) | Path to [health policy](health-policy.md) file |
+| `coordinator` | (none) | [Coordinator configuration](#coordinator) for workload system integration |
 
 ## Authentication
 
@@ -200,6 +206,75 @@ health:
 See [Health Monitoring](concepts/health.md) for details on health events and XID errors.
 
 For custom health evaluation logic, see [Health Policy](health-policy.md).
+
+## Coordinator
+
+The coordinator integrates Navarch with external workload systems (job schedulers, Kubernetes, etc.). When nodes are cordoned or drained, the coordinator notifies your workload system so it can stop scheduling new work and migrate existing workloads.
+
+### Webhook coordinator
+
+Send HTTP notifications to your workload system:
+
+```yaml
+server:
+  coordinator:
+    type: webhook
+    webhook:
+      cordon_url: https://scheduler.example.com/api/v1/nodes/cordon
+      uncordon_url: https://scheduler.example.com/api/v1/nodes/uncordon
+      drain_url: https://scheduler.example.com/api/v1/nodes/drain
+      drain_status_url: https://scheduler.example.com/api/v1/nodes/drain-status
+      timeout: 30s
+      headers:
+        Authorization: Bearer ${SCHEDULER_TOKEN}
+```
+
+| Field | Description |
+|-------|-------------|
+| `cordon_url` | Called when a node is cordoned (POST) |
+| `uncordon_url` | Called when a node is uncordoned (POST) |
+| `drain_url` | Called when a node should be drained (POST) |
+| `drain_status_url` | Polled to check if drain is complete (GET) |
+| `timeout` | Request timeout (default: 30s) |
+| `headers` | Custom headers for authentication |
+
+### Webhook payloads
+
+**POST requests** (cordon, uncordon, drain):
+
+```json
+{
+  "event": "cordon",
+  "node_id": "node-abc123",
+  "reason": "GPU failure detected",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+**GET drain status** request includes `?node_id=node-abc123` query parameter.
+
+**Expected response**:
+
+```json
+{
+  "drained": true,
+  "message": "All workloads evicted"
+}
+```
+
+### No coordinator (default)
+
+Without a coordinator configured, cordon/drain/uncordon operations only update Navarch's internal state. Use this when:
+
+- Running standalone without external schedulers
+- Your workload system doesn't need notifications
+- You're testing or developing locally
+
+```yaml
+server:
+  coordinator:
+    type: noop
+```
 
 ## Defaults
 

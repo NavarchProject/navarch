@@ -453,20 +453,14 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
-	// Handle node status updates for cordon/uncordon commands
+	// Handle node status updates for cordon/uncordon/drain commands.
+	// Order of operations: update local state first, then notify coordinator.
+	// If coordinator fails, roll back local state to maintain consistency.
 	reason := req.Msg.Parameters["reason"]
+	previousStatus := node.Status
 	switch req.Msg.CommandType {
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
-		// Notify external scheduler first
-		if s.coordinator != nil {
-			if err := s.coordinator.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler cordon failed",
-					slog.String("node_id", req.Msg.NodeId),
-					slog.String("error", err.Error()),
-				)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node in scheduler: %w", err))
-			}
-		}
+		// Update local state first
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_CORDONED); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to cordoned",
 				slog.String("node_id", req.Msg.NodeId),
@@ -474,20 +468,28 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node: %w", err))
 		}
+		// Then notify external scheduler
+		if s.coordinator != nil {
+			if err := s.coordinator.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler cordon failed, rolling back",
+					slog.String("node_id", req.Msg.NodeId),
+					slog.String("error", err.Error()),
+				)
+				// Roll back local state
+				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
+					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+						slog.String("node_id", req.Msg.NodeId),
+						slog.String("error", rbErr.Error()),
+					)
+				}
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node in scheduler: %w", err))
+			}
+		}
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON:
 		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", req.Msg.NodeId, node.Status.String()))
 		}
-		// Notify external scheduler first
-		if s.coordinator != nil {
-			if err := s.coordinator.Uncordon(ctx, req.Msg.NodeId); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler uncordon failed",
-					slog.String("node_id", req.Msg.NodeId),
-					slog.String("error", err.Error()),
-				)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node in scheduler: %w", err))
-			}
-		}
+		// Update local state first
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_ACTIVE); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to active",
 				slog.String("node_id", req.Msg.NodeId),
@@ -495,17 +497,25 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
 		}
-	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
-		// Notify external scheduler first
+		// Then notify external scheduler
 		if s.coordinator != nil {
-			if err := s.coordinator.Drain(ctx, req.Msg.NodeId, reason); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler drain failed",
+			if err := s.coordinator.Uncordon(ctx, req.Msg.NodeId); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler uncordon failed, rolling back",
 					slog.String("node_id", req.Msg.NodeId),
 					slog.String("error", err.Error()),
 				)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node in scheduler: %w", err))
+				// Roll back local state
+				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
+					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+						slog.String("node_id", req.Msg.NodeId),
+						slog.String("error", rbErr.Error()),
+					)
+				}
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node in scheduler: %w", err))
 			}
 		}
+	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
+		// Update local state first
 		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
 			s.logger.ErrorContext(ctx, "failed to update node status to draining",
 				slog.String("node_id", req.Msg.NodeId),
@@ -513,8 +523,66 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 			)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node: %w", err))
 		}
+		// Then notify external scheduler
+		if s.coordinator != nil {
+			if err := s.coordinator.Drain(ctx, req.Msg.NodeId, reason); err != nil {
+				s.logger.ErrorContext(ctx, "scheduler drain failed, rolling back",
+					slog.String("node_id", req.Msg.NodeId),
+					slog.String("error", err.Error()),
+				)
+				// Roll back local state
+				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
+					s.logger.ErrorContext(ctx, "failed to roll back node status after coordinator failure",
+						slog.String("node_id", req.Msg.NodeId),
+						slog.String("error", rbErr.Error()),
+					)
+				}
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node in scheduler: %w", err))
+			}
+		}
 	}
 
+	// Cordon/uncordon/drain are control-plane-only operations.
+	// Record them in the DB for audit trail, but mark as "completed" so they
+	// don't appear in GetPendingCommands (nodes don't need to act on them).
+	if req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON ||
+		req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON ||
+		req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN {
+
+		commandID := uuid.New().String()
+		issuedAt := s.clock.Now()
+
+		record := &db.CommandRecord{
+			CommandID:  commandID,
+			NodeID:     req.Msg.NodeId,
+			Type:       req.Msg.CommandType,
+			Parameters: req.Msg.Parameters,
+			IssuedAt:   issuedAt,
+			Status:     "completed", // CP-only: don't queue to node
+		}
+
+		if err := s.db.CreateCommand(ctx, record); err != nil {
+			s.logger.ErrorContext(ctx, "failed to record command",
+				slog.String("command_id", commandID),
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+			// Non-fatal: command succeeded, just failed to record
+		}
+
+		s.logger.InfoContext(ctx, "processed control plane command",
+			slog.String("command_id", commandID),
+			slog.String("node_id", req.Msg.NodeId),
+			slog.String("command_type", req.Msg.CommandType.String()),
+		)
+
+		return connect.NewResponse(&pb.IssueCommandResponse{
+			CommandId: commandID,
+			IssuedAt:  timestamppb.New(issuedAt),
+		}), nil
+	}
+
+	// For other command types, queue to the node agent
 	commandID := uuid.New().String()
 	issuedAt := s.clock.Now()
 

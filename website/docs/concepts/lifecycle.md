@@ -73,6 +73,8 @@ Use cordon for:
 navarch cordon node-1
 ```
 
+When a coordinator is configured, Navarch notifies your workload system (e.g., Kubernetes, Slurm) to mark the node unschedulable. See [Coordinator Configuration](../configuration.md#coordinator).
+
 See [CLI Reference](../cli.md#navarch-cordon) for details.
 
 ### Draining
@@ -88,6 +90,8 @@ Use drain for:
 ```bash
 navarch drain node-1
 ```
+
+When a coordinator is configured, Navarch notifies your workload system to evacuate workloads from the node. You can poll drain status to wait for completion before termination. See [Coordinator Configuration](../configuration.md#coordinator).
 
 See [CLI Reference](../cli.md#navarch-drain) for details.
 

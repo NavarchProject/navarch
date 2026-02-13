@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -134,10 +135,10 @@ func (w *Webhook) IsDrained(ctx context.Context, nodeID string) (bool, error) {
 		return true, nil
 	}
 
-	// Build URL with node ID
-	url := fmt.Sprintf("%s?node_id=%s", w.config.DrainStatusURL, nodeID)
+	// Build URL with node ID (escape to handle special characters)
+	statusURL := fmt.Sprintf("%s?node_id=%s", w.config.DrainStatusURL, url.QueryEscape(nodeID))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
