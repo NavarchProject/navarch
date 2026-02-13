@@ -454,91 +454,33 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 	}
 
 	// Handle node status updates for cordon/uncordon/drain commands.
-	// Order of operations: update local state first, then notify notifier.
-	// If notifier fails, roll back local state to maintain consistency.
 	reason := req.Msg.Parameters["reason"]
+	nodeID := req.Msg.NodeId
 	previousStatus := node.Status
+
 	switch req.Msg.CommandType {
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
-		// Update local state first
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_CORDONED); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to cordoned",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_CORDONED, previousStatus,
+			func() error { return s.notifier.Cordon(ctx, nodeID, reason) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node: %w", err))
 		}
-		// Then notify external scheduler
-		if s.notifier != nil {
-			if err := s.notifier.Cordon(ctx, req.Msg.NodeId, reason); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler cordon failed, rolling back",
-					slog.String("node_id", req.Msg.NodeId),
-					slog.String("error", err.Error()),
-				)
-				// Roll back local state
-				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
-						slog.String("node_id", req.Msg.NodeId),
-						slog.String("error", rbErr.Error()),
-					)
-				}
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node in scheduler: %w", err))
-			}
-		}
+
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON:
 		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", req.Msg.NodeId, node.Status.String()))
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", nodeID, node.Status.String()))
 		}
-		// Update local state first
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_ACTIVE); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to active",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_ACTIVE, previousStatus,
+			func() error { return s.notifier.Uncordon(ctx, nodeID) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
 		}
-		// Then notify external scheduler
-		if s.notifier != nil {
-			if err := s.notifier.Uncordon(ctx, req.Msg.NodeId); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler uncordon failed, rolling back",
-					slog.String("node_id", req.Msg.NodeId),
-					slog.String("error", err.Error()),
-				)
-				// Roll back local state
-				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
-						slog.String("node_id", req.Msg.NodeId),
-						slog.String("error", rbErr.Error()),
-					)
-				}
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node in scheduler: %w", err))
-			}
-		}
+
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
-		// Update local state first
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to draining",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_DRAINING, previousStatus,
+			func() error { return s.notifier.Drain(ctx, nodeID, reason) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node: %w", err))
-		}
-		// Then notify external scheduler
-		if s.notifier != nil {
-			if err := s.notifier.Drain(ctx, req.Msg.NodeId, reason); err != nil {
-				s.logger.ErrorContext(ctx, "scheduler drain failed, rolling back",
-					slog.String("node_id", req.Msg.NodeId),
-					slog.String("error", err.Error()),
-				)
-				// Roll back local state
-				if rbErr := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, previousStatus); rbErr != nil {
-					s.logger.ErrorContext(ctx, "failed to roll back node status after notifier failure",
-						slog.String("node_id", req.Msg.NodeId),
-						slog.String("error", rbErr.Error()),
-					)
-				}
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node in scheduler: %w", err))
-			}
 		}
 	}
 
@@ -554,7 +496,7 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 
 		record := &db.CommandRecord{
 			CommandID:  commandID,
-			NodeID:     req.Msg.NodeId,
+			NodeID:     nodeID,
 			Type:       req.Msg.CommandType,
 			Parameters: req.Msg.Parameters,
 			IssuedAt:   issuedAt,
@@ -564,7 +506,7 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		if err := s.db.CreateCommand(ctx, record); err != nil {
 			s.logger.ErrorContext(ctx, "failed to record command",
 				slog.String("command_id", commandID),
-				slog.String("node_id", req.Msg.NodeId),
+				slog.String("node_id", nodeID),
 				slog.String("error", err.Error()),
 			)
 			// Non-fatal: command succeeded, just failed to record
@@ -572,7 +514,7 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 
 		s.logger.InfoContext(ctx, "processed control plane command",
 			slog.String("command_id", commandID),
-			slog.String("node_id", req.Msg.NodeId),
+			slog.String("node_id", nodeID),
 			slog.String("command_type", req.Msg.CommandType.String()),
 		)
 
@@ -703,4 +645,35 @@ func (s *Server) instanceRecordToProto(record *db.InstanceRecord) *pb.InstanceIn
 	}
 
 	return info
+}
+
+// updateStatusAndNotify updates a node's status and notifies the external system.
+// If notification fails, the status change is rolled back.
+func (s *Server) updateStatusAndNotify(
+	ctx context.Context,
+	nodeID string,
+	newStatus pb.NodeStatus,
+	previousStatus pb.NodeStatus,
+	notify func() error,
+) error {
+	if err := s.db.UpdateNodeStatus(ctx, nodeID, newStatus); err != nil {
+		return err
+	}
+
+	if s.notifier != nil && notify != nil {
+		if err := notify(); err != nil {
+			s.logger.ErrorContext(ctx, "notifier failed, rolling back status",
+				slog.String("node_id", nodeID),
+				slog.String("error", err.Error()),
+			)
+			if rbErr := s.db.UpdateNodeStatus(ctx, nodeID, previousStatus); rbErr != nil {
+				s.logger.ErrorContext(ctx, "failed to roll back node status",
+					slog.String("node_id", nodeID),
+					slog.String("error", rbErr.Error()),
+				)
+			}
+			return err
+		}
+	}
+	return nil
 }
