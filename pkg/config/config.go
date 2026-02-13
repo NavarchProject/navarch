@@ -30,7 +30,7 @@ type ServerConfig struct {
 
 // NotifierCfg configures integration with workload systems.
 type NotifierCfg struct {
-	Type string `yaml:"type"` // noop, webhook, kubernetes, slurm
+	Type string `yaml:"type"` // noop, webhook
 
 	// Webhook configuration
 	Webhook *WebhookNotifierCfg `yaml:"webhook,omitempty"`
