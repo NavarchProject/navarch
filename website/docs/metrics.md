@@ -322,11 +322,11 @@ The control plane exposes Prometheus metrics at `/metrics`.
 
 Available metrics:
 
-| Metric | Description |
-|--------|-------------|
-| `navarch_nodes_total` | Total number of nodes by status |
-| `navarch_nodes_healthy` | Number of healthy nodes |
-| `navarch_nodes_unhealthy` | Number of unhealthy nodes |
+| Metric | Labels | Description |
+|--------|--------|-------------|
+| `navarch_nodes_total` | `status` | Total number of nodes by status (active, cordoned, draining, unhealthy) |
+| `navarch_node_health_status` | `node_id`, `status` | Health status per node (1=healthy, 0.5=degraded, 0=unhealthy) |
+| `navarch_gpus_total` | `provider` | Total number of GPUs by provider |
 
 ### Structured logging
 

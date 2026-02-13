@@ -226,8 +226,8 @@ func TestHealthE2E_NVLinkError(t *testing.T) {
 	}
 }
 
-// TestHealthE2E_RecoveryFlow tests the full recovery flow:
-// healthy -> unhealthy -> recover -> healthy.
+// TestHealthE2E_RecoveryFlow tests that unhealthy nodes do NOT auto-recover:
+// healthy -> unhealthy -> hardware recovers -> node stays unhealthy (requires explicit uncordon).
 func TestHealthE2E_RecoveryFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -235,7 +235,7 @@ func TestHealthE2E_RecoveryFlow(t *testing.T) {
 
 	scenario := &Scenario{
 		Name:        "recovery-flow-e2e",
-		Description: "Verify full recovery flow: healthy -> unhealthy -> recover -> healthy",
+		Description: "Verify unhealthy nodes stay unhealthy even after hardware recovers (no auto-recovery)",
 		Fleet: []NodeSpec{
 			{
 				ID:           "recovery-test-node",
@@ -265,18 +265,20 @@ func TestHealthE2E_RecoveryFlow(t *testing.T) {
 				ExpectedStatus: "unhealthy",
 				Timeout:        Duration(10 * time.Second),
 			}},
-			// Recover
+			// Recover the hardware failure
 			{At: Duration(8 * time.Second), Action: "recover_failure", Target: "recovery-test-node", Params: EventParams{
 				FailureType: "xid_error",
 			}},
-			// Wait for active again (recovery happens after health check)
+			// Node should stay unhealthy (no auto-recovery) even though hardware is healthy
 			{At: Duration(12 * time.Second), Action: "wait_for_status", Target: "recovery-test-node", Params: EventParams{
-				ExpectedStatus: "active",
+				ExpectedStatus: "unhealthy",
 				Timeout:        Duration(10 * time.Second),
 			}},
 		},
 		Assertions: []Assertion{
-			{Type: "node_status", Target: "recovery-test-node", Expected: "active"},
+			// Node status stays unhealthy - requires explicit uncordon or replacement
+			{Type: "node_status", Target: "recovery-test-node", Expected: "unhealthy"},
+			// But health status reflects the recovered hardware
 			{Type: "health_status", Target: "recovery-test-node", Expected: "healthy"},
 		},
 	}

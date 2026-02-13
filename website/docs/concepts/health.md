@@ -84,12 +84,13 @@ Health status affects node status through these rules:
 | Health Status | Node Status Transition |
 |---------------|------------------------|
 | Unhealthy | Node becomes **Unhealthy** |
-| Healthy | Node becomes **Active** (if was Unhealthy) |
-| Degraded | Node stays **Unhealthy** (partial recovery not sufficient) |
+| Healthy | Node stays **Unhealthy** (no auto-recovery) |
+| Degraded | Node stays **Unhealthy** (no auto-recovery) |
 
-Administrative states (Cordoned, Draining) are preserved when health checks pass, but Unhealthy health status overrides them.
+Unhealthy nodes do not automatically recover to Active. This prevents nodes with intermittent hardware failures from being returned to service. To bring an unhealthy node back:
 
-This ensures nodes only return to active duty after **fully** recovering from failures.
+- Use `navarch uncordon <node-id>` after manually verifying the hardware is healthy.
+- Or let auto-replacement terminate and replace the node.
 
 ## Health-based replacement
 

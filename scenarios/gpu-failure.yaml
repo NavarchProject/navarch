@@ -56,25 +56,20 @@ events:
   - at: 18s
     action: log
     params:
-      log_message: "Issuing cordon command to node-1"
-
-  - at: 18s
-    action: issue_command
-    target: node-1
-    params:
-      command_type: cordon
-
-  - at: 22s
-    action: log
-    params:
-      log_message: "Scenario complete - GPU failure detected and handled"
+      log_message: "Scenario complete - GPU failure detected, node stays unhealthy (no auto-recovery)"
 
 assertions:
   - type: node_status
     target: node-2
     expected: active
 
-  - type: health_status
+  # Node status stays unhealthy (no auto-recovery) even though hardware is now healthy
+  - type: node_status
     target: node-1
     expected: unhealthy
+
+  # Health status reflects current hardware state (healthy after XID event clears)
+  - type: health_status
+    target: node-1
+    expected: healthy
 

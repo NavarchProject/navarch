@@ -242,10 +242,10 @@ func TestInMemDB_HealthStatusTransitions(t *testing.T) {
 			expectedHealth:     pb.HealthStatus_HEALTH_STATUS_UNHEALTHY,
 		},
 		{
-			name:               "unhealthy_becomes_active_on_healthy",
+			name:               "unhealthy_stays_unhealthy_on_healthy",
 			initialNodeStatus:  pb.NodeStatus_NODE_STATUS_UNHEALTHY,
 			healthCheckStatus:  pb.HealthStatus_HEALTH_STATUS_HEALTHY,
-			expectedNodeStatus: pb.NodeStatus_NODE_STATUS_ACTIVE,
+			expectedNodeStatus: pb.NodeStatus_NODE_STATUS_UNHEALTHY, // No auto-recovery
 			expectedHealth:     pb.HealthStatus_HEALTH_STATUS_HEALTHY,
 		},
 		{
@@ -341,7 +341,7 @@ func TestInMemDB_HealthStatusTransitionSequence(t *testing.T) {
 	}
 	db.RegisterNode(ctx, record)
 
-	// Sequence: ACTIVE -> UNHEALTHY -> DEGRADED (stays UNHEALTHY) -> HEALTHY (becomes ACTIVE)
+	// Sequence: ACTIVE -> UNHEALTHY -> DEGRADED (stays UNHEALTHY) -> HEALTHY (stays UNHEALTHY, no auto-recovery)
 
 	// Step 1: Become unhealthy
 	db.RecordHealthCheck(ctx, &HealthCheckRecord{
@@ -372,7 +372,7 @@ func TestInMemDB_HealthStatusTransitionSequence(t *testing.T) {
 		t.Fatalf("Step 2: Expected health DEGRADED, got %v", node.HealthStatus)
 	}
 
-	// Step 3: Report healthy - should become active
+	// Step 3: Report healthy - should stay unhealthy (no auto-recovery)
 	db.RecordHealthCheck(ctx, &HealthCheckRecord{
 		NodeID:    "node-1",
 		Timestamp: time.Now(),
@@ -381,8 +381,8 @@ func TestInMemDB_HealthStatusTransitionSequence(t *testing.T) {
 		},
 	})
 	node, _ = db.GetNode(ctx, "node-1")
-	if node.Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
-		t.Fatalf("Step 3: Expected ACTIVE, got %v", node.Status)
+	if node.Status != pb.NodeStatus_NODE_STATUS_UNHEALTHY {
+		t.Fatalf("Step 3: Expected UNHEALTHY (no auto-recovery), got %v", node.Status)
 	}
 	if node.HealthStatus != pb.HealthStatus_HEALTH_STATUS_HEALTHY {
 		t.Fatalf("Step 3: Expected health HEALTHY, got %v", node.HealthStatus)

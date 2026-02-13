@@ -143,7 +143,6 @@ func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRec
 	db.healthChecks[record.NodeID] = append(db.healthChecks[record.NodeID], record)
 
 	if node, ok := db.nodes[record.NodeID]; ok {
-		wasUnhealthy := node.Status == pb.NodeStatus_NODE_STATUS_UNHEALTHY
 		node.LastHealthCheck = record.Timestamp
 		overallStatus := pb.HealthStatus_HEALTH_STATUS_HEALTHY
 		for _, result := range record.Results {
@@ -159,9 +158,9 @@ func (db *InMemDB) RecordHealthCheck(ctx context.Context, record *HealthCheckRec
 		node.HealthStatus = overallStatus
 		if overallStatus == pb.HealthStatus_HEALTH_STATUS_UNHEALTHY {
 			node.Status = pb.NodeStatus_NODE_STATUS_UNHEALTHY
-		} else if wasUnhealthy && overallStatus == pb.HealthStatus_HEALTH_STATUS_HEALTHY {
-			node.Status = pb.NodeStatus_NODE_STATUS_ACTIVE
 		}
+		// Note: Unhealthy nodes do NOT auto-recover to Active.
+		// They must be explicitly uncordoned or replaced.
 	}
 
 	return nil
