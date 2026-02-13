@@ -1931,17 +1931,17 @@
   
 
 
-<h1 id="contributing-to-navarch">Contributing to Navarch<a class="headerlink" href="#contributing-to-navarch" title="Permanent link"></a></h1>
+<h1 id="contributing-to-navarch">Contributing to Navarch<a class="headerlink" href="#contributing-to-navarch" title="Permanent link">#</a></h1>
 <p>This guide covers how to contribute to Navarch, from setting up your development environment to submitting pull requests.</p>
-<h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link"></a></h2>
-<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h3>
+<h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">#</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">#</a></h3>
 <ul>
 <li>Go 1.21 or later</li>
 <li>Make</li>
 <li>Docker (optional, for Docker provider tests)</li>
 <li>GPU machine (optional, for hardware testing)</li>
 </ul>
-<h3 id="clone-and-build">Clone and build<a class="headerlink" href="#clone-and-build" title="Permanent link"></a></h3>
+<h3 id="clone-and-build">Clone and build<a class="headerlink" href="#clone-and-build" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>navarch
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>make<span class="w"> </span>build
@@ -1951,13 +1951,13 @@
 - <code>node</code> - the node agent
 - <code>navarch</code> - the CLI
 - <code>simulator</code> - the fleet simulator</p>
-<h3 id="run-tests">Run tests<a class="headerlink" href="#run-tests" title="Permanent link"></a></h3>
+<h3 id="run-tests">Run tests<a class="headerlink" href="#run-tests" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span><span class="nb">test</span><span class="w">          </span><span class="c1"># Run all tests</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>make<span class="w"> </span>test-race<span class="w">     </span><span class="c1"># With race detection</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>make<span class="w"> </span>test-all<span class="w">      </span><span class="c1"># Format, lint, and test</span>
 </span></code></pre></div>
 <p>See <a href="../testing/">Testing</a> for the Docker provider and simulator.</p>
-<h2 id="code-structure">Code structure<a class="headerlink" href="#code-structure" title="Permanent link"></a></h2>
+<h2 id="code-structure">Code structure<a class="headerlink" href="#code-structure" title="Permanent link">#</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>navarch/
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── cmd/                    # Entry points
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│   ├── control-plane/      # Control plane server
@@ -1979,13 +1979,13 @@
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>├── proto/                  # Protocol buffer definitions
 </span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>└── scenarios/              # Simulator test scenarios
 </span></code></pre></div>
-<h2 id="making-changes">Making changes<a class="headerlink" href="#making-changes" title="Permanent link"></a></h2>
-<h3 id="branch-naming">Branch naming<a class="headerlink" href="#branch-naming" title="Permanent link"></a></h3>
+<h2 id="making-changes">Making changes<a class="headerlink" href="#making-changes" title="Permanent link">#</a></h2>
+<h3 id="branch-naming">Branch naming<a class="headerlink" href="#branch-naming" title="Permanent link">#</a></h3>
 <p>Use descriptive branch names:
 - <code>feature/add-azure-provider</code>
 - <code>fix/health-check-timeout</code>
 - <code>docs/improve-deployment-guide</code></p>
-<h3 id="commit-messages">Commit messages<a class="headerlink" href="#commit-messages" title="Permanent link"></a></h3>
+<h3 id="commit-messages">Commit messages<a class="headerlink" href="#commit-messages" title="Permanent link">#</a></h3>
 <p>Write clear commit messages that explain what and why:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Add cooldown period to autoscaler
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
@@ -1995,7 +1995,7 @@
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Fixes #123
 </span></code></pre></div>
-<h3 id="testing-requirements">Testing requirements<a class="headerlink" href="#testing-requirements" title="Permanent link"></a></h3>
+<h3 id="testing-requirements">Testing requirements<a class="headerlink" href="#testing-requirements" title="Permanent link">#</a></h3>
 <p>All changes must include tests:
 - Unit tests for new functions
 - Integration tests for new features
@@ -2003,7 +2003,7 @@
 <p>Run the full test suite before submitting:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>test-all
 </span></code></pre></div>
-<h2 id="pull-request-process">Pull request process<a class="headerlink" href="#pull-request-process" title="Permanent link"></a></h2>
+<h2 id="pull-request-process">Pull request process<a class="headerlink" href="#pull-request-process" title="Permanent link">#</a></h2>
 <ol>
 <li><strong>Fork and branch</strong>: Create a feature branch from <code>main</code></li>
 <li><strong>Make changes</strong>: Write code and tests</li>
@@ -2012,7 +2012,7 @@
 <li><strong>Address feedback</strong>: Respond to code review comments</li>
 <li><strong>Merge</strong>: A maintainer will merge once approved</li>
 </ol>
-<h3 id="pr-description-template">PR description template<a class="headerlink" href="#pr-description-template" title="Permanent link"></a></h3>
+<h3 id="pr-description-template">PR description template<a class="headerlink" href="#pr-description-template" title="Permanent link">#</a></h3>
 <div class="language-markdown highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gu">## What</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Brief description of the change.
@@ -2029,24 +2029,23 @@
 </span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
 </span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>How was this tested? Include simulator scenarios if applicable.
 </span></code></pre></div>
-<h2 id="adding-a-new-cloud-provider">Adding a new cloud provider<a class="headerlink" href="#adding-a-new-cloud-provider" title="Permanent link"></a></h2>
+<h2 id="adding-a-new-cloud-provider">Adding a new cloud provider<a class="headerlink" href="#adding-a-new-cloud-provider" title="Permanent link">#</a></h2>
 <p>See <a href="../extending/#custom-providers">Extending Navarch</a> for the provider interface and implementation guide.</p>
-<h2 id="adding-a-new-autoscaler">Adding a new autoscaler<a class="headerlink" href="#adding-a-new-autoscaler" title="Permanent link"></a></h2>
+<h2 id="adding-a-new-autoscaler">Adding a new autoscaler<a class="headerlink" href="#adding-a-new-autoscaler" title="Permanent link">#</a></h2>
 <p>See <a href="../extending/#custom-autoscalers">Extending Navarch</a> for the autoscaler interface and implementation guide.</p>
-<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link"></a></h2>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">#</a></h2>
 <p>Documentation lives in the <code>website/</code> directory and uses MkDocs Material.</p>
 <p>To preview documentation changes:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>website
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pip<span class="w"> </span>install<span class="w"> </span>mkdocs-material
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>mkdocs<span class="w"> </span>serve
 </span></code></pre></div>
-<h2 id="getting-help">Getting help<a class="headerlink" href="#getting-help" title="Permanent link"></a></h2>
+<h2 id="getting-help">Getting help<a class="headerlink" href="#getting-help" title="Permanent link">#</a></h2>
 <ul>
 <li>Open an issue for bugs or feature requests</li>
 <li>Start a discussion for questions or ideas</li>
-<li>Join the community chat (coming soon)</li>
 </ul>
-<h2 id="code-of-conduct">Code of conduct<a class="headerlink" href="#code-of-conduct" title="Permanent link"></a></h2>
+<h2 id="code-of-conduct">Code of conduct<a class="headerlink" href="#code-of-conduct" title="Permanent link">#</a></h2>
 <p>Be respectful and constructive. We're all here to build something useful.</p>
 
 

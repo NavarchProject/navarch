@@ -1706,9 +1706,9 @@
   
 
 
-<h1 id="health-monitoring">Health Monitoring<a class="headerlink" href="#health-monitoring" title="Permanent link"></a></h1>
+<h1 id="health-monitoring">Health Monitoring<a class="headerlink" href="#health-monitoring" title="Permanent link">#</a></h1>
 <p>Navarch detects GPU failures before they crash your workloads.</p>
-<h2 id="health-checks">Health checks<a class="headerlink" href="#health-checks" title="Permanent link"></a></h2>
+<h2 id="health-checks">Health checks<a class="headerlink" href="#health-checks" title="Permanent link">#</a></h2>
 <p>The node agent runs three types of health checks:</p>
 <ul>
 <li>
@@ -1721,7 +1721,7 @@
 <p><strong>Health event check</strong>: Collects GPU health events and sends them to the control plane. The control plane uses CEL policies to classify events by severity.</p>
 </li>
 </ul>
-<h2 id="health-event-types">Health event types<a class="headerlink" href="#health-event-types" title="Permanent link"></a></h2>
+<h2 id="health-event-types">Health event types<a class="headerlink" href="#health-event-types" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -1756,7 +1756,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="xid-errors">XID errors<a class="headerlink" href="#xid-errors" title="Permanent link"></a></h3>
+<h3 id="xid-errors">XID errors<a class="headerlink" href="#xid-errors" title="Permanent link">#</a></h3>
 <p>XID errors are NVIDIA driver error codes. Some are fatal (require node replacement), others are recoverable.</p>
 <p><strong>Fatal XID codes</strong>:</p>
 <table>
@@ -1821,7 +1821,7 @@
 </tbody>
 </table>
 <p>When a fatal XID occurs, the node is marked unhealthy and (if auto-replace is enabled) terminated and replaced.</p>
-<h2 id="health-status">Health status<a class="headerlink" href="#health-status" title="Permanent link"></a></h2>
+<h2 id="health-status">Health status<a class="headerlink" href="#health-status" title="Permanent link">#</a></h2>
 <p>Health status reflects the hardware health reported by the node agent.</p>
 <table>
 <thead>
@@ -1851,7 +1851,7 @@
 <li>Any check degraded (none unhealthy) → overall degraded</li>
 <li>All checks healthy → overall healthy</li>
 </ul>
-<h2 id="node-status">Node status<a class="headerlink" href="#node-status" title="Permanent link"></a></h2>
+<h2 id="node-status">Node status<a class="headerlink" href="#node-status" title="Permanent link">#</a></h2>
 <p>Node status reflects the operational state from the control plane's perspective.</p>
 <table>
 <thead>
@@ -1883,7 +1883,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="how-health-and-node-status-interact">How health and node status interact<a class="headerlink" href="#how-health-and-node-status-interact" title="Permanent link"></a></h2>
+<h2 id="how-health-and-node-status-interact">How health and node status interact<a class="headerlink" href="#how-health-and-node-status-interact" title="Permanent link">#</a></h2>
 <p>Health status affects node status through these rules:</p>
 <table>
 <thead>
@@ -1899,17 +1899,20 @@
 </tr>
 <tr>
 <td>Healthy</td>
-<td>Node becomes <strong>Active</strong> (if was Unhealthy)</td>
+<td>Node stays <strong>Unhealthy</strong> (no auto-recovery)</td>
 </tr>
 <tr>
 <td>Degraded</td>
-<td>Node stays <strong>Unhealthy</strong> (partial recovery not sufficient)</td>
+<td>Node stays <strong>Unhealthy</strong> (no auto-recovery)</td>
 </tr>
 </tbody>
 </table>
-<p>Administrative states (Cordoned, Draining) are preserved when health checks pass, but Unhealthy health status overrides them.</p>
-<p>This ensures nodes only return to active duty after <strong>fully</strong> recovering from failures.</p>
-<h2 id="health-based-replacement">Health-based replacement<a class="headerlink" href="#health-based-replacement" title="Permanent link"></a></h2>
+<p>Unhealthy nodes do not automatically recover to Active. This prevents nodes with intermittent hardware failures from being returned to service. To bring an unhealthy node back:</p>
+<ul>
+<li>Use <code>navarch uncordon &lt;node-id&gt;</code> after manually verifying the hardware is healthy.</li>
+<li>Or let auto-replacement terminate and replace the node.</li>
+</ul>
+<h2 id="health-based-replacement">Health-based replacement<a class="headerlink" href="#health-based-replacement" title="Permanent link">#</a></h2>
 <p>When <code>auto_replace</code> is enabled, Navarch automatically replaces unhealthy nodes:</p>
 <ol>
 <li>Node fails health checks consecutively.</li>

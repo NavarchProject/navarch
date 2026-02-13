@@ -2328,10 +2328,10 @@
   
 
 
-<h1 id="metrics-and-monitoring">Metrics and monitoring<a class="headerlink" href="#metrics-and-monitoring" title="Permanent link"></a></h1>
+<h1 id="metrics-and-monitoring">Metrics and monitoring<a class="headerlink" href="#metrics-and-monitoring" title="Permanent link">#</a></h1>
 <p>Navarch collects metrics from GPU nodes to enable autoscaling and health monitoring.</p>
-<h2 id="metrics-collection">Metrics collection<a class="headerlink" href="#metrics-collection" title="Permanent link"></a></h2>
-<h3 id="what-is-collected">What is collected<a class="headerlink" href="#what-is-collected" title="Permanent link"></a></h3>
+<h2 id="metrics-collection">Metrics collection<a class="headerlink" href="#metrics-collection" title="Permanent link">#</a></h2>
+<h3 id="what-is-collected">What is collected<a class="headerlink" href="#what-is-collected" title="Permanent link">#</a></h3>
 <p>Every heartbeat (5-30 seconds) includes:</p>
 <p><strong>Node-level metrics:</strong></p>
 <ul>
@@ -2353,7 +2353,7 @@
 <li>GPU communication status</li>
 <li>Health event detection (XID errors, thermal, ECC)</li>
 </ul>
-<h3 id="collection-flow">Collection flow<a class="headerlink" href="#collection-flow" title="Permanent link"></a></h3>
+<h3 id="collection-flow">Collection flow<a class="headerlink" href="#collection-flow" title="Permanent link">#</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────┐     Heartbeat      ┌──────────────┐
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│ Node Agent  │ ───────────────────&gt;│ Control Plane│
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│             │   (every 5-30s)     │              │
@@ -2362,7 +2362,7 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│ - Check     │                     │ - Autoscale  │
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>└─────────────┘                     └──────────────┘
 </span></code></pre></div>
-<h3 id="node-side-collection">Node-side collection<a class="headerlink" href="#node-side-collection" title="Permanent link"></a></h3>
+<h3 id="node-side-collection">Node-side collection<a class="headerlink" href="#node-side-collection" title="Permanent link">#</a></h3>
 <p>The node daemon uses the <code>metrics.Collector</code> to gather system and GPU metrics.</p>
 <p><strong>System metrics</strong> are collected from <code>/proc</code> filesystem (Linux):
 - <strong>CPU usage</strong>: Calculated from <code>/proc/stat</code> using delta between consecutive reads
@@ -2389,14 +2389,14 @@
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nx">customReader</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">MyCustomReader</span><span class="p">{}</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nx">collector</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">metrics</span><span class="p">.</span><span class="nx">NewCollector</span><span class="p">(</span><span class="nx">gpuManager</span><span class="p">,</span><span class="w"> </span><span class="nx">customReader</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="storage-and-retention">Storage and retention<a class="headerlink" href="#storage-and-retention" title="Permanent link"></a></h3>
+<h3 id="storage-and-retention">Storage and retention<a class="headerlink" href="#storage-and-retention" title="Permanent link">#</a></h3>
 <p>Metrics are stored in-memory per node:
 - Up to 100 samples per node
 - Oldest samples automatically pruned
 - Query window: last 5 minutes (default)</p>
 <p>For production deployments requiring longer retention, implement a custom database backend.</p>
-<h2 id="metrics-aggregation">Metrics aggregation<a class="headerlink" href="#metrics-aggregation" title="Permanent link"></a></h2>
-<h3 id="pool-level-aggregation">Pool-level aggregation<a class="headerlink" href="#pool-level-aggregation" title="Permanent link"></a></h3>
+<h2 id="metrics-aggregation">Metrics aggregation<a class="headerlink" href="#metrics-aggregation" title="Permanent link">#</a></h2>
+<h3 id="pool-level-aggregation">Pool-level aggregation<a class="headerlink" href="#pool-level-aggregation" title="Permanent link">#</a></h3>
 <p>The control plane aggregates metrics by pool for autoscaling decisions.</p>
 <p><strong>Current utilization:</strong>
 Average GPU utilization across all GPUs in the pool.</p>
@@ -2406,7 +2406,7 @@ Average GPU utilization across all GPUs in the pool.</p>
 <p>Pool utilization = (80+90+75+85+70+80+85+75+60+70+65+55+70+65+60+75) / 16 = 71.25%</p>
 <p><strong>Utilization history:</strong>
 Per-node average utilization for the last 5 minutes. Used for trend analysis by predictive autoscalers.</p>
-<h3 id="pool-filtering">Pool filtering<a class="headerlink" href="#pool-filtering" title="Permanent link"></a></h3>
+<h3 id="pool-filtering">Pool filtering<a class="headerlink" href="#pool-filtering" title="Permanent link">#</a></h3>
 <p>Nodes are assigned to pools via labels:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">training</span><span class="p">:</span>
@@ -2415,9 +2415,9 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">team</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ml-research</span>
 </span></code></pre></div>
 <p>The <code>pool</code> label is automatically set and used for metrics aggregation. Additional labels are for organization and filtering.</p>
-<h2 id="autoscaling-metrics">Autoscaling metrics<a class="headerlink" href="#autoscaling-metrics" title="Permanent link"></a></h2>
+<h2 id="autoscaling-metrics">Autoscaling metrics<a class="headerlink" href="#autoscaling-metrics" title="Permanent link">#</a></h2>
 <p>Different autoscaler types use different metrics.</p>
-<h3 id="reactive-autoscaler">Reactive autoscaler<a class="headerlink" href="#reactive-autoscaler" title="Permanent link"></a></h3>
+<h3 id="reactive-autoscaler">Reactive autoscaler<a class="headerlink" href="#reactive-autoscaler" title="Permanent link">#</a></h3>
 <p>Uses current GPU utilization:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reactive</span>
@@ -2429,7 +2429,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 - Current: 3 nodes, 85% GPU utilization
 - Recommendation: Scale up to 4 nodes (utilization &gt; 75%)
 - After cooldown: Actually provision 4th node</p>
-<h3 id="queue-based-autoscaler">Queue-based autoscaler<a class="headerlink" href="#queue-based-autoscaler" title="Permanent link"></a></h3>
+<h3 id="queue-based-autoscaler">Queue-based autoscaler<a class="headerlink" href="#queue-based-autoscaler" title="Permanent link">#</a></h3>
 <p>Uses job queue depth:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queue</span>
@@ -2440,7 +2440,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 - Current: 5 nodes, 73 jobs in queue
 - Calculation: ceil(73 / 10) = 8 nodes needed
 - Recommendation: Scale up to 8 nodes</p>
-<h3 id="scheduled-autoscaler">Scheduled autoscaler<a class="headerlink" href="#scheduled-autoscaler" title="Permanent link"></a></h3>
+<h3 id="scheduled-autoscaler">Scheduled autoscaler<a class="headerlink" href="#scheduled-autoscaler" title="Permanent link">#</a></h3>
 <p>Does not use metrics. Scales based on time:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scheduled</span>
@@ -2452,7 +2452,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
 </span></code></pre></div>
 <p><strong>Evaluation:</strong> Checks current time and applies appropriate limits.</p>
-<h3 id="predictive-autoscaler">Predictive autoscaler<a class="headerlink" href="#predictive-autoscaler" title="Permanent link"></a></h3>
+<h3 id="predictive-autoscaler">Predictive autoscaler<a class="headerlink" href="#predictive-autoscaler" title="Permanent link">#</a></h3>
 <p>Uses utilization history for trend analysis:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">predictive</span>
@@ -2460,7 +2460,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">growth_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span><span class="w">   </span><span class="c1"># Proactive scaling multiplier</span>
 </span></code></pre></div>
 <p>Analyzes recent utilization trend and scales preemptively.</p>
-<h3 id="composite-autoscaler">Composite autoscaler<a class="headerlink" href="#composite-autoscaler" title="Permanent link"></a></h3>
+<h3 id="composite-autoscaler">Composite autoscaler<a class="headerlink" href="#composite-autoscaler" title="Permanent link">#</a></h3>
 <p>Combines multiple metrics:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">composite</span>
@@ -2473,9 +2473,9 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">jobs_per_node</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </span></code></pre></div>
 <p><strong>Use case:</strong> Scale based on both GPU utilization and job queue depth, whichever demands more capacity.</p>
-<h2 id="integrating-external-schedulers">Integrating external schedulers<a class="headerlink" href="#integrating-external-schedulers" title="Permanent link"></a></h2>
+<h2 id="integrating-external-schedulers">Integrating external schedulers<a class="headerlink" href="#integrating-external-schedulers" title="Permanent link">#</a></h2>
 <p>To provide queue depth and pending job metrics, implement the <code>MetricsSource</code> interface.</p>
-<h3 id="interface">Interface<a class="headerlink" href="#interface" title="Permanent link"></a></h3>
+<h3 id="interface">Interface<a class="headerlink" href="#interface" title="Permanent link">#</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">MetricsSource</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="nx">GetPoolMetrics</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span><span class="w"> </span><span class="nx">poolName</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">PoolMetrics</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="p">}</span>
@@ -2487,7 +2487,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nx">UtilizationHistory</span><span class="w"> </span><span class="p">[]</span><span class="kt">float64</span><span class="w"> </span><span class="c1">// Historical utilization</span>
 </span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="example-kubernetes-integration">Example: Kubernetes integration<a class="headerlink" href="#example-kubernetes-integration" title="Permanent link"></a></h3>
+<h3 id="example-kubernetes-integration">Example: Kubernetes integration<a class="headerlink" href="#example-kubernetes-integration" title="Permanent link">#</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
@@ -2542,7 +2542,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="nx">poolManager</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">controlplane</span><span class="p">.</span><span class="nx">NewPoolManager</span><span class="p">(</span><span class="nx">cfg</span><span class="p">,</span><span class="w"> </span><span class="nx">k8sMetrics</span><span class="p">,</span><span class="w"> </span><span class="nx">logger</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="example-slurm-integration">Example: Slurm integration<a class="headerlink" href="#example-slurm-integration" title="Permanent link"></a></h3>
+<h3 id="example-slurm-integration">Example: Slurm integration<a class="headerlink" href="#example-slurm-integration" title="Permanent link">#</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">SlurmMetrics</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nx">slurmHost</span><span class="w"> </span><span class="kt">string</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nx">dbMetrics</span><span class="w"> </span><span class="o">*</span><span class="nx">controlplane</span><span class="p">.</span><span class="nx">DBMetricsSource</span>
@@ -2568,15 +2568,37 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">baseMetrics</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
 </span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="monitoring-and-observability">Monitoring and observability<a class="headerlink" href="#monitoring-and-observability" title="Permanent link"></a></h2>
-<h3 id="prometheus-metrics">Prometheus metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link"></a></h3>
-<p>Future work: Expose metrics in Prometheus format at <code>/metrics</code> endpoint.</p>
-<p>Planned metrics:
-- <code>navarch_pool_nodes_total{pool="name",status="healthy|unhealthy"}</code>
-- <code>navarch_pool_gpu_utilization{pool="name"}</code>
-- <code>navarch_pool_autoscaler_recommendations{pool="name"}</code>
-- <code>navarch_pool_scaling_events_total{pool="name",direction="up|down"}</code></p>
-<h3 id="structured-logging">Structured logging<a class="headerlink" href="#structured-logging" title="Permanent link"></a></h3>
+<h2 id="monitoring-and-observability">Monitoring and observability<a class="headerlink" href="#monitoring-and-observability" title="Permanent link">#</a></h2>
+<h3 id="prometheus-metrics">Prometheus metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link">#</a></h3>
+<p>The control plane exposes Prometheus metrics at <code>/metrics</code>.</p>
+<p>Available metrics:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Labels</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>navarch_nodes_total</code></td>
+<td><code>status</code></td>
+<td>Total number of nodes by status (active, cordoned, draining, unhealthy)</td>
+</tr>
+<tr>
+<td><code>navarch_node_health_status</code></td>
+<td><code>node_id</code>, <code>status</code></td>
+<td>Health status per node (1=healthy, 0.5=degraded, 0=unhealthy)</td>
+</tr>
+<tr>
+<td><code>navarch_gpus_total</code></td>
+<td><code>provider</code></td>
+<td>Total number of GPUs by provider</td>
+</tr>
+</tbody>
+</table>
+<h3 id="structured-logging">Structured logging<a class="headerlink" href="#structured-logging" title="Permanent link">#</a></h3>
 <p>All components emit structured JSON logs with:
 - <code>level</code>: INFO, WARN, ERROR
 - <code>msg</code>: Human-readable message
@@ -2593,7 +2615,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;utilization 87.3% &gt; 75.0% threshold&quot;</span>
 </span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="health-endpoints">Health endpoints<a class="headerlink" href="#health-endpoints" title="Permanent link"></a></h3>
+<h3 id="health-endpoints">Health endpoints<a class="headerlink" href="#health-endpoints" title="Permanent link">#</a></h3>
 <p><strong>Liveness probe:</strong> <code>GET /healthz</code>
 - Returns 200 if control plane is running
 - Use for container health checks</p>
@@ -2601,7 +2623,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 - Returns 200 if database is accessible
 - Returns 503 if not ready
 - Use for load balancer health checks</p>
-<h2 id="metrics-api">Metrics API<a class="headerlink" href="#metrics-api" title="Permanent link"></a></h2>
+<h2 id="metrics-api">Metrics API<a class="headerlink" href="#metrics-api" title="Permanent link">#</a></h2>
 <p>Query metrics via gRPC API (future work):</p>
 <div class="language-protobuf highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">service</span><span class="w"> </span><span class="n">MetricsService</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetNodeMetrics</span><span class="p">(</span><span class="n">GetNodeMetricsRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">NodeMetricsResponse</span><span class="p">);</span>
@@ -2610,26 +2632,26 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Current workaround: Query the in-memory database directly via the CLI or custom tooling.</p>
-<h2 id="best-practices">Best practices<a class="headerlink" href="#best-practices" title="Permanent link"></a></h2>
-<h3 id="heartbeat-intervals">Heartbeat intervals<a class="headerlink" href="#heartbeat-intervals" title="Permanent link"></a></h3>
+<h2 id="best-practices">Best practices<a class="headerlink" href="#best-practices" title="Permanent link">#</a></h2>
+<h3 id="heartbeat-intervals">Heartbeat intervals<a class="headerlink" href="#heartbeat-intervals" title="Permanent link">#</a></h3>
 <p><strong>Fast (5s):</strong> Development and testing<br />
 <strong>Standard (30s):</strong> Production with reactive autoscaling<br />
 <strong>Slow (60s):</strong> Large clusters (1000+ nodes) to reduce control plane load</p>
-<h3 id="autoscale-intervals">Autoscale intervals<a class="headerlink" href="#autoscale-intervals" title="Permanent link"></a></h3>
+<h3 id="autoscale-intervals">Autoscale intervals<a class="headerlink" href="#autoscale-intervals" title="Permanent link">#</a></h3>
 <p><strong>Fast (10s):</strong> Development and testing<br />
 <strong>Standard (30s):</strong> Production with quick response times<br />
 <strong>Slow (60-120s):</strong> Cost-sensitive workloads to avoid over-provisioning</p>
-<h3 id="cooldown-periods">Cooldown periods<a class="headerlink" href="#cooldown-periods" title="Permanent link"></a></h3>
+<h3 id="cooldown-periods">Cooldown periods<a class="headerlink" href="#cooldown-periods" title="Permanent link">#</a></h3>
 <p><strong>Short (2-3m):</strong> Development and testing<br />
 <strong>Standard (5m):</strong> Production to prevent oscillation<br />
 <strong>Long (10-15m):</strong> Large nodes (expensive to provision/terminate)</p>
-<h3 id="metrics-retention">Metrics retention<a class="headerlink" href="#metrics-retention" title="Permanent link"></a></h3>
+<h3 id="metrics-retention">Metrics retention<a class="headerlink" href="#metrics-retention" title="Permanent link">#</a></h3>
 <p>The default 100 samples per node retains approximately:
 - 8 minutes at 5s heartbeat interval
 - 50 minutes at 30s heartbeat interval</p>
 <p>For longer retention, implement custom database backend or export to time-series database.</p>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>
-<h3 id="no-metrics-for-pool">No metrics for pool<a class="headerlink" href="#no-metrics-for-pool" title="Permanent link"></a></h3>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">#</a></h2>
+<h3 id="no-metrics-for-pool">No metrics for pool<a class="headerlink" href="#no-metrics-for-pool" title="Permanent link">#</a></h3>
 <p><strong>Symptom:</strong> Autoscaler always reports 0% utilization.</p>
 <p><strong>Causes:</strong></p>
 <ol>
@@ -2647,7 +2669,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Check control plane logs</span>
 </span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>grep<span class="w"> </span><span class="s2">&quot;failed to get metrics&quot;</span><span class="w"> </span>logs.json
 </span></code></pre></div></p>
-<h3 id="autoscaler-not-scaling">Autoscaler not scaling<a class="headerlink" href="#autoscaler-not-scaling" title="Permanent link"></a></h3>
+<h3 id="autoscaler-not-scaling">Autoscaler not scaling<a class="headerlink" href="#autoscaler-not-scaling" title="Permanent link">#</a></h3>
 <p><strong>Symptom:</strong> Utilization high but no scale up.</p>
 <p><strong>Causes:</strong></p>
 <ol>
@@ -2665,7 +2687,7 @@ Per-node average utilization for the last 5 minutes. Used for trend analysis by 
 </span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Check cooldown</span>
 </span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>grep<span class="w"> </span><span class="s2">&quot;cooldown active&quot;</span><span class="w"> </span>logs.json
 </span></code></pre></div></p>
-<h3 id="high-control-plane-memory">High control plane memory<a class="headerlink" href="#high-control-plane-memory" title="Permanent link"></a></h3>
+<h3 id="high-control-plane-memory">High control plane memory<a class="headerlink" href="#high-control-plane-memory" title="Permanent link">#</a></h3>
 <p><strong>Symptom:</strong> Control plane memory usage growing.</p>
 <p><strong>Causes:</strong></p>
 <ol>

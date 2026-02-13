@@ -1696,9 +1696,9 @@
   
 
 
-<h1 id="components">Components<a class="headerlink" href="#components" title="Permanent link"></a></h1>
+<h1 id="components">Components<a class="headerlink" href="#components" title="Permanent link">#</a></h1>
 <p>Navarch has two main components: the control plane and the node agent.</p>
-<h2 id="control-plane">Control plane<a class="headerlink" href="#control-plane" title="Permanent link"></a></h2>
+<h2 id="control-plane">Control plane<a class="headerlink" href="#control-plane" title="Permanent link">#</a></h2>
 <p>The control plane is the central management server for your GPU fleet. It:</p>
 <ul>
 <li>Receives health reports from node agents.</li>
@@ -1708,7 +1708,7 @@
 <li>Provides an API for the CLI and external integrations.</li>
 </ul>
 <p>There is one control plane per Navarch deployment. All nodes connect to it.</p>
-<h3 id="running-the-control-plane">Running the control plane<a class="headerlink" href="#running-the-control-plane" title="Permanent link"></a></h3>
+<h3 id="running-the-control-plane">Running the control plane<a class="headerlink" href="#running-the-control-plane" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>control-plane<span class="w"> </span>-config<span class="w"> </span>navarch.yaml
 </span></code></pre></div>
 <p>The control plane exposes:</p>
@@ -1717,7 +1717,7 @@
 <li><strong>HTTP API</strong> (default port 8080): For the CLI and health checks.</li>
 </ul>
 <p>See <a href="../../configuration/">Configuration Reference</a> for all available options.</p>
-<h2 id="node-agent">Node agent<a class="headerlink" href="#node-agent" title="Permanent link"></a></h2>
+<h2 id="node-agent">Node agent<a class="headerlink" href="#node-agent" title="Permanent link">#</a></h2>
 <p>The node agent runs on each GPU instance. It:</p>
 <ul>
 <li>Registers the node with the control plane at startup.</li>
@@ -1726,7 +1726,7 @@
 <li>Receives and executes commands from the control plane.</li>
 </ul>
 <p>The node agent does not manage its own lifecycle. It reports status and follows commands. The control plane decides when to terminate nodes.</p>
-<h3 id="running-the-node-agent">Running the node agent<a class="headerlink" href="#running-the-node-agent" title="Permanent link"></a></h3>
+<h3 id="running-the-node-agent">Running the node agent<a class="headerlink" href="#running-the-node-agent" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>node-agent<span class="w"> </span>--server<span class="w"> </span>control-plane.example.com:50051
 </span></code></pre></div>
 <p>The agent needs:</p>
@@ -1736,7 +1736,7 @@
 <li>Permission to read GPU metrics via NVML.</li>
 </ul>
 <p>See <a href="../../deployment/">Deployment</a> for production setup including systemd configuration.</p>
-<h2 id="communication-flow">Communication flow<a class="headerlink" href="#communication-flow" title="Permanent link"></a></h2>
+<h2 id="communication-flow">Communication flow<a class="headerlink" href="#communication-flow" title="Permanent link">#</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌─────────────┐                      ┌───────────────┐
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│ Node Agent  │ ───── Register ────► │               │
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│             │                      │ Control Plane │
@@ -1759,7 +1759,7 @@
 <p><strong>Commands</strong>: The control plane can send commands (cordon, drain) which the agent executes.</p>
 </li>
 </ol>
-<h2 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link"></a></h2>
+<h2 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link">#</a></h2>
 <p>For production deployments:</p>
 <ul>
 <li>Run multiple control plane replicas behind a load balancer.</li>

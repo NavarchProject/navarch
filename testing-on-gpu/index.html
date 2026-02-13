@@ -2151,17 +2151,17 @@
   
 
 
-<h1 id="testing-on-real-gpus">Testing on real GPUs<a class="headerlink" href="#testing-on-real-gpus" title="Permanent link"></a></h1>
+<h1 id="testing-on-real-gpus">Testing on real GPUs<a class="headerlink" href="#testing-on-real-gpus" title="Permanent link">#</a></h1>
 <p>This guide describes how to test Navarch on real GPU instances.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">#</a></h2>
 <p>Before testing on real GPUs, ensure:</p>
 <ul>
 <li>All unit tests pass locally: <code>go test ./... -short</code></li>
 <li>The simulator scenarios pass: <code>./bin/simulator run scenarios/basic-fleet.yaml</code></li>
 <li>You have access to a GPU cloud provider (Lambda Labs, GCP, AWS)</li>
 </ul>
-<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link"></a></h2>
-<h3 id="1-provision-a-gpu-instance">1. Provision a GPU instance<a class="headerlink" href="#1-provision-a-gpu-instance" title="Permanent link"></a></h3>
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">#</a></h2>
+<h3 id="1-provision-a-gpu-instance">1. Provision a GPU instance<a class="headerlink" href="#1-provision-a-gpu-instance" title="Permanent link">#</a></h3>
 <p>Lambda Labs:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Use Lambda Labs console to create an instance</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Recommended: gpu_1x_a100_sxm4 or gpu_8x_a100_80gb_sxm4</span>
@@ -2181,13 +2181,13 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--instance-type<span class="w"> </span>p4d.24xlarge<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--key-name<span class="w"> </span>your-key
 </span></code></pre></div></p>
-<h3 id="2-connect-and-verify-gpu">2. Connect and verify GPU<a class="headerlink" href="#2-connect-and-verify-gpu" title="Permanent link"></a></h3>
+<h3 id="2-connect-and-verify-gpu">2. Connect and verify GPU<a class="headerlink" href="#2-connect-and-verify-gpu" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ssh<span class="w"> </span>-i<span class="w"> </span>your-key.pem<span class="w"> </span>ubuntu@&lt;instance-ip&gt;
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Verify NVIDIA driver</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>nvidia-smi
 </span></code></pre></div>
-<h3 id="3-install-dependencies">3. Install dependencies<a class="headerlink" href="#3-install-dependencies" title="Permanent link"></a></h3>
+<h3 id="3-install-dependencies">3. Install dependencies<a class="headerlink" href="#3-install-dependencies" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Install Go</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>wget<span class="w"> </span>https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>sudo<span class="w"> </span>tar<span class="w"> </span>-C<span class="w"> </span>/usr/local<span class="w"> </span>-xzf<span class="w"> </span>go1.22.0.linux-amd64.tar.gz
@@ -2198,7 +2198,7 @@
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nb">cd</span><span class="w"> </span>navarch
 </span></code></pre></div>
-<h3 id="4-run-tests">4. Run tests<a class="headerlink" href="#4-run-tests" title="Permanent link"></a></h3>
+<h3 id="4-run-tests">4. Run tests<a class="headerlink" href="#4-run-tests" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Quick GPU test</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./scripts/test-gpu.sh
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
@@ -2208,8 +2208,8 @@
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Stress test (5 minutes)</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>./scripts/stress-gpu.sh<span class="w"> </span><span class="m">300</span>
 </span></code></pre></div>
-<h2 id="test-scenarios">Test scenarios<a class="headerlink" href="#test-scenarios" title="Permanent link"></a></h2>
-<h3 id="basic-gpu-detection">Basic GPU detection<a class="headerlink" href="#basic-gpu-detection" title="Permanent link"></a></h3>
+<h2 id="test-scenarios">Test scenarios<a class="headerlink" href="#test-scenarios" title="Permanent link">#</a></h2>
+<h3 id="basic-gpu-detection">Basic GPU detection<a class="headerlink" href="#basic-gpu-detection" title="Permanent link">#</a></h3>
 <p>Run GPU tests to verify the GPU manager works correctly:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/gpu/...<span class="w"> </span>-v
 </span></code></pre></div>
@@ -2220,7 +2220,7 @@
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>--- PASS: TestInjectable_CollectHealthEvents (0.00s)
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>...
 </span></code></pre></div></p>
-<h3 id="health-check-validation">Health check validation<a class="headerlink" href="#health-check-validation" title="Permanent link"></a></h3>
+<h3 id="health-check-validation">Health check validation<a class="headerlink" href="#health-check-validation" title="Permanent link">#</a></h3>
 <p>Run the node daemon and verify health checks:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Terminal 1: Start control plane</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/control-plane
@@ -2235,7 +2235,7 @@
 <p>Expected output:
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Health: Healthy
 </span></code></pre></div></p>
-<h3 id="health-event-detection">Health event detection<a class="headerlink" href="#health-event-detection" title="Permanent link"></a></h3>
+<h3 id="health-event-detection">Health event detection<a class="headerlink" href="#health-event-detection" title="Permanent link">#</a></h3>
 <p>Check for GPU errors in system logs:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Check for existing XID errors in dmesg</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>sudo<span class="w"> </span>dmesg<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;NVRM: Xid&quot;</span>
@@ -2243,7 +2243,7 @@
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Run health event tests</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./pkg/gpu/...<span class="w"> </span>-v<span class="w"> </span>-run<span class="w"> </span>TestInjectable_CollectHealthEvents
 </span></code></pre></div>
-<h3 id="command-delivery">Command delivery<a class="headerlink" href="#command-delivery" title="Permanent link"></a></h3>
+<h3 id="command-delivery">Command delivery<a class="headerlink" href="#command-delivery" title="Permanent link">#</a></h3>
 <p>Test that commands reach the node:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Cordon the node</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/navarch<span class="w"> </span>cordon<span class="w"> </span>test-gpu
@@ -2251,13 +2251,13 @@
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Check node logs for command receipt</span>
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>grep<span class="w"> </span><span class="s2">&quot;received command&quot;</span><span class="w"> </span>/tmp/node.log
 </span></code></pre></div>
-<h2 id="multi-gpu-testing">Multi-GPU testing<a class="headerlink" href="#multi-gpu-testing" title="Permanent link"></a></h2>
+<h2 id="multi-gpu-testing">Multi-GPU testing<a class="headerlink" href="#multi-gpu-testing" title="Permanent link">#</a></h2>
 <p>For instances with multiple GPUs (e.g., 8x A100):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Verify all GPUs detected</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/navarch<span class="w"> </span>get<span class="w"> </span>test-gpu<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-A<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="s2">&quot;GPUs:&quot;</span>
 </span></code></pre></div>
 <p>Expected: All 8 GPUs listed with unique UUIDs.</p>
-<h2 id="testing-with-control-plane-on-separate-machine">Testing with control plane on separate machine<a class="headerlink" href="#testing-with-control-plane-on-separate-machine" title="Permanent link"></a></h2>
+<h2 id="testing-with-control-plane-on-separate-machine">Testing with control plane on separate machine<a class="headerlink" href="#testing-with-control-plane-on-separate-machine" title="Permanent link">#</a></h2>
 <p>Use SSH reverse tunnel to run control plane locally:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># On your laptop: Start control plane</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/control-plane
@@ -2269,8 +2269,8 @@
 </span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>go<span class="w"> </span>run<span class="w"> </span>./cmd/node<span class="w"> </span>--node-id<span class="w"> </span>remote-gpu<span class="w"> </span>--provider<span class="w"> </span>lambda
 </span></code></pre></div>
 <p>This allows testing the full distributed architecture.</p>
-<h2 id="stress-testing">Stress testing<a class="headerlink" href="#stress-testing" title="Permanent link"></a></h2>
-<h3 id="gpu-load-test">GPU load test<a class="headerlink" href="#gpu-load-test" title="Permanent link"></a></h3>
+<h2 id="stress-testing">Stress testing<a class="headerlink" href="#stress-testing" title="Permanent link">#</a></h2>
+<h3 id="gpu-load-test">GPU load test<a class="headerlink" href="#gpu-load-test" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Run stress test with health monitoring</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>./scripts/stress-gpu.sh<span class="w"> </span><span class="m">600</span><span class="w">  </span><span class="c1"># 10 minutes</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
@@ -2279,7 +2279,7 @@
 </span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># - Power usage (should stay within TDP)</span>
 </span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># - XID errors (should be none)</span>
 </span></code></pre></div>
-<h3 id="sustained-operation-test">Sustained operation test<a class="headerlink" href="#sustained-operation-test" title="Permanent link"></a></h3>
+<h3 id="sustained-operation-test">Sustained operation test<a class="headerlink" href="#sustained-operation-test" title="Permanent link">#</a></h3>
 <p>Run the node daemon for extended periods:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Start node daemon</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>nohup<span class="w"> </span>go<span class="w"> </span>run<span class="w"> </span>./cmd/node<span class="w"> </span>--node-id<span class="w"> </span>endurance-test<span class="w"> </span>&gt;<span class="w"> </span>/tmp/node.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">&amp;</span>
@@ -2287,27 +2287,27 @@
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Monitor for 24 hours</span>
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>watch<span class="w"> </span>-n<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="s1">&#39;go run ./cmd/navarch get endurance-test | grep -E &quot;Health|Heartbeat&quot;&#39;</span>
 </span></code></pre></div>
-<h2 id="validating-specific-gpu-types">Validating specific GPU types<a class="headerlink" href="#validating-specific-gpu-types" title="Permanent link"></a></h2>
-<h3 id="nvidia-a100">NVIDIA A100<a class="headerlink" href="#nvidia-a100" title="Permanent link"></a></h3>
+<h2 id="validating-specific-gpu-types">Validating specific GPU types<a class="headerlink" href="#validating-specific-gpu-types" title="Permanent link">#</a></h2>
+<h3 id="nvidia-a100">NVIDIA A100<a class="headerlink" href="#nvidia-a100" title="Permanent link">#</a></h3>
 <ul>
 <li>Memory: 40GB or 80GB</li>
 <li>Expected temperature: 30-45°C idle, 60-75°C under load</li>
 <li>XID codes to watch: 79 (fallen off bus), 48 (DBE)</li>
 </ul>
-<h3 id="nvidia-h100">NVIDIA H100<a class="headerlink" href="#nvidia-h100" title="Permanent link"></a></h3>
+<h3 id="nvidia-h100">NVIDIA H100<a class="headerlink" href="#nvidia-h100" title="Permanent link">#</a></h3>
 <ul>
 <li>Memory: 80GB</li>
 <li>Expected temperature: 25-40°C idle, 55-70°C under load</li>
 <li>Higher power consumption (700W TDP)</li>
 </ul>
-<h3 id="nvidia-l4">NVIDIA L4<a class="headerlink" href="#nvidia-l4" title="Permanent link"></a></h3>
+<h3 id="nvidia-l4">NVIDIA L4<a class="headerlink" href="#nvidia-l4" title="Permanent link">#</a></h3>
 <ul>
 <li>Memory: 24GB</li>
 <li>Lower power consumption</li>
 <li>Good for inference workloads</li>
 </ul>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>
-<h3 id="gpu-not-detected">GPU not detected<a class="headerlink" href="#gpu-not-detected" title="Permanent link"></a></h3>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">#</a></h2>
+<h3 id="gpu-not-detected">GPU not detected<a class="headerlink" href="#gpu-not-detected" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Check NVIDIA driver</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>nvidia-smi
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
@@ -2317,21 +2317,21 @@
 </span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Reinstall driver if needed</span>
 </span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>--reinstall<span class="w"> </span>nvidia-driver-535
 </span></code></pre></div>
-<h3 id="health-checks-failing">Health checks failing<a class="headerlink" href="#health-checks-failing" title="Permanent link"></a></h3>
+<h3 id="health-checks-failing">Health checks failing<a class="headerlink" href="#health-checks-failing" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Check node daemon logs</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>cat<span class="w"> </span>/tmp/node.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span>error
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Check dmesg for GPU errors</span>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>sudo<span class="w"> </span>dmesg<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span>nvidia<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </span></code></pre></div>
-<h3 id="high-temperature-warnings">High temperature warnings<a class="headerlink" href="#high-temperature-warnings" title="Permanent link"></a></h3>
+<h3 id="high-temperature-warnings">High temperature warnings<a class="headerlink" href="#high-temperature-warnings" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Check current temperature</span>
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>nvidia-smi<span class="w"> </span>--query-gpu<span class="o">=</span>temperature.gpu<span class="w"> </span>--format<span class="o">=</span>csv
 </span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Check cooling (data center GPUs need proper airflow)</span>
 </span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>nvidia-smi<span class="w"> </span>--query-gpu<span class="o">=</span>fan.speed<span class="w"> </span>--format<span class="o">=</span>csv
 </span></code></pre></div>
-<h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link"></a></h2>
+<h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">#</a></h2>
 <p>Remember to terminate GPU instances after testing:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Lambda Labs: Use console</span>
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>

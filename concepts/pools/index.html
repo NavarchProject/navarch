@@ -1718,9 +1718,9 @@
   
 
 
-<h1 id="pools-providers">Pools &amp; Providers<a class="headerlink" href="#pools-providers" title="Permanent link"></a></h1>
+<h1 id="pools-providers">Pools &amp; Providers<a class="headerlink" href="#pools-providers" title="Permanent link">#</a></h1>
 <p>Pools organize your GPU nodes. Providers connect to cloud platforms.</p>
-<h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link"></a></h2>
+<h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link">#</a></h2>
 <p>A pool is a group of GPU nodes with shared configuration:</p>
 <ul>
 <li>Same cloud provider and region.</li>
@@ -1746,14 +1746,14 @@
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">cooldown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2m</span>
 </span></code></pre></div>
-<h3 id="when-to-use-multiple-pools">When to use multiple pools<a class="headerlink" href="#when-to-use-multiple-pools" title="Permanent link"></a></h3>
+<h3 id="when-to-use-multiple-pools">When to use multiple pools<a class="headerlink" href="#when-to-use-multiple-pools" title="Permanent link">#</a></h3>
 <ul>
 <li><strong>Different instance types</strong>: Training on 8xH100, inference on 1xA100.</li>
 <li><strong>Different regions</strong>: US pool for US users, EU pool for EU users.</li>
 <li><strong>Different scaling behavior</strong>: Batch jobs scale to zero, serving keeps minimum capacity.</li>
 <li><strong>Different teams</strong>: Separate pools for separate cost tracking.</li>
 </ul>
-<h2 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link"></a></h2>
+<h2 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link">#</a></h2>
 <p>A provider abstracts cloud-specific operations:</p>
 <ul>
 <li>Provisioning new instances.</li>
@@ -1761,7 +1761,7 @@
 <li>Listing available instance types.</li>
 <li>Managing SSH keys and startup scripts.</li>
 </ul>
-<h3 id="supported-providers">Supported providers<a class="headerlink" href="#supported-providers" title="Permanent link"></a></h3>
+<h3 id="supported-providers">Supported providers<a class="headerlink" href="#supported-providers" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -1788,7 +1788,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="provider-configuration">Provider configuration<a class="headerlink" href="#provider-configuration" title="Permanent link"></a></h3>
+<h3 id="provider-configuration">Provider configuration<a class="headerlink" href="#provider-configuration" title="Permanent link">#</a></h3>
 <p>Providers are configured separately from pools:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">lambda</span><span class="p">:</span>
@@ -1812,7 +1812,7 @@
 <li>Test with the fake provider before using real clouds.</li>
 </ul>
 <p>See <a href="../../configuration/#providers">Configuration Reference</a> for all provider options.</p>
-<h2 id="labels">Labels<a class="headerlink" href="#labels" title="Permanent link"></a></h2>
+<h2 id="labels">Labels<a class="headerlink" href="#labels" title="Permanent link">#</a></h2>
 <p>Labels are key-value pairs attached to pools and nodes. Use them for:</p>
 <ul>
 <li>Filtering nodes by workload type.</li>
@@ -1832,7 +1832,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>navarch<span class="w"> </span>list<span class="w"> </span>--label<span class="w"> </span><span class="nv">workload</span><span class="o">=</span>training
 </span></code></pre></div>
 <p>See <a href="../../cli/">CLI Reference</a> for all filtering options.</p>
-<h2 id="multi-cloud-setup">Multi-cloud setup<a class="headerlink" href="#multi-cloud-setup" title="Permanent link"></a></h2>
+<h2 id="multi-cloud-setup">Multi-cloud setup<a class="headerlink" href="#multi-cloud-setup" title="Permanent link">#</a></h2>
 <p>Navarch can manage nodes across multiple providers simultaneously:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">lambda</span><span class="p">:</span>

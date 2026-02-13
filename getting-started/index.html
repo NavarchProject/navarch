@@ -1903,14 +1903,14 @@
   
 
 
-<h1 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link"></a></h1>
+<h1 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link">#</a></h1>
 <p>This guide walks you through setting up Navarch for local development and testing.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">#</a></h2>
 <ul>
 <li>Go 1.21 or later.</li>
 <li>Git for cloning the repository.</li>
 </ul>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">#</a></h2>
 <p>Clone and build Navarch:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>navarch
@@ -1923,9 +1923,9 @@
 <li><code>bin/node</code> - The node agent (runs on GPU instances).</li>
 <li><code>bin/simulator</code> - A testing tool for simulating GPU fleets.</li>
 </ul>
-<h2 id="quick-start-with-fake-provider">Quick start with fake provider<a class="headerlink" href="#quick-start-with-fake-provider" title="Permanent link"></a></h2>
+<h2 id="quick-start-with-fake-provider">Quick start with fake provider<a class="headerlink" href="#quick-start-with-fake-provider" title="Permanent link">#</a></h2>
 <p>The fake provider simulates GPU instances without cloud costs. Use it for local development and testing.</p>
-<h3 id="step-1-create-a-configuration-file">Step 1: Create a configuration file<a class="headerlink" href="#step-1-create-a-configuration-file" title="Permanent link"></a></h3>
+<h3 id="step-1-create-a-configuration-file">Step 1: Create a configuration file<a class="headerlink" href="#step-1-create-a-configuration-file" title="Permanent link">#</a></h3>
 <p>Create <code>config.yaml</code>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">server</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;:50051&quot;</span>
@@ -1952,11 +1952,11 @@
 </span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">      </span><span class="nt">unhealthy_after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">      </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
-<h3 id="step-2-start-the-control-plane">Step 2: Start the control plane<a class="headerlink" href="#step-2-start-the-control-plane" title="Permanent link"></a></h3>
+<h3 id="step-2-start-the-control-plane">Step 2: Start the control plane<a class="headerlink" href="#step-2-start-the-control-plane" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./bin/control-plane<span class="w"> </span>--config<span class="w"> </span>config.yaml
 </span></code></pre></div>
 <p>The control plane starts and provisions two fake nodes (the <code>min_nodes</code> value).</p>
-<h3 id="step-3-list-nodes">Step 3: List nodes<a class="headerlink" href="#step-3-list-nodes" title="Permanent link"></a></h3>
+<h3 id="step-3-list-nodes">Step 3: List nodes<a class="headerlink" href="#step-3-list-nodes" title="Permanent link">#</a></h3>
 <p>In a new terminal:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./bin/navarch<span class="w"> </span>list
 </span></code></pre></div>
@@ -1968,7 +1968,7 @@
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│ fake-2    │ fake     │ local  │      │ gpu_8x_h100   │ Active │ Healthy │ 5s ago         │ 8    │
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>└───────────┴──────────┴────────┴──────┴───────────────┴────────┴─────────┴────────────────┴──────┘
 </span></code></pre></div>
-<h3 id="step-4-manage-nodes">Step 4: Manage nodes<a class="headerlink" href="#step-4-manage-nodes" title="Permanent link"></a></h3>
+<h3 id="step-4-manage-nodes">Step 4: Manage nodes<a class="headerlink" href="#step-4-manage-nodes" title="Permanent link">#</a></h3>
 <p>To cordon a node (prevent new workloads):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/navarch<span class="w"> </span>cordon<span class="w"> </span>fake-1
 </span></code></pre></div>
@@ -1978,16 +1978,16 @@
 <p>To view node details:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>./bin/navarch<span class="w"> </span>get<span class="w"> </span>fake-1
 </span></code></pre></div>
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link"></a></h2>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">#</a></h2>
 <p>To connect real cloud providers, see the <a href="../configuration/">configuration reference</a>.</p>
 <p>To learn about autoscaling strategies, see <a href="../pool-management/">pool management</a>.</p>
 <p>To deploy in production, see the <a href="../deployment/">deployment guide</a>.</p>
-<h2 id="using-the-simulator">Using the simulator<a class="headerlink" href="#using-the-simulator" title="Permanent link"></a></h2>
+<h2 id="using-the-simulator">Using the simulator<a class="headerlink" href="#using-the-simulator" title="Permanent link">#</a></h2>
 <p>The simulator tests Navarch behavior without running the full system. It uses scenario files to define fleet configurations and events.</p>
-<h3 id="run-a-scenario">Run a scenario<a class="headerlink" href="#run-a-scenario" title="Permanent link"></a></h3>
+<h3 id="run-a-scenario">Run a scenario<a class="headerlink" href="#run-a-scenario" title="Permanent link">#</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/basic-fleet.yaml
 </span></code></pre></div>
-<h3 id="interactive-mode">Interactive mode<a class="headerlink" href="#interactive-mode" title="Permanent link"></a></h3>
+<h3 id="interactive-mode">Interactive mode<a class="headerlink" href="#interactive-mode" title="Permanent link">#</a></h3>
 <p>Run the simulator in interactive mode to test CLI commands:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./bin/simulator<span class="w"> </span>interactive<span class="w"> </span>scenarios/basic-fleet.yaml
 </span></code></pre></div>
@@ -1995,22 +1995,22 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>./bin/navarch<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080<span class="w"> </span>list
 </span></code></pre></div>
 <p>For more information, see <a href="../simulator/">simulator documentation</a>.</p>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>
-<h3 id="connection-refused">Connection refused<a class="headerlink" href="#connection-refused" title="Permanent link"></a></h3>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">#</a></h2>
+<h3 id="connection-refused">Connection refused<a class="headerlink" href="#connection-refused" title="Permanent link">#</a></h3>
 <p>If <code>navarch list</code> returns "connection refused":</p>
 <ol>
 <li>Verify the control plane is running.</li>
 <li>Check the address matches (default is <code>http://localhost:50051</code>).</li>
 <li>Use the <code>-s</code> flag to specify a different address.</li>
 </ol>
-<h3 id="no-nodes-appear">No nodes appear<a class="headerlink" href="#no-nodes-appear" title="Permanent link"></a></h3>
+<h3 id="no-nodes-appear">No nodes appear<a class="headerlink" href="#no-nodes-appear" title="Permanent link">#</a></h3>
 <p>If nodes do not appear after starting the control plane:</p>
 <ol>
 <li>Check the control plane logs for errors.</li>
 <li>Verify the pool configuration has <code>min_nodes</code> greater than zero.</li>
 <li>Confirm the provider is configured correctly.</li>
 </ol>
-<h3 id="build-errors">Build errors<a class="headerlink" href="#build-errors" title="Permanent link"></a></h3>
+<h3 id="build-errors">Build errors<a class="headerlink" href="#build-errors" title="Permanent link">#</a></h3>
 <p>If the build fails:</p>
 <ol>
 <li>Verify Go 1.21 or later is installed: <code>go version</code></li>

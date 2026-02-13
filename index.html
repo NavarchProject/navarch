@@ -1677,7 +1677,7 @@
 </ul>
 </div>
 <hr />
-<h2 id="why-navarch">Why Navarch<a class="headerlink" href="#why-navarch" title="Permanent link"></a></h2>
+<h2 id="why-navarch">Why Navarch<a class="headerlink" href="#why-navarch" title="Permanent link">#</a></h2>
 <p>GPUs fail. Cloud providers give you instances, but detecting hardware failures and replacing bad nodes is your problem. Teams end up building custom monitoring with DCGM, dmesg parsing, and cloud-specific scripts. Then there's the multi-cloud problem: different APIs, different instance types, different tooling.</p>
 <p>Navarch makes your GPU supply self-healing and fungible across clouds, all under one system to manage it all:</p>
 <ul>
@@ -1688,13 +1688,13 @@
 <li><strong>Works with your scheduler.</strong> Kubernetes, SLURM, or bare metal.</li>
 </ul>
 <hr />
-<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link"></a></h2>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">#</a></h2>
 <p><img src="images/navarch_overview.png" alt="Navarch architecture" style="max-width: 540px; width: 100%;"></p>
 <p>The <strong>control plane</strong> manages pools, evaluates health policies, and provisions or terminates instances through cloud provider APIs.</p>
 <p>The <strong>node agent</strong> runs on each GPU instance. It reports health via NVML, sends heartbeats, and executes commands from the control plane.</p>
 <p>Navarch complements your existing scheduler. It handles infrastructure; your scheduler places workloads.</p>
 <hr />
-<h2 id="quick-look">Quick look<a class="headerlink" href="#quick-look" title="Permanent link"></a></h2>
+<h2 id="quick-look">Quick look<a class="headerlink" href="#quick-look" title="Permanent link">#</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># navarch.yaml</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">lambda</span><span class="p">:</span>
@@ -1718,7 +1718,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>control-plane<span class="w"> </span>-config<span class="w"> </span>navarch.yaml
 </span></code></pre></div>
 <hr />
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link"></a></h2>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">#</a></h2>
 <div class="grid cards">
 <ul>
 <li>

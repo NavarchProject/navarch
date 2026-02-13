@@ -1750,15 +1750,15 @@
   
 
 
-<h1 id="health-policy">Health Policy<a class="headerlink" href="#health-policy" title="Permanent link"></a></h1>
+<h1 id="health-policy">Health Policy<a class="headerlink" href="#health-policy" title="Permanent link">#</a></h1>
 <p>Navarch uses <a href="https://github.com/google/cel-spec">CEL (Common Expression Language)</a> to evaluate GPU health events and determine node health status. You can customize this logic by providing a health policy file.</p>
 <p>If no policy is specified, Navarch uses a built-in default policy that classifies fatal XID errors (like XID 79 "GPU has fallen off the bus") as unhealthy and recoverable errors as degraded.</p>
-<h2 id="enabling-a-custom-policy">Enabling a custom policy<a class="headerlink" href="#enabling-a-custom-policy" title="Permanent link"></a></h2>
+<h2 id="enabling-a-custom-policy">Enabling a custom policy<a class="headerlink" href="#enabling-a-custom-policy" title="Permanent link">#</a></h2>
 <p>Reference the policy file in your configuration:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">server</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">health_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./health-policy.yaml</span>
 </span></code></pre></div>
-<h2 id="policy-file-format">Policy file format<a class="headerlink" href="#policy-file-format" title="Permanent link"></a></h2>
+<h2 id="policy-file-format">Policy file format<a class="headerlink" href="#policy-file-format" title="Permanent link">#</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -1790,7 +1790,7 @@
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
 <p>Rules are evaluated in order; the first matching rule determines the result. Place more specific rules before general ones, and always include a default rule at the end.</p>
-<h2 id="rule-fields">Rule fields<a class="headerlink" href="#rule-fields" title="Permanent link"></a></h2>
+<h2 id="rule-fields">Rule fields<a class="headerlink" href="#rule-fields" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -1822,7 +1822,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="cel-event-fields">CEL event fields<a class="headerlink" href="#cel-event-fields" title="Permanent link"></a></h2>
+<h2 id="cel-event-fields">CEL event fields<a class="headerlink" href="#cel-event-fields" title="Permanent link">#</a></h2>
 <p>The following fields are available in CEL expressions:</p>
 <table>
 <thead>
@@ -1897,8 +1897,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="example-policies">Example policies<a class="headerlink" href="#example-policies" title="Permanent link"></a></h2>
-<h3 id="strict-policy">Strict policy<a class="headerlink" href="#strict-policy" title="Permanent link"></a></h3>
+<h2 id="example-policies">Example policies<a class="headerlink" href="#example-policies" title="Permanent link">#</a></h2>
+<h3 id="strict-policy">Strict policy<a class="headerlink" href="#strict-policy" title="Permanent link">#</a></h3>
 <p>Treat all XID errors as fatal:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">rules</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">any-xid-fatal</span>
@@ -1908,7 +1908,7 @@
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h3 id="permissive-policy">Permissive policy<a class="headerlink" href="#permissive-policy" title="Permanent link"></a></h3>
+<h3 id="permissive-policy">Permissive policy<a class="headerlink" href="#permissive-policy" title="Permanent link">#</a></h3>
 <p>Only fail on the most severe errors:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">rules</span><span class="p">:</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bus-error-only</span>
@@ -1919,7 +1919,7 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h3 id="gpu-specific-policy">GPU-specific policy<a class="headerlink" href="#gpu-specific-policy" title="Permanent link"></a></h3>
+<h3 id="gpu-specific-policy">GPU-specific policy<a class="headerlink" href="#gpu-specific-policy" title="Permanent link">#</a></h3>
 <p>Different thresholds for different GPUs:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">rules</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu0-strict</span>
@@ -1933,7 +1933,7 @@
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">result</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">healthy</span>
 </span></code></pre></div>
-<h2 id="testing-policies">Testing policies<a class="headerlink" href="#testing-policies" title="Permanent link"></a></h2>
+<h2 id="testing-policies">Testing policies<a class="headerlink" href="#testing-policies" title="Permanent link">#</a></h2>
 <p>Use the <a href="../simulator/">simulator</a> to test health policies before deploying to production. The simulator HTML report includes a "Policy Rules" section showing which rules matched for each failure.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/xid-classification.yaml<span class="w"> </span>-v
 </span></code></pre></div>

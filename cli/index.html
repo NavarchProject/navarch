@@ -2150,9 +2150,9 @@
   
 
 
-<h1 id="navarch-cli-reference">Navarch CLI reference<a class="headerlink" href="#navarch-cli-reference" title="Permanent link"></a></h1>
+<h1 id="navarch-cli-reference">Navarch CLI reference<a class="headerlink" href="#navarch-cli-reference" title="Permanent link">#</a></h1>
 <p>The Navarch CLI is a command-line tool for managing your GPU fleet across cloud providers.</p>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">#</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># From source</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NavarchProject/navarch.git
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>navarch
@@ -2162,14 +2162,14 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Or using Go</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>go<span class="w"> </span>install<span class="w"> </span>github.com/NavarchProject/navarch/cmd/navarch@latest
 </span></code></pre></div>
-<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link"></a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">#</a></h2>
 <p>The CLI communicates with the Navarch control plane via HTTP. You can configure the control plane address using any of these methods, in order of precedence:</p>
 <ol>
 <li><strong>Command-line flag</strong> (highest priority): <code>--server</code> or <code>-s</code></li>
 <li><strong>Environment variable</strong>: <code>NAVARCH_SERVER</code></li>
 <li><strong>Default value</strong> (lowest priority): <code>http://localhost:50051</code></li>
 </ol>
-<h3 id="global-flags">Global flags<a class="headerlink" href="#global-flags" title="Permanent link"></a></h3>
+<h3 id="global-flags">Global flags<a class="headerlink" href="#global-flags" title="Permanent link">#</a></h3>
 <p>All commands support these flags:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>-s, --server string      Control plane address (default &quot;http://localhost:50051&quot;)
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>--insecure               Skip TLS certificate verification
@@ -2177,7 +2177,7 @@
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>--timeout duration       Request timeout (default 30s)
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>-h, --help               Show help for any command
 </span></code></pre></div>
-<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link"></a></h3>
+<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">#</a></h3>
 <p>Connect to a remote control plane using the flag:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>navarch<span class="w"> </span>-s<span class="w"> </span>https://navarch.example.com<span class="w"> </span>list
 </span></code></pre></div>
@@ -2192,8 +2192,8 @@
 <p>Get JSON output for scripting:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>navarch<span class="w"> </span>list<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[] | select(.status == &quot;ACTIVE&quot;)&#39;</span>
 </span></code></pre></div>
-<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link"></a></h2>
-<h3 id="navarch-list"><code>navarch list</code><a class="headerlink" href="#navarch-list" title="Permanent link"></a></h3>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">#</a></h2>
+<h3 id="navarch-list"><code>navarch list</code><a class="headerlink" href="#navarch-list" title="Permanent link">#</a></h3>
 <p>List all nodes in your fleet.</p>
 <p>Usage:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>navarch<span class="w"> </span>list<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
@@ -2244,7 +2244,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$<span class="w"> </span>navarch<span class="w"> </span>list<span class="w"> </span>--provider<span class="w"> </span>gcp<span class="w"> </span>--region<span class="w"> </span>us-central1<span class="w"> </span>--status<span class="w"> </span>NODE_STATUS_ACTIVE
 </span></code></pre></div></p>
 <hr />
-<h3 id="navarch-get"><code>navarch get</code><a class="headerlink" href="#navarch-get" title="Permanent link"></a></h3>
+<h3 id="navarch-get"><code>navarch get</code><a class="headerlink" href="#navarch-get" title="Permanent link">#</a></h3>
 <p>Returns detailed information about a specific node.</p>
 <p>Usage:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>navarch<span class="w"> </span>get<span class="w"> </span>&lt;node-id&gt;<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>
@@ -2293,7 +2293,7 @@
 </span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="o">}</span>
 </span></code></pre></div>
 <hr />
-<h3 id="navarch-cordon"><code>navarch cordon</code><a class="headerlink" href="#navarch-cordon" title="Permanent link"></a></h3>
+<h3 id="navarch-cordon"><code>navarch cordon</code><a class="headerlink" href="#navarch-cordon" title="Permanent link">#</a></h3>
 <p>Marks a node as unschedulable. This prevents new workloads from being scheduled on the node but does not affect existing workloads.</p>
 <p>Usage:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>navarch<span class="w"> </span>cordon<span class="w"> </span>&lt;node-id&gt;
@@ -2322,7 +2322,7 @@
 <li>To prevent scheduling on a node without disrupting running workloads.</li>
 </ul>
 <hr />
-<h3 id="navarch-drain"><code>navarch drain</code><a class="headerlink" href="#navarch-drain" title="Permanent link"></a></h3>
+<h3 id="navarch-drain"><code>navarch drain</code><a class="headerlink" href="#navarch-drain" title="Permanent link">#</a></h3>
 <p>Drains a node by evicting workloads and marking it unschedulable. This is a more forceful operation than cordoning.</p>
 <p>Usage:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>navarch<span class="w"> </span>drain<span class="w"> </span>&lt;node-id&gt;
@@ -2344,7 +2344,7 @@
 2. Evicts all running workloads.
 3. Transitions the node to <code>DRAINING</code> status.</p>
 <hr />
-<h3 id="navarch-uncordon"><code>navarch uncordon</code><a class="headerlink" href="#navarch-uncordon" title="Permanent link"></a></h3>
+<h3 id="navarch-uncordon"><code>navarch uncordon</code><a class="headerlink" href="#navarch-uncordon" title="Permanent link">#</a></h3>
 <p>Marks a cordoned node as schedulable again. This reverses the effect of <code>cordon</code>.</p>
 <p>Usage:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>navarch<span class="w"> </span>uncordon<span class="w"> </span>&lt;node-id&gt;
@@ -2373,15 +2373,15 @@
 </ul>
 <p>Note: You can only uncordon a node that is currently in the <code>Cordoned</code> status. Attempting to uncordon a node in any other status (Active, Draining, Unhealthy, Terminated) will result in an error.</p>
 <hr />
-<h2 id="common-workflows">Common workflows<a class="headerlink" href="#common-workflows" title="Permanent link"></a></h2>
-<h3 id="monitor-fleet-health">Monitor fleet health<a class="headerlink" href="#monitor-fleet-health" title="Permanent link"></a></h3>
+<h2 id="common-workflows">Common workflows<a class="headerlink" href="#common-workflows" title="Permanent link">#</a></h2>
+<h3 id="monitor-fleet-health">Monitor fleet health<a class="headerlink" href="#monitor-fleet-health" title="Permanent link">#</a></h3>
 <p>To check all nodes and their health status:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$<span class="w"> </span>navarch<span class="w"> </span>list
 </span></code></pre></div>
 <p>To filter for unhealthy nodes:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>$<span class="w"> </span>navarch<span class="w"> </span>list<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[] | select(.health_status != &quot;HEALTH_STATUS_HEALTHY&quot;)&#39;</span>
 </span></code></pre></div></p>
-<h3 id="perform-maintenance">Perform maintenance<a class="headerlink" href="#perform-maintenance" title="Permanent link"></a></h3>
+<h3 id="perform-maintenance">Perform maintenance<a class="headerlink" href="#perform-maintenance" title="Permanent link">#</a></h3>
 <ol>
 <li>
 <p>Cordon the node to prevent new work:
@@ -2400,7 +2400,7 @@
 </ol>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>navarch<span class="w"> </span>uncordon<span class="w"> </span>node-gcp-1
 </span></code></pre></div>
-<h3 id="decommission-a-node">Decommission a node<a class="headerlink" href="#decommission-a-node" title="Permanent link"></a></h3>
+<h3 id="decommission-a-node">Decommission a node<a class="headerlink" href="#decommission-a-node" title="Permanent link">#</a></h3>
 <ol>
 <li>
 <p>Drain the node to evict workloads:
@@ -2414,7 +2414,7 @@
 <p>Terminate the node through your cloud provider, or let Navarch handle the termination.</p>
 </li>
 </ol>
-<h3 id="investigate-a-problematic-node">Investigate a problematic node<a class="headerlink" href="#investigate-a-problematic-node" title="Permanent link"></a></h3>
+<h3 id="investigate-a-problematic-node">Investigate a problematic node<a class="headerlink" href="#investigate-a-problematic-node" title="Permanent link">#</a></h3>
 <ol>
 <li>Get detailed information:</li>
 </ol>
@@ -2428,7 +2428,7 @@
 <p>Decide whether to cordon, drain, or leave the node as-is.</p>
 </li>
 </ol>
-<h3 id="scripting-and-automation">Scripting and automation<a class="headerlink" href="#scripting-and-automation" title="Permanent link"></a></h3>
+<h3 id="scripting-and-automation">Scripting and automation<a class="headerlink" href="#scripting-and-automation" title="Permanent link">#</a></h3>
 <p>To count active nodes per region:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>navarch<span class="w"> </span>list<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;group_by(.region) | map({region: .[0].region, count: length})&#39;</span>
 </span></code></pre></div></p>
@@ -2444,12 +2444,12 @@
 </span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="k">done</span>
 </span></code></pre></div></p>
 <hr />
-<h2 id="output-formats">Output formats<a class="headerlink" href="#output-formats" title="Permanent link"></a></h2>
-<h3 id="table-default">Table (default)<a class="headerlink" href="#table-default" title="Permanent link"></a></h3>
+<h2 id="output-formats">Output formats<a class="headerlink" href="#output-formats" title="Permanent link">#</a></h2>
+<h3 id="table-default">Table (default)<a class="headerlink" href="#table-default" title="Permanent link">#</a></h3>
 <p>The table format provides a human-readable table with aligned columns for interactive use.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>navarch<span class="w"> </span>list
 </span></code></pre></div>
-<h3 id="json">JSON<a class="headerlink" href="#json" title="Permanent link"></a></h3>
+<h3 id="json">JSON<a class="headerlink" href="#json" title="Permanent link">#</a></h3>
 <p>The JSON format provides machine-readable output for scripting and automation.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>navarch<span class="w"> </span>list<span class="w"> </span>-o<span class="w"> </span>json
 </span></code></pre></div>
@@ -2464,14 +2464,14 @@
 </span><span id="__span-36-8"><a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a>navarch<span class="w"> </span>list<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[] | select((.gpus | length) &gt; 4)&#39;</span>
 </span></code></pre></div></p>
 <hr />
-<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link"></a></h2>
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">#</a></h2>
 <ul>
 <li><code>0</code> - Success.</li>
 <li><code>1</code> - General error, such as connection failed or command failed.</li>
 </ul>
 <hr />
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>
-<h3 id="connection-refused">Connection refused<a class="headerlink" href="#connection-refused" title="Permanent link"></a></h3>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">#</a></h2>
+<h3 id="connection-refused">Connection refused<a class="headerlink" href="#connection-refused" title="Permanent link">#</a></h3>
 <p>Error message: <code>failed to list nodes: connection refused</code></p>
 <p>To resolve this issue, verify that the control plane is running:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="c1"># Check if control plane is running</span>
@@ -2480,12 +2480,12 @@
 </span><span id="__span-37-4"><a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="c1"># Start control plane if needed</span>
 </span><span id="__span-37-5"><a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>control-plane<span class="w"> </span>-addr<span class="w"> </span>:50051
 </span></code></pre></div></p>
-<h3 id="invalid-node-id">Invalid node ID<a class="headerlink" href="#invalid-node-id" title="Permanent link"></a></h3>
+<h3 id="invalid-node-id">Invalid node ID<a class="headerlink" href="#invalid-node-id" title="Permanent link">#</a></h3>
 <p>Error message: <code>failed to get node: node not found</code></p>
 <p>To resolve this issue, verify that the node ID exists:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>navarch<span class="w"> </span>list
 </span></code></pre></div></p>
-<h3 id="control-plane-not-found">Control plane not found<a class="headerlink" href="#control-plane-not-found" title="Permanent link"></a></h3>
+<h3 id="control-plane-not-found">Control plane not found<a class="headerlink" href="#control-plane-not-found" title="Permanent link">#</a></h3>
 <p>Error message: <code>failed to connect to control plane</code></p>
 <p>To resolve this issue, specify the correct control plane address using the <code>--server</code> flag:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>navarch<span class="w"> </span>-s<span class="w"> </span>http://control-plane.example.com:50051<span class="w"> </span>list
@@ -2495,7 +2495,7 @@
 </span><span id="__span-40-2"><a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>navarch<span class="w"> </span>list
 </span></code></pre></div>
 <hr />
-<h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link"></a></h2>
+<h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">#</a></h2>
 <ul>
 <li>For information about control plane and node agent architecture, see <a href="../architecture/">Architecture</a>.</li>
 <li>For deployment instructions, see <a href="../deployment/">Deployment</a>.</li>

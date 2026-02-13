@@ -1709,9 +1709,9 @@
   
 
 
-<h1 id="simulator">Simulator<a class="headerlink" href="#simulator" title="Permanent link"></a></h1>
+<h1 id="simulator">Simulator<a class="headerlink" href="#simulator" title="Permanent link">#</a></h1>
 <p>The Navarch fleet simulator creates a simulated GPU fleet and control plane for testing, development, and demonstration purposes.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link"></a></h2>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">#</a></h2>
 <p>The simulator runs an embedded control plane and spawns simulated nodes that behave like real GPU instances. You can inject failures, issue commands, and observe how the system responds without provisioning actual cloud resources.</p>
 <p>Use the simulator to:</p>
 <ul>
@@ -1737,11 +1737,11 @@
 </li>
 </ul>
 </div>
-<h2 id="building">Building<a class="headerlink" href="#building" title="Permanent link"></a></h2>
+<h2 id="building">Building<a class="headerlink" href="#building" title="Permanent link">#</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span>build
 </span></code></pre></div>
 <p>This creates <code>bin/simulator</code> along with the other Navarch binaries.</p>
-<h2 id="running-scenarios">Running scenarios<a class="headerlink" href="#running-scenarios" title="Permanent link"></a></h2>
+<h2 id="running-scenarios">Running scenarios<a class="headerlink" href="#running-scenarios" title="Permanent link">#</a></h2>
 <p>Scenarios are YAML files that define a fleet configuration and a sequence of events.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Run a scenario</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/gpu-failure.yaml<span class="w"> </span>-v
@@ -1749,7 +1749,7 @@
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Validate without running</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>./bin/simulator<span class="w"> </span>validate<span class="w"> </span>scenarios/gpu-failure.yaml
 </span></code></pre></div>
-<h3 id="command-line-options">Command-line options<a class="headerlink" href="#command-line-options" title="Permanent link"></a></h3>
+<h3 id="command-line-options">Command-line options<a class="headerlink" href="#command-line-options" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -1772,7 +1772,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="interactive-mode">Interactive mode<a class="headerlink" href="#interactive-mode" title="Permanent link"></a></h2>
+<h2 id="interactive-mode">Interactive mode<a class="headerlink" href="#interactive-mode" title="Permanent link">#</a></h2>
 <p>Interactive mode starts a control plane and a default two-node fleet, then waits for you to interact with it using the Navarch CLI.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./bin/simulator<span class="w"> </span>interactive<span class="w"> </span>-v
 </span></code></pre></div>
@@ -1787,7 +1787,7 @@
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>navarch<span class="w"> </span>cordon<span class="w"> </span>node-1<span class="w"> </span>-s<span class="w"> </span>http://localhost:8080
 </span></code></pre></div>
 <p>Press <code>Ctrl+C</code> to stop.</p>
-<h2 id="makefile-targets">Makefile targets<a class="headerlink" href="#makefile-targets" title="Permanent link"></a></h2>
+<h2 id="makefile-targets">Makefile targets<a class="headerlink" href="#makefile-targets" title="Permanent link">#</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Run interactive mode</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span>sim
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
@@ -1800,7 +1800,7 @@
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Run stress tests</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>make<span class="w"> </span>sim-run<span class="w"> </span><span class="nv">SCENARIO</span><span class="o">=</span>scenarios/stress/1000-node-chaos.yaml
 </span></code></pre></div>
-<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link"></a></h2>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">#</a></h2>
 <ul>
 <li><a href="scenarios/">Scenario reference</a> — Learn the scenario file format and available actions</li>
 <li><a href="stress-testing/">Stress testing</a> — Run large-scale chaos tests</li>

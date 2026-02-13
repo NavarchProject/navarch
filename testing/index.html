@@ -1631,8 +1631,8 @@
   
 
 
-<h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link"></a></h1>
-<h2 id="unit-tests">Unit tests<a class="headerlink" href="#unit-tests" title="Permanent link"></a></h2>
+<h1 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">#</a></h1>
+<h2 id="unit-tests">Unit tests<a class="headerlink" href="#unit-tests" title="Permanent link">#</a></h2>
 <p>Run all unit tests:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>make<span class="w"> </span><span class="nb">test</span>
 </span></code></pre></div>
@@ -1642,7 +1642,7 @@
 <p>Run all checks (format, lint, test):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>test-all
 </span></code></pre></div>
-<h2 id="docker-provider">Docker provider<a class="headerlink" href="#docker-provider" title="Permanent link"></a></h2>
+<h2 id="docker-provider">Docker provider<a class="headerlink" href="#docker-provider" title="Permanent link">#</a></h2>
 <p>The <code>docker</code> provider spawns SSH-enabled containers for end-to-end bootstrap testing without cloud infrastructure.</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
@@ -1687,7 +1687,7 @@
 <li>Maps container port 22 to a random host port</li>
 <li>Sets <code>SSHPort</code> on the returned node for bootstrap</li>
 </ul>
-<h2 id="simulator">Simulator<a class="headerlink" href="#simulator" title="Permanent link"></a></h2>
+<h2 id="simulator">Simulator<a class="headerlink" href="#simulator" title="Permanent link">#</a></h2>
 <p>The simulator runs a virtual GPU fleet for scenario testing without cloud resources.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/gpu-failure.yaml<span class="w"> </span>-v
 </span></code></pre></div>
@@ -1695,7 +1695,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./bin/simulator<span class="w"> </span>interactive<span class="w"> </span>-v
 </span></code></pre></div>
 <p>See <a href="../simulator/scenarios/">Scenarios</a> for the scenario file format and <a href="../simulator/stress-testing/">Stress Testing</a> for chaos testing.</p>
-<h2 id="hardware-testing">Hardware testing<a class="headerlink" href="#hardware-testing" title="Permanent link"></a></h2>
+<h2 id="hardware-testing">Hardware testing<a class="headerlink" href="#hardware-testing" title="Permanent link">#</a></h2>
 <p>To test on real GPU machines, see <a href="../testing-on-gpu/">Testing on Hardware</a>.</p>
 
 

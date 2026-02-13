@@ -1181,56 +1181,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kubernetes-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes integration
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Kubernetes integration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pattern-1-navarch-kubernetes-together" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 1: Navarch + Kubernetes together
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pattern-2-let-kubernetes-control-scaling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 2: Let Kubernetes control scaling
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pattern-3-navarch-without-kubernetes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 3: Navarch without Kubernetes
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#deployment-models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1679,56 +1629,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kubernetes-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes integration
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Kubernetes integration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#pattern-1-navarch-kubernetes-together" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 1: Navarch + Kubernetes together
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pattern-2-let-kubernetes-control-scaling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 2: Let Kubernetes control scaling
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pattern-3-navarch-without-kubernetes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pattern 3: Navarch without Kubernetes
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#deployment-models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1809,9 +1709,9 @@
   
 
 
-<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link"></a></h1>
+<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">#</a></h1>
 <p>Navarch is an infrastructure layer that sits between cloud providers and workload schedulers.</p>
-<h2 id="system-layers">System layers<a class="headerlink" href="#system-layers" title="Permanent link"></a></h2>
+<h2 id="system-layers">System layers<a class="headerlink" href="#system-layers" title="Permanent link">#</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌────────────────────────────────────────────┐
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│ Workload Schedulers                        │
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│ (Kubernetes, Slurm, Ray, custom)           │
@@ -1831,96 +1731,21 @@
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└────────────────────────────────────────────┘
 </span></code></pre></div>
 <p>Your scheduler places workloads. Navarch maintains healthy infrastructure.</p>
-<h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link"></a></h2>
+<h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link">#</a></h2>
 <p>See <a href="../concepts/components/">Components</a> for details.</p>
 <p><strong>Control plane</strong>: gRPC server that manages pools, tracks node state, and issues commands.</p>
 <p><strong>Node agent</strong>: Lightweight process on each GPU instance that reports health and executes commands.</p>
 <p><strong>Pool manager</strong>: Orchestrates autoscaling and node replacement.</p>
-<h2 id="kubernetes-integration">Kubernetes integration<a class="headerlink" href="#kubernetes-integration" title="Permanent link"></a></h2>
-<p>Navarch and Kubernetes operate at different layers.</p>
-<table>
-<thead>
-<tr>
-<th>Layer</th>
-<th>Kubernetes</th>
-<th>Navarch</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Workloads</td>
-<td>Schedules pods, scales replicas</td>
-<td>-</td>
-</tr>
-<tr>
-<td>Nodes</td>
-<td>Cluster Autoscaler adds/removes nodes</td>
-<td>Provisions VMs, monitors GPU health</td>
-</tr>
-<tr>
-<td>Hardware</td>
-<td>No visibility</td>
-<td>Detects XID errors, thermal issues, ECC faults</td>
-</tr>
-</tbody>
-</table>
-<h3 id="pattern-1-navarch-kubernetes-together">Pattern 1: Navarch + Kubernetes together<a class="headerlink" href="#pattern-1-navarch-kubernetes-together" title="Permanent link"></a></h3>
-<p>Recommended for production GPU clusters:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># navarch.yaml</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">pools</span><span class="p">:</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">k8s-gpu-workers</span><span class="p">:</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">providers</span><span class="p">:</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lambda</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gcp</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">min_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">autoscaling</span><span class="p">:</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reactive</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">scale_up_at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">health</span><span class="p">:</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span></code></pre></div>
-<p>Navarch provisions nodes and replaces failures. Kubernetes schedules workloads.</p>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>Multi-cloud with automatic failover</li>
-<li>GPU health monitoring and auto-replacement</li>
-<li>Kubernetes focuses on workload orchestration</li>
-</ul>
-<h3 id="pattern-2-let-kubernetes-control-scaling">Pattern 2: Let Kubernetes control scaling<a class="headerlink" href="#pattern-2-let-kubernetes-control-scaling" title="Permanent link"></a></h3>
-<p>Use Kubernetes Cluster Autoscaler for scaling decisions:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">pools</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">k8s-gpu-workers</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">min_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="c1"># No autoscaling config - Kubernetes handles it</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">health</span><span class="p">:</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Keep health monitoring</span>
-</span></code></pre></div>
-<p>Navarch provisions nodes and replaces failures. Kubernetes handles all scaling.</p>
-<h3 id="pattern-3-navarch-without-kubernetes">Pattern 3: Navarch without Kubernetes<a class="headerlink" href="#pattern-3-navarch-without-kubernetes" title="Permanent link"></a></h3>
-<p>Use with Slurm, Ray, or custom schedulers:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">pools</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">training</span><span class="p">:</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">min_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">autoscaling</span><span class="p">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queue</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">jobs_per_node</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-</span></code></pre></div>
-<p>Your scheduler reports job queue metrics via the <a href="../extending/#custom-metrics-sources">MetricsSource interface</a>.</p>
-<h2 id="deployment-models">Deployment models<a class="headerlink" href="#deployment-models" title="Permanent link"></a></h2>
-<h3 id="single-control-plane">Single control plane<a class="headerlink" href="#single-control-plane" title="Permanent link"></a></h3>
+<h2 id="deployment-models">Deployment models<a class="headerlink" href="#deployment-models" title="Permanent link">#</a></h2>
+<h3 id="single-control-plane">Single control plane<a class="headerlink" href="#single-control-plane" title="Permanent link">#</a></h3>
 <p>One control plane for all pools. Suitable for most deployments.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>control-plane<span class="w"> </span>--config<span class="w"> </span>navarch.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>control-plane<span class="w"> </span>--config<span class="w"> </span>navarch.yaml
 </span></code></pre></div>
-<h3 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link"></a></h3>
+<h3 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link">#</a></h3>
 <p>Multiple control planes behind a load balancer with external state store. See <a href="../deployment/">Deployment</a> for details.</p>
-<h3 id="multi-region">Multi-region<a class="headerlink" href="#multi-region" title="Permanent link"></a></h3>
+<h3 id="multi-region">Multi-region<a class="headerlink" href="#multi-region" title="Permanent link">#</a></h3>
 <p>Separate control planes per region with independent configurations. Use for latency-sensitive workloads or regulatory requirements.</p>
-<h2 id="learn-more">Learn more<a class="headerlink" href="#learn-more" title="Permanent link"></a></h2>
+<h2 id="learn-more">Learn more<a class="headerlink" href="#learn-more" title="Permanent link">#</a></h2>
 <ul>
 <li><a href="../concepts/components/">Components</a> - Control plane and node agent details</li>
 <li><a href="../concepts/pools/">Pools &amp; Providers</a> - Multi-cloud provisioning</li>

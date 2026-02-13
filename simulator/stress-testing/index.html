@@ -2075,9 +2075,9 @@
   
 
 
-<h1 id="stress-testing">Stress Testing<a class="headerlink" href="#stress-testing" title="Permanent link"></a></h1>
+<h1 id="stress-testing">Stress Testing<a class="headerlink" href="#stress-testing" title="Permanent link">#</a></h1>
 <p>The simulator includes a comprehensive stress testing framework for validating system behavior at scale with realistic failure patterns.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link"></a></h2>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">#</a></h2>
 <p>Stress tests allow you to:</p>
 <ul>
 <li>Simulate thousands of nodes simultaneously</li>
@@ -2087,7 +2087,7 @@
 <li>Measure system resilience and recovery</li>
 <li>Generate detailed reports</li>
 </ul>
-<h2 id="running-stress-tests">Running stress tests<a class="headerlink" href="#running-stress-tests" title="Permanent link"></a></h2>
+<h2 id="running-stress-tests">Running stress tests<a class="headerlink" href="#running-stress-tests" title="Permanent link">#</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Run a stress test</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/stress/1000-node-chaos.yaml<span class="w"> </span>-v
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -2097,7 +2097,7 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Validate before running</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>./bin/simulator<span class="w"> </span>validate<span class="w"> </span>scenarios/stress/5000-node-extreme.yaml
 </span></code></pre></div>
-<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link"></a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">#</a></h2>
 <p>Stress tests use an extended scenario format with a <code>stress</code> section:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-stress-test</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Large-scale chaos testing</span>
@@ -2118,7 +2118,7 @@
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span><span class="nt">chaos</span><span class="p">:</span>
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="c1"># Chaos engineering config...</span>
 </span></code></pre></div>
-<h2 id="fleet-generation">Fleet generation<a class="headerlink" href="#fleet-generation" title="Permanent link"></a></h2>
+<h2 id="fleet-generation">Fleet generation<a class="headerlink" href="#fleet-generation" title="Permanent link">#</a></h2>
 <p>Instead of defining individual nodes, generate fleets from templates:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">fleet_gen</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">total_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
@@ -2182,7 +2182,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="startup-patterns">Startup patterns<a class="headerlink" href="#startup-patterns" title="Permanent link"></a></h3>
+<h3 id="startup-patterns">Startup patterns<a class="headerlink" href="#startup-patterns" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -2218,7 +2218,7 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">cold_start_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2m</span>
 </span></code></pre></div>
 <p>Cold start delays simulate provisioning time. Use <code>cold_start_min</code>/<code>cold_start_max</code> for uniform distribution, or <code>cold_start_mean</code>/<code>cold_start_stddev</code> for normal distribution.</p>
-<h2 id="chaos-engineering">Chaos engineering<a class="headerlink" href="#chaos-engineering" title="Permanent link"></a></h2>
+<h2 id="chaos-engineering">Chaos engineering<a class="headerlink" href="#chaos-engineering" title="Permanent link">#</a></h2>
 <p>Control failure injection:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">chaos</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2242,11 +2242,11 @@
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">boot_failure</span>
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">      </span><span class="nt">weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </span></code></pre></div>
-<h3 id="failure-rate">Failure rate<a class="headerlink" href="#failure-rate" title="Permanent link"></a></h3>
+<h3 id="failure-rate">Failure rate<a class="headerlink" href="#failure-rate" title="Permanent link">#</a></h3>
 <p>Failures per minute per 1000 nodes:
 - 1000 nodes with rate 10.0 = ~10 failures/minute
 - 5000 nodes with rate 10.0 = ~50 failures/minute</p>
-<h3 id="failure-types">Failure types<a class="headerlink" href="#failure-types" title="Permanent link"></a></h3>
+<h3 id="failure-types">Failure types<a class="headerlink" href="#failure-types" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -2285,7 +2285,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="cascading-failures">Cascading failures<a class="headerlink" href="#cascading-failures" title="Permanent link"></a></h2>
+<h2 id="cascading-failures">Cascading failures<a class="headerlink" href="#cascading-failures" title="Permanent link">#</a></h2>
 <p>Simulate realistic failure propagation:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">cascading</span><span class="p">:</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2327,7 +2327,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="automatic-recovery">Automatic recovery<a class="headerlink" href="#automatic-recovery" title="Permanent link"></a></h2>
+<h2 id="automatic-recovery">Automatic recovery<a class="headerlink" href="#automatic-recovery" title="Permanent link">#</a></h2>
 <p>Configure recovery for non-fatal failures:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">recovery</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2338,7 +2338,7 @@
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">replace_cold_start</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">45s</span>
 </span></code></pre></div>
 <p>Recovery only applies to non-fatal XID codes and recoverable failure types.</p>
-<h2 id="scheduled-outages">Scheduled outages<a class="headerlink" href="#scheduled-outages" title="Permanent link"></a></h2>
+<h2 id="scheduled-outages">Scheduled outages<a class="headerlink" href="#scheduled-outages" title="Permanent link">#</a></h2>
 <p>Simulate planned or unplanned outages:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">scheduled_outages</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zone-network-partition</span>
@@ -2363,7 +2363,7 @@
 </span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">    </span><span class="nt">failure_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">temperature</span>
 </span></code></pre></div>
 <p><strong>Outage scopes:</strong> <code>zone</code>, <code>region</code>, <code>provider</code>, <code>percentage</code></p>
-<h2 id="correlated-failures">Correlated failures<a class="headerlink" href="#correlated-failures" title="Permanent link"></a></h2>
+<h2 id="correlated-failures">Correlated failures<a class="headerlink" href="#correlated-failures" title="Permanent link">#</a></h2>
 <p>Define failures that trigger related failures:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">correlated_failures</span><span class="p">:</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvlink-gpu-cascade</span>
@@ -2381,14 +2381,14 @@
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="nt">scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">same_rack</span>
 </span></code></pre></div>
 <p><strong>Correlation scopes:</strong> <code>same_node</code>, <code>same_rack</code>, <code>same_zone</code>, <code>random</code></p>
-<h2 id="reports">Reports<a class="headerlink" href="#reports" title="Permanent link"></a></h2>
+<h2 id="reports">Reports<a class="headerlink" href="#reports" title="Permanent link">#</a></h2>
 <p>Configure report outputs:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">stress</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">report_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stress-report.json</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">html_report_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stress-report.html</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">log_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stress-report.log</span>
 </span></code></pre></div>
-<h3 id="html-report">HTML report<a class="headerlink" href="#html-report" title="Permanent link"></a></h3>
+<h3 id="html-report">HTML report<a class="headerlink" href="#html-report" title="Permanent link">#</a></h3>
 <p>Interactive web visualization with:</p>
 <ul>
 <li><strong>Results tab</strong>: Summary statistics, failure breakdowns, interactive charts</li>
@@ -2398,7 +2398,7 @@
 <li>Failure types breakdown (bar chart)</li>
 <li><strong>Configuration tab</strong>: Full test configuration</li>
 </ul>
-<h3 id="json-report">JSON report<a class="headerlink" href="#json-report" title="Permanent link"></a></h3>
+<h3 id="json-report">JSON report<a class="headerlink" href="#json-report" title="Permanent link">#</a></h3>
 <p>Structured data for programmatic analysis:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1000-node-chaos-test&quot;</span><span class="p">,</span>
@@ -2417,15 +2417,15 @@
 </span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="log-file">Log file<a class="headerlink" href="#log-file" title="Permanent link"></a></h3>
+<h3 id="log-file">Log file<a class="headerlink" href="#log-file" title="Permanent link">#</a></h3>
 <p>Verbose debug output from all components. Useful for:</p>
 <ul>
 <li>Debugging specific failure sequences</li>
 <li>Post-mortem investigation</li>
 <li>Providing context to LLMs for analysis</li>
 </ul>
-<h2 id="example-scenarios">Example scenarios<a class="headerlink" href="#example-scenarios" title="Permanent link"></a></h2>
-<h3 id="1000-node-chaosyaml">1000-node-chaos.yaml<a class="headerlink" href="#1000-node-chaosyaml" title="Permanent link"></a></h3>
+<h2 id="example-scenarios">Example scenarios<a class="headerlink" href="#example-scenarios" title="Permanent link">#</a></h2>
+<h3 id="1000-node-chaosyaml">1000-node-chaos.yaml<a class="headerlink" href="#1000-node-chaosyaml" title="Permanent link">#</a></h3>
 <p>Standard chaos test:
 - 10 minute duration
 - Mixed H100/A100 fleet across GCP, AWS, Lambda
@@ -2434,25 +2434,25 @@
 - Automatic recovery</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>./bin/simulator<span class="w"> </span>run<span class="w"> </span>scenarios/stress/1000-node-chaos.yaml<span class="w"> </span>-v
 </span></code></pre></div>
-<h3 id="5000-node-extremeyaml">5000-node-extreme.yaml<a class="headerlink" href="#5000-node-extremeyaml" title="Permanent link"></a></h3>
+<h3 id="5000-node-extremeyaml">5000-node-extreme.yaml<a class="headerlink" href="#5000-node-extremeyaml" title="Permanent link">#</a></h3>
 <p>Extreme stress test:
 - 30 minute duration
 - 5000 nodes across 8 regions
 - Aggressive failure rate (50/min/1000 nodes)
 - Multiple scheduled outages
 - High cascade probability</p>
-<h3 id="xid-comprehensiveyaml">xid-comprehensive.yaml<a class="headerlink" href="#xid-comprehensiveyaml" title="Permanent link"></a></h3>
+<h3 id="xid-comprehensiveyaml">xid-comprehensive.yaml<a class="headerlink" href="#xid-comprehensiveyaml" title="Permanent link">#</a></h3>
 <p>XID error testing:
 - All known XID codes tested equally
 - High recovery rate
 - No cascading (isolates XID behavior)</p>
-<h3 id="cascading-failuresyaml">cascading-failures.yaml<a class="headerlink" href="#cascading-failuresyaml" title="Permanent link"></a></h3>
+<h3 id="cascading-failuresyaml">cascading-failures.yaml<a class="headerlink" href="#cascading-failuresyaml" title="Permanent link">#</a></h3>
 <p>Cascade testing:
 - High cascade probability (50%)
 - Deep cascade chains (depth 5)
 - Scheduled outages that trigger cascades
 - Tests blast radius containment</p>
-<h2 id="performance-considerations">Performance considerations<a class="headerlink" href="#performance-considerations" title="Permanent link"></a></h2>
+<h2 id="performance-considerations">Performance considerations<a class="headerlink" href="#performance-considerations" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>

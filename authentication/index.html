@@ -1850,11 +1850,11 @@
   
 
 
-<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link"></a></h1>
+<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">#</a></h1>
 <p>Navarch supports pluggable authentication for the control plane API. This document covers the built-in bearer token authentication and how to implement custom authentication methods.</p>
-<h2 id="bearer-token-authentication">Bearer token authentication<a class="headerlink" href="#bearer-token-authentication" title="Permanent link"></a></h2>
+<h2 id="bearer-token-authentication">Bearer token authentication<a class="headerlink" href="#bearer-token-authentication" title="Permanent link">#</a></h2>
 <p>The control plane includes built-in support for bearer token authentication. When enabled, all API requests (except health endpoints) require a valid token in the <code>Authorization</code> header.</p>
-<h3 id="enabling-authentication">Enabling authentication<a class="headerlink" href="#enabling-authentication" title="Permanent link"></a></h3>
+<h3 id="enabling-authentication">Enabling authentication<a class="headerlink" href="#enabling-authentication" title="Permanent link">#</a></h3>
 <p>To enable authentication on the control plane:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Using environment variable</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NAVARCH_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-secret-token&quot;</span>
@@ -1864,14 +1864,14 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>control-plane<span class="w"> </span>--auth-token<span class="w"> </span><span class="s2">&quot;your-secret-token&quot;</span>
 </span></code></pre></div>
 <p>The environment variable takes precedence if both are set.</p>
-<h3 id="exempt-endpoints">Exempt endpoints<a class="headerlink" href="#exempt-endpoints" title="Permanent link"></a></h3>
+<h3 id="exempt-endpoints">Exempt endpoints<a class="headerlink" href="#exempt-endpoints" title="Permanent link">#</a></h3>
 <p>The following endpoints do not require authentication:</p>
 <ul>
 <li><code>/healthz</code> — Liveness probe for orchestrators.</li>
 <li><code>/readyz</code> — Readiness probe for load balancers.</li>
 <li><code>/metrics</code> — Prometheus metrics endpoint.</li>
 </ul>
-<h3 id="client-configuration">Client configuration<a class="headerlink" href="#client-configuration" title="Permanent link"></a></h3>
+<h3 id="client-configuration">Client configuration<a class="headerlink" href="#client-configuration" title="Permanent link">#</a></h3>
 <p>Clients must include the token in the <code>Authorization</code> header using the Bearer scheme.</p>
 <p>For the CLI:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NAVARCH_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-secret-token&quot;</span>
@@ -1885,7 +1885,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NAVARCH_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-secret-token&quot;</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>node-agent<span class="w"> </span>--server<span class="w"> </span>https://control-plane.example.com
 </span></code></pre></div>
-<h3 id="token-generation">Token generation<a class="headerlink" href="#token-generation" title="Permanent link"></a></h3>
+<h3 id="token-generation">Token generation<a class="headerlink" href="#token-generation" title="Permanent link">#</a></h3>
 <p>Generate a secure token using a cryptographically secure random source:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Using openssl</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span>
@@ -1894,9 +1894,9 @@
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>head<span class="w"> </span>-c<span class="w"> </span><span class="m">32</span><span class="w"> </span>/dev/urandom<span class="w"> </span><span class="p">|</span><span class="w"> </span>base64
 </span></code></pre></div>
 <p>Store tokens securely using your cloud provider's secret manager (AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault).</p>
-<h2 id="custom-authentication">Custom authentication<a class="headerlink" href="#custom-authentication" title="Permanent link"></a></h2>
+<h2 id="custom-authentication">Custom authentication<a class="headerlink" href="#custom-authentication" title="Permanent link">#</a></h2>
 <p>For authentication methods beyond bearer tokens (JWT, OIDC, mTLS), implement the <code>Authenticator</code> interface and rebuild the control plane.</p>
-<h3 id="authenticator-interface">Authenticator interface<a class="headerlink" href="#authenticator-interface" title="Permanent link"></a></h3>
+<h3 id="authenticator-interface">Authenticator interface<a class="headerlink" href="#authenticator-interface" title="Permanent link">#</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Authenticator</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nx">AuthenticateRequest</span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Identity</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">}</span>
@@ -1907,7 +1907,7 @@
 <li><code>(nil, false, nil)</code> — No credentials found; try the next authenticator.</li>
 <li><code>(nil, false, error)</code> — Credentials found but invalid.</li>
 </ul>
-<h3 id="identity">Identity<a class="headerlink" href="#identity" title="Permanent link"></a></h3>
+<h3 id="identity">Identity<a class="headerlink" href="#identity" title="Permanent link">#</a></h3>
 <p>The <code>Identity</code> struct represents an authenticated entity:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Identity</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nx">Subject</span><span class="w"> </span><span class="kt">string</span><span class="w">              </span><span class="c1">// Primary identifier (e.g., &quot;user:jane@example.com&quot;)</span>
@@ -1916,7 +1916,7 @@
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The <code>Subject</code> field aligns with the JWT <code>sub</code> claim and X.509 certificate subject.</p>
-<h3 id="chaining-authenticators">Chaining authenticators<a class="headerlink" href="#chaining-authenticators" title="Permanent link"></a></h3>
+<h3 id="chaining-authenticators">Chaining authenticators<a class="headerlink" href="#chaining-authenticators" title="Permanent link">#</a></h3>
 <p>Use <code>ChainAuthenticator</code> to try multiple authentication methods in sequence:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">chain</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">auth</span><span class="p">.</span><span class="nx">NewChainAuthenticator</span><span class="p">(</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nx">jwtAuthenticator</span><span class="p">,</span><span class="w">     </span><span class="c1">// Try JWT first</span>
@@ -1928,7 +1928,7 @@
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The first authenticator to return success wins. If an authenticator returns an error (invalid credentials), the chain stops and returns that error.</p>
-<h3 id="example-jwt-authenticator">Example: JWT authenticator<a class="headerlink" href="#example-jwt-authenticator" title="Permanent link"></a></h3>
+<h3 id="example-jwt-authenticator">Example: JWT authenticator<a class="headerlink" href="#example-jwt-authenticator" title="Permanent link">#</a></h3>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">JWTAuthenticator</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nx">keyFunc</span><span class="w"> </span><span class="nx">jwt</span><span class="p">.</span><span class="nx">Keyfunc</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nx">issuer</span><span class="w">  </span><span class="kt">string</span>
@@ -1953,7 +1953,7 @@
 </span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
 </span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="security-considerations">Security considerations<a class="headerlink" href="#security-considerations" title="Permanent link"></a></h3>
+<h3 id="security-considerations">Security considerations<a class="headerlink" href="#security-considerations" title="Permanent link">#</a></h3>
 <p>When implementing custom authenticators:</p>
 <ul>
 <li>Use <code>crypto/subtle.ConstantTimeCompare</code> for secret comparison to prevent timing attacks.</li>
@@ -1961,7 +1961,7 @@
 <li>Copy slices and maps in the returned <code>Identity</code> to prevent mutation between requests.</li>
 <li>Validate token expiration, issuer, and audience claims for JWT/OIDC.</li>
 </ul>
-<h2 id="retrieving-identity-in-handlers">Retrieving identity in handlers<a class="headerlink" href="#retrieving-identity-in-handlers" title="Permanent link"></a></h2>
+<h2 id="retrieving-identity-in-handlers">Retrieving identity in handlers<a class="headerlink" href="#retrieving-identity-in-handlers" title="Permanent link">#</a></h2>
 <p>After authentication, the <code>Identity</code> is available in the request context:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">handleRequest</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="nx">identity</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">auth</span><span class="p">.</span><span class="nx">IdentityFromContext</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Context</span><span class="p">())</span>
@@ -1973,7 +1973,7 @@
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Request from %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">identity</span><span class="p">.</span><span class="nx">Subject</span><span class="p">)</span>
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="what-is-next">What is next<a class="headerlink" href="#what-is-next" title="Permanent link"></a></h2>
+<h2 id="what-is-next">What is next<a class="headerlink" href="#what-is-next" title="Permanent link">#</a></h2>
 <ul>
 <li><a href="../configuration/">Configuration reference</a> — Server and pool configuration.</li>
 <li><a href="../deployment/">Deployment guide</a> — Production deployment with TLS.</li>

@@ -2172,9 +2172,9 @@
   
 
 
-<h1 id="deployment-architecture">Deployment architecture<a class="headerlink" href="#deployment-architecture" title="Permanent link"></a></h1>
+<h1 id="deployment-architecture">Deployment architecture<a class="headerlink" href="#deployment-architecture" title="Permanent link">#</a></h1>
 <p>This document describes how to deploy Navarch in production, including agent installation, custom images, and autoscaling.</p>
-<h2 id="architecture-overview">Architecture overview<a class="headerlink" href="#architecture-overview" title="Permanent link"></a></h2>
+<h2 id="architecture-overview">Architecture overview<a class="headerlink" href="#architecture-overview" title="Permanent link">#</a></h2>
 <p>The control plane is the single source of truth. It provisions instances through provider adapters and receives health reports from node agents.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────────────┐
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                         Control Plane                                │
@@ -2207,7 +2207,7 @@
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>└─────────────────────────────────────────────────────────────────────┘
 </span></code></pre></div>
 <p><strong>Key principle</strong>: Nodes do not manage their own lifecycle. The control plane decides when to provision and terminate instances. Node agents only report health.</p>
-<h2 id="node-agent-deployment">Node agent deployment<a class="headerlink" href="#node-agent-deployment" title="Permanent link"></a></h2>
+<h2 id="node-agent-deployment">Node agent deployment<a class="headerlink" href="#node-agent-deployment" title="Permanent link">#</a></h2>
 <p>There are several ways to deploy the node agent. Choose the approach that best fits your infrastructure:</p>
 <table>
 <thead>
@@ -2245,7 +2245,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="option-1-custom-machine-images-recommended">Option 1: Custom machine images (recommended)<a class="headerlink" href="#option-1-custom-machine-images-recommended" title="Permanent link"></a></h3>
+<h3 id="option-1-custom-machine-images-recommended">Option 1: Custom machine images (recommended)<a class="headerlink" href="#option-1-custom-machine-images-recommended" title="Permanent link">#</a></h3>
 <p>Create custom images with the Navarch agent pre-installed.</p>
 <p>Benefits:</p>
 <ul>
@@ -2281,7 +2281,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Use Packer or AWS Image Builder</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># See examples/packer/ for Packer templates</span>
 </span></code></pre></div>
-<h3 id="option-2-cloud-init-user-data">Option 2: Cloud-init / user-data<a class="headerlink" href="#option-2-cloud-init-user-data" title="Permanent link"></a></h3>
+<h3 id="option-2-cloud-init-user-data">Option 2: Cloud-init / user-data<a class="headerlink" href="#option-2-cloud-init-user-data" title="Permanent link">#</a></h3>
 <p>Install agent at instance startup using cloud-init.</p>
 <p>GCP startup script:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gcloud<span class="w"> </span>compute<span class="w"> </span>instances<span class="w"> </span>create<span class="w"> </span>gpu-node-1<span class="w"> </span><span class="se">\</span>
@@ -2326,7 +2326,7 @@
 </span><span id="__span-4-36"><a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>navarch-node
 </span><span id="__span-4-37"><a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>systemctl<span class="w"> </span>start<span class="w"> </span>navarch-node
 </span></code></pre></div>
-<h3 id="option-3-container-deployment">Option 3: Container deployment<a class="headerlink" href="#option-3-container-deployment" title="Permanent link"></a></h3>
+<h3 id="option-3-container-deployment">Option 3: Container deployment<a class="headerlink" href="#option-3-container-deployment" title="Permanent link">#</a></h3>
 <p>Run the agent as a container (useful for Kubernetes).</p>
 <p>Docker:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span><span class="se">\</span>
@@ -2366,7 +2366,7 @@
 </span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
 </span><span id="__span-6-26"><a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">        </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </span></code></pre></div>
-<h3 id="option-4-ssh-bootstrap">Option 4: SSH bootstrap<a class="headerlink" href="#option-4-ssh-bootstrap" title="Permanent link"></a></h3>
+<h3 id="option-4-ssh-bootstrap">Option 4: SSH bootstrap<a class="headerlink" href="#option-4-ssh-bootstrap" title="Permanent link">#</a></h3>
 <p>Let the control plane automatically install and configure the agent via SSH when nodes are provisioned. This is useful when you want centralized control over node setup without building custom images.</p>
 <p>Configuration:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pools</span><span class="p">:</span>
@@ -2405,7 +2405,7 @@
 </ol>
 <p>Template variables like <code>{{.ControlPlane}}</code>, <code>{{.NodeID}}</code>, <code>{{.Pool}}</code>, <code>{{.Provider}}</code>, <code>{{.Region}}</code>, and <code>{{.InstanceType}}</code> are available in setup commands.</p>
 <p>For full details, see <a href="../bootstrap/">Node Bootstrap</a>.</p>
-<h2 id="systemd-service-configuration">Systemd service configuration<a class="headerlink" href="#systemd-service-configuration" title="Permanent link"></a></h2>
+<h2 id="systemd-service-configuration">Systemd service configuration<a class="headerlink" href="#systemd-service-configuration" title="Permanent link">#</a></h2>
 <p>For production deployments, run the agent as a systemd service.</p>
 <p><strong>/etc/systemd/system/navarch-node.service:</strong></p>
 <div class="language-ini highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">[Unit]</span>
@@ -2445,9 +2445,9 @@
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># View logs</span>
 </span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>navarch-node<span class="w"> </span>-f
 </span></code></pre></div>
-<h2 id="pool-management">Pool management<a class="headerlink" href="#pool-management" title="Permanent link"></a></h2>
+<h2 id="pool-management">Pool management<a class="headerlink" href="#pool-management" title="Permanent link">#</a></h2>
 <p>The control plane manages GPU pools directly through provider adapters. There is no separate autoscaler component.</p>
-<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link"></a></h3>
+<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">#</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>┌─────────────────────────────────────────────────────────────────────┐
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>│                         Control Plane                                │
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
@@ -2471,7 +2471,7 @@
 </span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>           ▼            ▼            ▼            ▼
 </span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>      [GCP API]    [AWS API]   [Lambda API]   [Your API]
 </span></code></pre></div>
-<h3 id="provider-interface">Provider interface<a class="headerlink" href="#provider-interface" title="Permanent link"></a></h3>
+<h3 id="provider-interface">Provider interface<a class="headerlink" href="#provider-interface" title="Permanent link">#</a></h3>
 <p>Each cloud provider implements a simple interface:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Provider</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="nx">Name</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
@@ -2481,7 +2481,7 @@
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The control plane calls these methods to manage instances. The node agent just reports health; it does not manage its own lifecycle.</p>
-<h3 id="pool-manager-responsibilities">Pool manager responsibilities<a class="headerlink" href="#pool-manager-responsibilities" title="Permanent link"></a></h3>
+<h3 id="pool-manager-responsibilities">Pool manager responsibilities<a class="headerlink" href="#pool-manager-responsibilities" title="Permanent link">#</a></h3>
 <p>The pool manager (part of control plane) handles:</p>
 <ol>
 <li><strong>Scaling decisions</strong>: When to add or remove nodes.</li>
@@ -2489,7 +2489,7 @@
 <li><strong>Pool constraints</strong>: Min/max nodes, instance types, zones.</li>
 <li><strong>Provider selection</strong>: Multi-cloud routing based on availability and cost.</li>
 </ol>
-<h3 id="scaling-triggers">Scaling triggers<a class="headerlink" href="#scaling-triggers" title="Permanent link"></a></h3>
+<h3 id="scaling-triggers">Scaling triggers<a class="headerlink" href="#scaling-triggers" title="Permanent link">#</a></h3>
 <p>Scale up when:
 - Pool size below minimum.
 - All healthy nodes at capacity.
@@ -2498,7 +2498,7 @@
 - Pool size above maximum.
 - Low utilization for extended period.
 - Node reported unhealthy (terminate and replace).</p>
-<h3 id="health-based-replacement">Health-based replacement<a class="headerlink" href="#health-based-replacement" title="Permanent link"></a></h3>
+<h3 id="health-based-replacement">Health-based replacement<a class="headerlink" href="#health-based-replacement" title="Permanent link">#</a></h3>
 <p>When a node becomes unhealthy, the control plane handles it:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Health Monitor detects unhealthy node
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>                │
@@ -2545,7 +2545,7 @@
 </span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
 </span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="pool-configuration">Pool configuration<a class="headerlink" href="#pool-configuration" title="Permanent link"></a></h3>
+<h3 id="pool-configuration">Pool configuration<a class="headerlink" href="#pool-configuration" title="Permanent link">#</a></h3>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">gcp</span><span class="p">:</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gcp</span>
@@ -2579,7 +2579,7 @@
 </span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a><span class="w">    </span><span class="nt">min_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 </span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="w">    </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
 </span></code></pre></div>
-<h3 id="multi-cloud-support">Multi-cloud support<a class="headerlink" href="#multi-cloud-support" title="Permanent link"></a></h3>
+<h3 id="multi-cloud-support">Multi-cloud support<a class="headerlink" href="#multi-cloud-support" title="Permanent link">#</a></h3>
 <p>The control plane can manage pools across multiple providers:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>┌──────────────────────────────────────────────────────────────┐
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>│                      Control Plane                            │
@@ -2593,7 +2593,7 @@
 </span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>│  └── (scales 0 to N on demand)                              │
 </span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>└──────────────────────────────────────────────────────────────┘
 </span></code></pre></div>
-<h3 id="provider-adapter-implementation">Provider adapter implementation<a class="headerlink" href="#provider-adapter-implementation" title="Permanent link"></a></h3>
+<h3 id="provider-adapter-implementation">Provider adapter implementation<a class="headerlink" href="#provider-adapter-implementation" title="Permanent link">#</a></h3>
 <p>To add a new cloud provider, implement the interface:</p>
 <div class="language-go highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">package</span><span class="w"> </span><span class="nx">lambda</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
@@ -2633,8 +2633,8 @@
 </span><span id="__span-16-36"><a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="w">    </span><span class="c1">// ... convert to provider.Node</span>
 </span><span id="__span-16-37"><a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link"></a></h2>
-<h3 id="control-plane-ha">Control plane HA<a class="headerlink" href="#control-plane-ha" title="Permanent link"></a></h3>
+<h2 id="high-availability">High availability<a class="headerlink" href="#high-availability" title="Permanent link">#</a></h2>
+<h3 id="control-plane-ha">Control plane HA<a class="headerlink" href="#control-plane-ha" title="Permanent link">#</a></h3>
 <p>For production, run multiple control plane replicas:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>                    ┌─────────────────┐
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>                    │  Load Balancer  │
@@ -2653,15 +2653,15 @@
 </span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>                    │   (Postgres)    │
 </span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>                    └─────────────────┘
 </span></code></pre></div>
-<h3 id="node-agent-resilience">Node agent resilience<a class="headerlink" href="#node-agent-resilience" title="Permanent link"></a></h3>
+<h3 id="node-agent-resilience">Node agent resilience<a class="headerlink" href="#node-agent-resilience" title="Permanent link">#</a></h3>
 <p>The node agent is designed to be resilient:</p>
 <ul>
 <li>Automatic reconnection on control plane failure.</li>
 <li>Local health check caching during disconnection.</li>
 <li>Graceful degradation when control plane is unavailable.</li>
 </ul>
-<h2 id="monitoring-and-observability">Monitoring and observability<a class="headerlink" href="#monitoring-and-observability" title="Permanent link"></a></h2>
-<h3 id="metrics-to-export">Metrics to export<a class="headerlink" href="#metrics-to-export" title="Permanent link"></a></h3>
+<h2 id="monitoring-and-observability">Monitoring and observability<a class="headerlink" href="#monitoring-and-observability" title="Permanent link">#</a></h2>
+<h3 id="metrics-to-export">Metrics to export<a class="headerlink" href="#metrics-to-export" title="Permanent link">#</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a># Node metrics
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>navarch_node_gpu_count
 </span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>navarch_node_gpu_temperature_celsius
@@ -2677,7 +2677,7 @@
 </span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>navarch_commands_issued_total
 </span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>navarch_xid_errors_total
 </span></code></pre></div>
-<h3 id="alerting-recommendations">Alerting recommendations<a class="headerlink" href="#alerting-recommendations" title="Permanent link"></a></h3>
+<h3 id="alerting-recommendations">Alerting recommendations<a class="headerlink" href="#alerting-recommendations" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -2714,14 +2714,14 @@
 </tr>
 </tbody>
 </table>
-<h2 id="security-considerations">Security considerations<a class="headerlink" href="#security-considerations" title="Permanent link"></a></h2>
-<h3 id="network-security">Network security<a class="headerlink" href="#network-security" title="Permanent link"></a></h3>
+<h2 id="security-considerations">Security considerations<a class="headerlink" href="#security-considerations" title="Permanent link">#</a></h2>
+<h3 id="network-security">Network security<a class="headerlink" href="#network-security" title="Permanent link">#</a></h3>
 <ul>
 <li>Control plane should be behind a load balancer with TLS.</li>
 <li>Node agents should authenticate with the control plane.</li>
 <li>Consider using private networks for node-to-control-plane traffic.</li>
 </ul>
-<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link"></a></h3>
+<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">#</a></h3>
 <p>Enable bearer token authentication by setting <code>NAVARCH_AUTH_TOKEN</code> on both the control plane and node agents:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Control plane</span>
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NAVARCH_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-secret-token&quot;</span>
@@ -2732,7 +2732,7 @@
 </span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>node-agent<span class="w"> </span>--server<span class="w"> </span>https://control-plane.example.com
 </span></code></pre></div>
 <p>For token generation, client configuration, and custom authentication methods, see <a href="../authentication/">authentication</a>.</p>
-<h3 id="secrets-management">Secrets management<a class="headerlink" href="#secrets-management" title="Permanent link"></a></h3>
+<h3 id="secrets-management">Secrets management<a class="headerlink" href="#secrets-management" title="Permanent link">#</a></h3>
 <ul>
 <li>Use cloud provider secret managers for sensitive configuration.</li>
 <li>Rotate credentials regularly.</li>

@@ -1850,9 +1850,9 @@
   
 
 
-<h1 id="autoscaling">Autoscaling<a class="headerlink" href="#autoscaling" title="Permanent link"></a></h1>
+<h1 id="autoscaling">Autoscaling<a class="headerlink" href="#autoscaling" title="Permanent link">#</a></h1>
 <p>Autoscaling adjusts pool size based on demand. Navarch supports multiple strategies that you can use alone or combine.</p>
-<h2 id="scaling-limits">Scaling limits<a class="headerlink" href="#scaling-limits" title="Permanent link"></a></h2>
+<h2 id="scaling-limits">Scaling limits<a class="headerlink" href="#scaling-limits" title="Permanent link">#</a></h2>
 <p>Each pool has minimum and maximum node counts:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">training</span><span class="p">:</span>
@@ -1864,7 +1864,7 @@
 <li><code>max_nodes</code>: Ceiling for scaling. Protects against cost overruns.</li>
 </ul>
 <p>The autoscaler operates within these limits. Manual scaling commands also respect them.</p>
-<h2 id="cooldown-period">Cooldown period<a class="headerlink" href="#cooldown-period" title="Permanent link"></a></h2>
+<h2 id="cooldown-period">Cooldown period<a class="headerlink" href="#cooldown-period" title="Permanent link">#</a></h2>
 <p>The cooldown period prevents thrashing when metrics fluctuate:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">training</span><span class="p">:</span>
@@ -1876,8 +1876,8 @@
 <li>Recommendations are calculated but not acted upon.</li>
 <li>Manual scaling commands are still accepted.</li>
 </ul>
-<h2 id="autoscaling-strategies">Autoscaling strategies<a class="headerlink" href="#autoscaling-strategies" title="Permanent link"></a></h2>
-<h3 id="reactive">Reactive<a class="headerlink" href="#reactive" title="Permanent link"></a></h3>
+<h2 id="autoscaling-strategies">Autoscaling strategies<a class="headerlink" href="#autoscaling-strategies" title="Permanent link">#</a></h2>
+<h3 id="reactive">Reactive<a class="headerlink" href="#reactive" title="Permanent link">#</a></h3>
 <p>Scales based on current GPU utilization. Use for steady workloads where current load predicts future load.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reactive</span>
@@ -1885,7 +1885,7 @@
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">scale_down_at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w">  </span><span class="c1"># Scale down when utilization &lt; 20%</span>
 </span></code></pre></div>
 <p><strong>How it works</strong>: Averages GPU utilization across all nodes in the pool. If above <code>scale_up_at</code>, adds a node. If below <code>scale_down_at</code>, removes a node.</p>
-<h3 id="queue-based">Queue-based<a class="headerlink" href="#queue-based" title="Permanent link"></a></h3>
+<h3 id="queue-based">Queue-based<a class="headerlink" href="#queue-based" title="Permanent link">#</a></h3>
 <p>Scales based on pending job count. Use for batch processing where queue depth indicates required capacity.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queue</span>
@@ -1893,7 +1893,7 @@
 </span></code></pre></div>
 <p><strong>How it works</strong>: Queries your scheduler for pending jobs, divides by <code>jobs_per_node</code>, rounds up. Requires a <a href="../../metrics/#integrating-external-schedulers">metrics source integration</a>.</p>
 <p>See <a href="../../metrics/">Metrics Reference</a> for Kubernetes and Slurm integration examples.</p>
-<h3 id="scheduled">Scheduled<a class="headerlink" href="#scheduled" title="Permanent link"></a></h3>
+<h3 id="scheduled">Scheduled<a class="headerlink" href="#scheduled" title="Permanent link">#</a></h3>
 <p>Adjusts scaling limits based on time of day. Use for predictable patterns like business hours.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scheduled</span>
@@ -1910,7 +1910,7 @@
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">max_nodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 </span></code></pre></div>
 <p><strong>How it works</strong>: Overrides pool's <code>min_nodes</code> and <code>max_nodes</code> based on current time. Combine with a fallback strategy for within-window scaling.</p>
-<h3 id="predictive">Predictive<a class="headerlink" href="#predictive" title="Permanent link"></a></h3>
+<h3 id="predictive">Predictive<a class="headerlink" href="#predictive" title="Permanent link">#</a></h3>
 <p>Uses historical data to anticipate demand. Use for workloads with gradual ramp-up patterns.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">predictive</span>
@@ -1918,7 +1918,7 @@
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">growth_factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span><span class="w">    </span><span class="c1"># Scale 20% ahead of predicted need</span>
 </span></code></pre></div>
 <p><strong>How it works</strong>: Analyzes utilization trend over recent samples. If trending up, scales proactively. Falls back to reactive behavior when trend is flat.</p>
-<h3 id="composite">Composite<a class="headerlink" href="#composite" title="Permanent link"></a></h3>
+<h3 id="composite">Composite<a class="headerlink" href="#composite" title="Permanent link">#</a></h3>
 <p>Combines multiple strategies. Use for complex scenarios requiring multiple signals.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">composite</span>
@@ -1936,7 +1936,7 @@
 <li><code>min</code>: Take lowest recommendation (most conservative)</li>
 <li><code>avg</code>: Average all recommendations</li>
 </ul>
-<h2 id="choosing-a-strategy">Choosing a strategy<a class="headerlink" href="#choosing-a-strategy" title="Permanent link"></a></h2>
+<h2 id="choosing-a-strategy">Choosing a strategy<a class="headerlink" href="#choosing-a-strategy" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -1973,8 +1973,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="example-configurations">Example configurations<a class="headerlink" href="#example-configurations" title="Permanent link"></a></h2>
-<h3 id="high-availability-serving">High-availability serving<a class="headerlink" href="#high-availability-serving" title="Permanent link"></a></h3>
+<h2 id="example-configurations">Example configurations<a class="headerlink" href="#example-configurations" title="Permanent link">#</a></h2>
+<h3 id="high-availability-serving">High-availability serving<a class="headerlink" href="#high-availability-serving" title="Permanent link">#</a></h3>
 <p>Keep capacity ready, scale aggressively:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">serving</span><span class="p">:</span>
@@ -1986,7 +1986,7 @@
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">scale_up_at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">   </span><span class="c1"># Scale up early</span>
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="nt">scale_down_at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 </span></code></pre></div>
-<h3 id="cost-optimized-batch">Cost-optimized batch<a class="headerlink" href="#cost-optimized-batch" title="Permanent link"></a></h3>
+<h3 id="cost-optimized-batch">Cost-optimized batch<a class="headerlink" href="#cost-optimized-batch" title="Permanent link">#</a></h3>
 <p>Scale to zero when idle, scale fast when jobs arrive:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">batch</span><span class="p">:</span>
@@ -1997,7 +1997,7 @@
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">queue</span>
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="nt">jobs_per_node</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">  </span><span class="c1"># One job per node</span>
 </span></code></pre></div>
-<h3 id="business-hours-with-buffer">Business hours with buffer<a class="headerlink" href="#business-hours-with-buffer" title="Permanent link"></a></h3>
+<h3 id="business-hours-with-buffer">Business hours with buffer<a class="headerlink" href="#business-hours-with-buffer" title="Permanent link">#</a></h3>
 <p>Higher capacity during work hours:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">dev</span><span class="p">:</span>

@@ -2029,9 +2029,9 @@
   
 
 
-<h1 id="scenario-reference">Scenario Reference<a class="headerlink" href="#scenario-reference" title="Permanent link"></a></h1>
+<h1 id="scenario-reference">Scenario Reference<a class="headerlink" href="#scenario-reference" title="Permanent link">#</a></h1>
 <p>Scenarios are YAML files that define a fleet configuration and a sequence of events to execute.</p>
-<h2 id="file-format">File format<a class="headerlink" href="#file-format" title="Permanent link"></a></h2>
+<h2 id="file-format">File format<a class="headerlink" href="#file-format" title="Permanent link">#</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-scenario</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A brief description of what this scenario tests.</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -2062,7 +2062,7 @@
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">    </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node-1</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">    </span><span class="nt">expected</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
 </span></code></pre></div>
-<h2 id="fleet-definition">Fleet definition<a class="headerlink" href="#fleet-definition" title="Permanent link"></a></h2>
+<h2 id="fleet-definition">Fleet definition<a class="headerlink" href="#fleet-definition" title="Permanent link">#</a></h2>
 <p>Each node in the fleet requires:</p>
 <table>
 <thead>
@@ -2106,21 +2106,21 @@
 </tr>
 </tbody>
 </table>
-<h2 id="events">Events<a class="headerlink" href="#events" title="Permanent link"></a></h2>
+<h2 id="events">Events<a class="headerlink" href="#events" title="Permanent link">#</a></h2>
 <p>Events execute at specified times relative to scenario start. Times use Go duration format (<code>5s</code>, <code>1m30s</code>, <code>500ms</code>).</p>
 <p>Events with the same time execute sequentially in file order.</p>
-<h2 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link"></a></h2>
-<h3 id="start_fleet">start_fleet<a class="headerlink" href="#start_fleet" title="Permanent link"></a></h3>
+<h2 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">#</a></h2>
+<h3 id="start_fleet">start_fleet<a class="headerlink" href="#start_fleet" title="Permanent link">#</a></h3>
 <p>Starts all nodes. Each node registers with the control plane and begins sending heartbeats.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0s</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">start_fleet</span>
 </span></code></pre></div>
-<h3 id="stop_fleet">stop_fleet<a class="headerlink" href="#stop_fleet" title="Permanent link"></a></h3>
+<h3 id="stop_fleet">stop_fleet<a class="headerlink" href="#stop_fleet" title="Permanent link">#</a></h3>
 <p>Stops all running nodes.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stop_fleet</span>
 </span></code></pre></div>
-<h3 id="inject_failure">inject_failure<a class="headerlink" href="#inject_failure" title="Permanent link"></a></h3>
+<h3 id="inject_failure">inject_failure<a class="headerlink" href="#inject_failure" title="Permanent link">#</a></h3>
 <p>Injects a failure condition into a node.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inject_failure</span>
@@ -2193,7 +2193,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="recover_failure">recover_failure<a class="headerlink" href="#recover_failure" title="Permanent link"></a></h3>
+<h3 id="recover_failure">recover_failure<a class="headerlink" href="#recover_failure" title="Permanent link">#</a></h3>
 <p>Clears failures from a node.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20s</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">recover_failure</span>
@@ -2201,7 +2201,7 @@
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">params</span><span class="p">:</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">failure_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xid_error</span><span class="w">  </span><span class="c1"># Optional: clear only this type</span>
 </span></code></pre></div>
-<h3 id="issue_command">issue_command<a class="headerlink" href="#issue_command" title="Permanent link"></a></h3>
+<h3 id="issue_command">issue_command<a class="headerlink" href="#issue_command" title="Permanent link">#</a></h3>
 <p>Issues a command to a node through the control plane.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">issue_command</span>
@@ -2212,7 +2212,7 @@
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">      </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;maintenance&quot;</span>
 </span></code></pre></div>
 <p><strong>Command types:</strong> <code>cordon</code>, <code>drain</code>, <code>terminate</code>, <code>run_diagnostic</code></p>
-<h3 id="wait_for_status">wait_for_status<a class="headerlink" href="#wait_for_status" title="Permanent link"></a></h3>
+<h3 id="wait_for_status">wait_for_status<a class="headerlink" href="#wait_for_status" title="Permanent link">#</a></h3>
 <p>Waits for a node to reach a specific status.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12s</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wait_for_status</span>
@@ -2222,19 +2222,19 @@
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15s</span>
 </span></code></pre></div>
 <p><strong>Valid statuses:</strong> <code>active</code>, <code>cordoned</code>, <code>draining</code>, <code>unhealthy</code>, <code>terminated</code></p>
-<h3 id="wait">wait<a class="headerlink" href="#wait" title="Permanent link"></a></h3>
+<h3 id="wait">wait<a class="headerlink" href="#wait" title="Permanent link">#</a></h3>
 <p>Pauses execution.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">wait</span>
 </span></code></pre></div>
-<h3 id="log">log<a class="headerlink" href="#log" title="Permanent link"></a></h3>
+<h3 id="log">log<a class="headerlink" href="#log" title="Permanent link">#</a></h3>
 <p>Prints a message to the output.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">log</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">params</span><span class="p">:</span>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">log_message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Injecting</span><span class="nv"> </span><span class="s">GPU</span><span class="nv"> </span><span class="s">failure...&quot;</span>
 </span></code></pre></div>
-<h3 id="assert">assert<a class="headerlink" href="#assert" title="Permanent link"></a></h3>
+<h3 id="assert">assert<a class="headerlink" href="#assert" title="Permanent link">#</a></h3>
 <p>Checks a condition immediately. Fails the scenario if not met.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25s</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">assert</span>
@@ -2242,7 +2242,7 @@
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">params</span><span class="p">:</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">expected_status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unhealthy</span>
 </span></code></pre></div>
-<h2 id="assertions">Assertions<a class="headerlink" href="#assertions" title="Permanent link"></a></h2>
+<h2 id="assertions">Assertions<a class="headerlink" href="#assertions" title="Permanent link">#</a></h2>
 <p>Assertions at the end of the scenario verify final state. All must pass.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">assertions</span><span class="p">:</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_status</span>
@@ -2271,7 +2271,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="xid-error-codes">XID error codes<a class="headerlink" href="#xid-error-codes" title="Permanent link"></a></h2>
+<h2 id="xid-error-codes">XID error codes<a class="headerlink" href="#xid-error-codes" title="Permanent link">#</a></h2>
 <p>The simulator includes known XID codes with severity classification.</p>
 <p><strong>Fatal XID codes</strong> (require node replacement):</p>
 <table>
@@ -2351,16 +2351,16 @@
 </tr>
 </tbody>
 </table>
-<h2 id="example-scenarios">Example scenarios<a class="headerlink" href="#example-scenarios" title="Permanent link"></a></h2>
+<h2 id="example-scenarios">Example scenarios<a class="headerlink" href="#example-scenarios" title="Permanent link">#</a></h2>
 <p>The <code>scenarios/</code> directory contains examples:</p>
-<h3 id="basic-fleetyaml">basic-fleet.yaml<a class="headerlink" href="#basic-fleetyaml" title="Permanent link"></a></h3>
+<h3 id="basic-fleetyaml">basic-fleet.yaml<a class="headerlink" href="#basic-fleetyaml" title="Permanent link">#</a></h3>
 <p>Tests node registration and health reporting.</p>
 <ul>
 <li>Starts a three-node fleet (GCP and AWS)</li>
 <li>Waits for nodes to register</li>
 <li>Asserts all nodes reach <code>active</code> status</li>
 </ul>
-<h3 id="gpu-failureyaml">gpu-failure.yaml<a class="headerlink" href="#gpu-failureyaml" title="Permanent link"></a></h3>
+<h3 id="gpu-failureyaml">gpu-failure.yaml<a class="headerlink" href="#gpu-failureyaml" title="Permanent link">#</a></h3>
 <p>Tests fatal GPU failure detection.</p>
 <ul>
 <li>Starts two nodes</li>
@@ -2369,7 +2369,7 @@
 <li>Issues cordon command</li>
 <li>Asserts affected node is unhealthy, other is active</li>
 </ul>
-<h3 id="xid-classificationyaml">xid-classification.yaml<a class="headerlink" href="#xid-classificationyaml" title="Permanent link"></a></h3>
+<h3 id="xid-classificationyaml">xid-classification.yaml<a class="headerlink" href="#xid-classificationyaml" title="Permanent link">#</a></h3>
 <p>Tests XID code classification.</p>
 <ul>
 <li>Injects fatal XID on one node</li>
@@ -2377,14 +2377,14 @@
 <li>Recovers the recoverable node</li>
 <li>Asserts correct final states</li>
 </ul>
-<h3 id="cordon-drainyaml">cordon-drain.yaml<a class="headerlink" href="#cordon-drainyaml" title="Permanent link"></a></h3>
+<h3 id="cordon-drainyaml">cordon-drain.yaml<a class="headerlink" href="#cordon-drainyaml" title="Permanent link">#</a></h3>
 <p>Tests cordon and drain command flow.</p>
 <ul>
 <li>Starts two nodes</li>
 <li>Issues cordon then drain to one node</li>
 <li>Asserts other node remains active</li>
 </ul>
-<h2 id="writing-custom-scenarios">Writing custom scenarios<a class="headerlink" href="#writing-custom-scenarios" title="Permanent link"></a></h2>
+<h2 id="writing-custom-scenarios">Writing custom scenarios<a class="headerlink" href="#writing-custom-scenarios" title="Permanent link">#</a></h2>
 <ol>
 <li>Create a YAML file following the format above</li>
 <li>Validate: <code>./bin/simulator validate your-scenario.yaml</code></li>

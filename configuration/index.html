@@ -1938,9 +1938,9 @@
   
 
 
-<h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link"></a></h1>
+<h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">#</a></h1>
 <p>Navarch uses a single YAML configuration file to define providers, pools, and server settings.</p>
-<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link"></a></h2>
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">#</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">lambda</span><span class="p">:</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lambda</span>
@@ -1961,7 +1961,7 @@
 <p>Run the control plane with:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>control-plane<span class="w"> </span>--config<span class="w"> </span>config.yaml
 </span></code></pre></div>
-<h2 id="server">Server<a class="headerlink" href="#server" title="Permanent link"></a></h2>
+<h2 id="server">Server<a class="headerlink" href="#server" title="Permanent link">#</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">server</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;:50051&quot;</span><span class="w">              </span><span class="c1"># Listen address</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">heartbeat_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span><span class="w">        </span><span class="c1"># Node heartbeat frequency</span>
@@ -2016,13 +2016,13 @@
 </tr>
 </tbody>
 </table>
-<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link"></a></h2>
+<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">#</a></h2>
 <p>The control plane supports bearer token authentication:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NAVARCH_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;your-secret-token&quot;</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>control-plane<span class="w"> </span>--config<span class="w"> </span>config.yaml
 </span></code></pre></div>
 <p>See <a href="../authentication/">Authentication</a> for client configuration and custom methods.</p>
-<h2 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link"></a></h2>
+<h2 id="providers">Providers<a class="headerlink" href="#providers" title="Permanent link">#</a></h2>
 <p>Providers define cloud platforms where GPU nodes are provisioned.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">providers</span><span class="p">:</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">lambda</span><span class="p">:</span>
@@ -2051,11 +2051,11 @@
 </tr>
 <tr>
 <td><code>gcp</code></td>
-<td>Google Cloud Platform (coming soon)</td>
+<td>Google Cloud Platform</td>
 </tr>
 <tr>
 <td><code>aws</code></td>
-<td>Amazon Web Services (coming soon)</td>
+<td>Amazon Web Services</td>
 </tr>
 <tr>
 <td><code>fake</code></td>
@@ -2063,9 +2063,9 @@
 </tr>
 </tbody>
 </table>
-<h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link"></a></h2>
+<h2 id="pools">Pools<a class="headerlink" href="#pools" title="Permanent link">#</a></h2>
 <p>Pools define groups of GPU nodes with scaling policies.</p>
-<h3 id="single-provider-pool">Single-provider pool<a class="headerlink" href="#single-provider-pool" title="Permanent link"></a></h3>
+<h3 id="single-provider-pool">Single-provider pool<a class="headerlink" href="#single-provider-pool" title="Permanent link">#</a></h3>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">training</span><span class="p">:</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lambda</span>
@@ -2086,7 +2086,7 @@
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nt">unhealthy_after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
-<h3 id="multi-provider-pool">Multi-provider pool<a class="headerlink" href="#multi-provider-pool" title="Permanent link"></a></h3>
+<h3 id="multi-provider-pool">Multi-provider pool<a class="headerlink" href="#multi-provider-pool" title="Permanent link">#</a></h3>
 <p>For fungible compute across multiple providers:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pools</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">fungible</span><span class="p">:</span>
@@ -2130,7 +2130,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="pool-fields">Pool fields<a class="headerlink" href="#pool-fields" title="Permanent link"></a></h3>
+<h3 id="pool-fields">Pool fields<a class="headerlink" href="#pool-fields" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
@@ -2223,7 +2223,7 @@
 </tbody>
 </table>
 <p>*Either <code>provider</code> or <code>providers</code> is required, but not both.</p>
-<h2 id="autoscaling">Autoscaling<a class="headerlink" href="#autoscaling" title="Permanent link"></a></h2>
+<h2 id="autoscaling">Autoscaling<a class="headerlink" href="#autoscaling" title="Permanent link">#</a></h2>
 <p>Configure how pools scale based on demand. See <a href="../concepts/autoscaling/">Autoscaling Concepts</a> for details on each strategy.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">autoscaling</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reactive</span><span class="w">          </span><span class="c1"># reactive, queue, scheduled, predictive, composite</span>
@@ -2260,7 +2260,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="health">Health<a class="headerlink" href="#health" title="Permanent link"></a></h2>
+<h2 id="health">Health<a class="headerlink" href="#health" title="Permanent link">#</a></h2>
 <p>Configure health checking and auto-replacement:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">health</span><span class="p">:</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">unhealthy_after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">     </span><span class="c1"># Consecutive failures before unhealthy</span>
@@ -2268,9 +2268,9 @@
 </span></code></pre></div>
 <p>See <a href="../concepts/health/">Health Monitoring</a> for details on health events and XID errors.</p>
 <p>For custom health evaluation logic, see <a href="../health-policy/">Health Policy</a>.</p>
-<h2 id="notifier">Notifier<a class="headerlink" href="#notifier" title="Permanent link"></a></h2>
+<h2 id="notifier">Notifier<a class="headerlink" href="#notifier" title="Permanent link">#</a></h2>
 <p>The notifier integrates Navarch with external workload systems (job schedulers, Kubernetes, etc.). When nodes are cordoned or drained, the notifier notifies your workload system so it can stop scheduling new work and migrate existing workloads.</p>
-<h3 id="webhook-notifier">Webhook notifier<a class="headerlink" href="#webhook-notifier" title="Permanent link"></a></h3>
+<h3 id="webhook-notifier">Webhook notifier<a class="headerlink" href="#webhook-notifier" title="Permanent link">#</a></h3>
 <p>Send HTTP notifications to your workload system:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">server</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">notifier</span><span class="p">:</span>
@@ -2318,7 +2318,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="webhook-payloads">Webhook payloads<a class="headerlink" href="#webhook-payloads" title="Permanent link"></a></h3>
+<h3 id="webhook-payloads">Webhook payloads<a class="headerlink" href="#webhook-payloads" title="Permanent link">#</a></h3>
 <p><strong>POST requests</strong> (cordon, uncordon, drain):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cordon&quot;</span><span class="p">,</span>
@@ -2334,7 +2334,7 @@
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All workloads evicted&quot;</span>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="no-notifier-default">No notifier (default)<a class="headerlink" href="#no-notifier-default" title="Permanent link"></a></h3>
+<h3 id="no-notifier-default">No notifier (default)<a class="headerlink" href="#no-notifier-default" title="Permanent link">#</a></h3>
 <p>Without a notifier configured, cordon/drain/uncordon operations only update Navarch's internal state. Use this when:</p>
 <ul>
 <li>Running standalone without external schedulers</li>
@@ -2345,7 +2345,7 @@
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">notifier</span><span class="p">:</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">noop</span>
 </span></code></pre></div>
-<h2 id="defaults">Defaults<a class="headerlink" href="#defaults" title="Permanent link"></a></h2>
+<h2 id="defaults">Defaults<a class="headerlink" href="#defaults" title="Permanent link">#</a></h2>
 <p>Apply defaults to all pools:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">defaults</span><span class="p">:</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">ssh_keys</span><span class="p">:</span>
@@ -2357,7 +2357,7 @@
 </span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nt">unhealthy_after</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">auto_replace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
-<h2 id="abstract-instance-types">Abstract instance types<a class="headerlink" href="#abstract-instance-types" title="Permanent link"></a></h2>
+<h2 id="abstract-instance-types">Abstract instance types<a class="headerlink" href="#abstract-instance-types" title="Permanent link">#</a></h2>
 <p>Use abstract types to provision equivalent hardware across providers:</p>
 <table>
 <thead>
@@ -2401,7 +2401,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link"></a></h2>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
