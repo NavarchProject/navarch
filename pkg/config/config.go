@@ -25,6 +25,25 @@ type ServerConfig struct {
 	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty"`
 	AutoscaleInterval    time.Duration `yaml:"autoscale_interval,omitempty"`
 	HealthPolicy         string        `yaml:"health_policy,omitempty"`
+	Notifier             *NotifierCfg `yaml:"notifier,omitempty"`
+}
+
+// NotifierCfg configures integration with workload systems.
+type NotifierCfg struct {
+	Type string `yaml:"type"` // noop, webhook, kubernetes, slurm
+
+	// Webhook configuration
+	Webhook *WebhookNotifierCfg `yaml:"webhook,omitempty"`
+}
+
+// WebhookNotifierCfg configures webhook-based notifications.
+type WebhookNotifierCfg struct {
+	CordonURL      string            `yaml:"cordon_url,omitempty"`
+	UncordonURL    string            `yaml:"uncordon_url,omitempty"`
+	DrainURL       string            `yaml:"drain_url,omitempty"`
+	DrainStatusURL string            `yaml:"drain_status_url,omitempty"`
+	Timeout        time.Duration     `yaml:"timeout,omitempty"`
+	Headers        map[string]string `yaml:"headers,omitempty"`
 }
 
 // ProviderCfg configures a cloud provider.

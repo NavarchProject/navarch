@@ -19,6 +19,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
+	"github.com/NavarchProject/navarch/pkg/notifier"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/health"
 	"github.com/NavarchProject/navarch/pkg/pool"
@@ -103,6 +104,11 @@ func main() {
 		EnabledHealthChecks:        []string{"boot", "nvml", "xid"},
 		HealthPolicy:               healthPolicy,
 	}, instanceManager, logger)
+
+	// Set up notifier for workload system integration
+	n := buildNotifier(cfg.Server.Notifier, logger)
+	srv.SetNotifier(n)
+	logger.Info("notifier configured", slog.String("type", n.Name()))
 
 	var poolManager *controlplane.PoolManager
 	if len(cfg.Pools) > 0 {
@@ -413,5 +419,36 @@ func getOrCreateProvider(name string, cfg *config.Config, cache map[string]provi
 
 	cache[name] = prov
 	return prov, nil
+}
+
+func buildNotifier(cfg *config.NotifierCfg, logger *slog.Logger) notifier.Notifier {
+	if cfg == nil {
+		return notifier.NewNoop(logger)
+	}
+
+	switch cfg.Type {
+	case "webhook":
+		if cfg.Webhook == nil {
+			logger.Warn("webhook notifier configured but no webhook config provided, using noop")
+			return notifier.NewNoop(logger)
+		}
+		return notifier.NewWebhook(notifier.WebhookConfig{
+			CordonURL:      cfg.Webhook.CordonURL,
+			UncordonURL:    cfg.Webhook.UncordonURL,
+			DrainURL:       cfg.Webhook.DrainURL,
+			DrainStatusURL: cfg.Webhook.DrainStatusURL,
+			Timeout:        cfg.Webhook.Timeout,
+			Headers:        cfg.Webhook.Headers,
+		}, logger)
+
+	case "noop", "":
+		return notifier.NewNoop(logger)
+
+	default:
+		logger.Warn("unknown notifier type, using noop",
+			slog.String("type", cfg.Type),
+		)
+		return notifier.NewNoop(logger)
+	}
 }
 

@@ -337,7 +337,7 @@ func TestReportHealth(t *testing.T) {
 
 // TestGetNodeCommands tests command issuance and execution
 func TestGetNodeCommands(t *testing.T) {
-	t.Run("cordon_command", func(t *testing.T) {
+	t.Run("terminate_command", func(t *testing.T) {
 		database := db.NewInMemDB()
 		defer database.Close()
 		srv := NewServer(database, DefaultConfig(), nil, nil)
@@ -350,10 +350,10 @@ func TestGetNodeCommands(t *testing.T) {
 		})
 		srv.RegisterNode(ctx, regReq)
 
-		// Issue cordon command
+		// Issue terminate command (commands that are queued to the node)
 		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
 			NodeId:      "node-1",
-			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
 			Parameters:  map[string]string{"reason": "maintenance"},
 		})
 		issueResp, err := srv.IssueCommand(ctx, issueReq)
@@ -378,8 +378,8 @@ func TestGetNodeCommands(t *testing.T) {
 		}
 
 		cmd := resp.Msg.Commands[0]
-		if cmd.Type != pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON {
-			t.Errorf("Expected CORDON command, got %v", cmd.Type)
+		if cmd.Type != pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE {
+			t.Errorf("Expected TERMINATE command, got %v", cmd.Type)
 		}
 		if cmd.Parameters["reason"] != "maintenance" {
 			t.Error("Expected reason parameter to be passed")
@@ -389,6 +389,52 @@ func TestGetNodeCommands(t *testing.T) {
 		resp2, _ := srv.GetNodeCommands(ctx, pollReq)
 		if len(resp2.Msg.Commands) != 0 {
 			t.Error("Expected no commands on second poll (already acknowledged)")
+		}
+	})
+
+	t.Run("cordon_is_cp_only", func(t *testing.T) {
+		database := db.NewInMemDB()
+		defer database.Close()
+		srv := NewServer(database, DefaultConfig(), nil, nil)
+		ctx := context.Background()
+
+		// Register node
+		regReq := connect.NewRequest(&pb.RegisterNodeRequest{
+			NodeId:   "node-1",
+			Provider: "gcp",
+		})
+		srv.RegisterNode(ctx, regReq)
+
+		// Issue cordon command - this is a CP-only operation
+		issueReq := connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+		})
+		issueResp, err := srv.IssueCommand(ctx, issueReq)
+		if err != nil {
+			t.Fatalf("IssueCommand failed: %v", err)
+		}
+		if issueResp.Msg.CommandId == "" {
+			t.Error("Expected command ID to be returned")
+		}
+
+		// Node polls for commands - should return nothing since cordon is CP-only
+		pollReq := connect.NewRequest(&pb.GetNodeCommandsRequest{
+			NodeId: "node-1",
+		})
+
+		resp, err := srv.GetNodeCommands(ctx, pollReq)
+		if err != nil {
+			t.Fatalf("GetNodeCommands failed: %v", err)
+		}
+		if len(resp.Msg.Commands) != 0 {
+			t.Errorf("Expected 0 commands (cordon is CP-only), got %d", len(resp.Msg.Commands))
+		}
+
+		// But node status should be updated
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Errorf("Expected node status CORDONED, got %v", node.Status)
 		}
 	})
 
@@ -404,7 +450,7 @@ func TestGetNodeCommands(t *testing.T) {
 		})
 		srv.RegisterNode(ctx, regReq)
 
-		// Issue multiple commands
+		// Issue multiple commands - CORDON/DRAIN are CP-only, TERMINATE is queued
 		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
 			NodeId:      "node-1",
 			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
@@ -413,15 +459,22 @@ func TestGetNodeCommands(t *testing.T) {
 			NodeId:      "node-1",
 			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
 		}))
+		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
+			NodeId:      "node-1",
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
+		}))
 
-		// Poll should return all pending commands
+		// Poll should return only TERMINATE (CORDON/DRAIN are CP-only)
 		pollReq := connect.NewRequest(&pb.GetNodeCommandsRequest{
 			NodeId: "node-1",
 		})
 		resp, _ := srv.GetNodeCommands(ctx, pollReq)
 
-		if len(resp.Msg.Commands) != 2 {
-			t.Errorf("Expected 2 commands, got %d", len(resp.Msg.Commands))
+		if len(resp.Msg.Commands) != 1 {
+			t.Errorf("Expected 1 command (only TERMINATE), got %d", len(resp.Msg.Commands))
+		}
+		if len(resp.Msg.Commands) > 0 && resp.Msg.Commands[0].Type != pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE {
+			t.Errorf("Expected TERMINATE command, got %v", resp.Msg.Commands[0].Type)
 		}
 	})
 }
@@ -590,10 +643,10 @@ func TestMultiNodeManagement(t *testing.T) {
 			srv.RegisterNode(ctx, req)
 		}
 
-		// Issue command only to node-1
+		// Issue TERMINATE command only to node-1 (TERMINATE is queued, unlike CORDON/DRAIN)
 		srv.IssueCommand(ctx, connect.NewRequest(&pb.IssueCommandRequest{
 			NodeId:      "node-1",
-			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
+			CommandType: pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE,
 		}))
 
 		// Node-1 should see command
@@ -959,7 +1012,7 @@ func TestIssueCommand(t *testing.T) {
 			t.Fatalf("IssueCommand failed: %v", err)
 		}
 
-		// Verify response
+		// Verify response - cordon is CP-only, returns synthetic command ID
 		if resp.Msg.CommandId == "" {
 			t.Error("Expected command_id to be returned")
 		}
@@ -967,16 +1020,17 @@ func TestIssueCommand(t *testing.T) {
 			t.Error("Expected issued_at timestamp")
 		}
 
-		// Verify command was stored
+		// Cordon/uncordon/drain are CP-only operations - no command record is created
+		// These operations update internal state and notify coordinator, but don't queue to node
 		commands, _ := database.GetPendingCommands(ctx, "node-1")
-		if len(commands) != 1 {
-			t.Fatalf("Expected 1 pending command, got %d", len(commands))
+		if len(commands) != 0 {
+			t.Fatalf("Expected 0 pending commands (cordon is CP-only), got %d", len(commands))
 		}
-		if commands[0].Type != pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON {
-			t.Errorf("Expected CORDON command, got %v", commands[0].Type)
-		}
-		if commands[0].Parameters["reason"] != "maintenance" {
-			t.Error("Expected reason parameter to be stored")
+
+		// Verify node status was updated to cordoned
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Errorf("Expected node status to be CORDONED, got %v", node.Status)
 		}
 	})
 
@@ -1070,7 +1124,7 @@ func TestIssueCommand(t *testing.T) {
 		})
 		srv.RegisterNode(ctx, regReq)
 
-		// Issue multiple commands
+		// Issue multiple commands - CORDON and DRAIN are CP-only, only TERMINATE creates a record
 		commandTypes := []pb.NodeCommandType{
 			pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON,
 			pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN,
@@ -1091,10 +1145,14 @@ func TestIssueCommand(t *testing.T) {
 			}
 		}
 
-		// Verify all commands stored
+		// Only TERMINATE creates a pending command record
+		// CORDON and DRAIN are CP-only operations
 		commands, _ := database.GetPendingCommands(ctx, "node-1")
-		if len(commands) != 3 {
-			t.Errorf("Expected 3 pending commands, got %d", len(commands))
+		if len(commands) != 1 {
+			t.Errorf("Expected 1 pending command (only TERMINATE), got %d", len(commands))
+		}
+		if len(commands) > 0 && commands[0].Type != pb.NodeCommandType_NODE_COMMAND_TYPE_TERMINATE {
+			t.Errorf("Expected TERMINATE command, got %v", commands[0].Type)
 		}
 	})
 
@@ -1385,6 +1443,12 @@ func TestIssueCommand(t *testing.T) {
 		})
 		srv.IssueCommand(ctx, cordonReq)
 
+		// Verify node is cordoned
+		node, _ := database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
+			t.Fatalf("Expected node to be cordoned, got %v", node.Status)
+		}
+
 		// Uncordon the node
 		uncordonReq := connect.NewRequest(&pb.IssueCommandRequest{
 			NodeId:      "node-1",
@@ -1395,19 +1459,21 @@ func TestIssueCommand(t *testing.T) {
 			t.Fatalf("Uncordon failed: %v", err)
 		}
 
-		// Verify command record was created (it should be acknowledged after GetNodeCommands)
-		commands, _ := database.GetPendingCommands(ctx, "node-1")
-		found := false
-		for _, cmd := range commands {
-			if cmd.CommandID == resp.Msg.CommandId {
-				found = true
-				if cmd.Type != pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON {
-					t.Errorf("Expected UNCORDON command, got %v", cmd.Type)
-				}
-			}
+		// Verify response has command ID
+		if resp.Msg.CommandId == "" {
+			t.Error("Expected command_id to be returned")
 		}
-		if !found {
-			t.Error("Uncordon command record not found in pending commands")
+
+		// Uncordon is a CP-only operation - no command record is created
+		commands, _ := database.GetPendingCommands(ctx, "node-1")
+		if len(commands) != 0 {
+			t.Errorf("Expected 0 pending commands (uncordon is CP-only), got %d", len(commands))
+		}
+
+		// Verify node status was updated to active
+		node, _ = database.GetNode(ctx, "node-1")
+		if node.Status != pb.NodeStatus_NODE_STATUS_ACTIVE {
+			t.Errorf("Expected node status to be ACTIVE after uncordon, got %v", node.Status)
 		}
 	})
 }

@@ -34,7 +34,7 @@ func cordonCmd() *cobra.Command {
 				return fmt.Errorf("failed to cordon node: %w", err)
 			}
 
-			fmt.Printf("Cordon command queued for node %s\n", nodeID)
+			fmt.Printf("Node %s cordoned\n", nodeID)
 			fmt.Printf("Command ID: %s\n", resp.Msg.CommandId)
 
 			return nil

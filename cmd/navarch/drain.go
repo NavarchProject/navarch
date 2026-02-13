@@ -39,7 +39,7 @@ func drainCmd() *cobra.Command {
 				return fmt.Errorf("failed to drain node: %w", err)
 			}
 
-			fmt.Printf("Drain command queued for node %s\n", nodeID)
+			fmt.Printf("Node %s draining\n", nodeID)
 			fmt.Printf("Command ID: %s\n", resp.Msg.CommandId)
 
 			return nil
@@ -73,7 +73,7 @@ func uncordonCmd() *cobra.Command {
 				return fmt.Errorf("failed to uncordon node: %w", err)
 			}
 
-			fmt.Printf("Uncordon command queued for node %s\n", nodeID)
+			fmt.Printf("Node %s uncordoned\n", nodeID)
 			fmt.Printf("Command ID: %s\n", resp.Msg.CommandId)
 
 			return nil

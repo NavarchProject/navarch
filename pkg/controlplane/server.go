@@ -13,6 +13,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/health"
+	"github.com/NavarchProject/navarch/pkg/notifier"
 	pb "github.com/NavarchProject/navarch/proto"
 )
 
@@ -32,6 +33,7 @@ type Server struct {
 	instanceManager *InstanceManager
 	healthObserver  NodeHealthObserver
 	healthEvaluator *health.Evaluator
+	notifier        notifier.Notifier
 }
 
 // Config holds configuration for the control plane server.
@@ -92,6 +94,13 @@ func NewServer(database db.DB, cfg Config, instanceManager *InstanceManager, log
 // SetHealthObserver sets the observer to be notified on health status changes.
 func (s *Server) SetHealthObserver(observer NodeHealthObserver) {
 	s.healthObserver = observer
+}
+
+// SetNotifier sets the notifier for cordon/drain operations.
+// If not set, cordon/drain only update internal status without notifying
+// an external workload system.
+func (s *Server) SetNotifier(n notifier.Notifier) {
+	s.notifier = n
 }
 
 func (s *Server) RegisterNode(ctx context.Context, req *connect.Request[pb.RegisterNodeRequest]) (*connect.Response[pb.RegisterNodeResponse], error) {
@@ -444,37 +453,78 @@ func (s *Server) IssueCommand(ctx context.Context, req *connect.Request[pb.Issue
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node not found: %s", req.Msg.NodeId))
 	}
 
-	// Handle node status updates for cordon/uncordon commands
+	// Handle node status updates for cordon/uncordon/drain commands.
+	reason := req.Msg.Parameters["reason"]
+	nodeID := req.Msg.NodeId
+	previousStatus := node.Status
+
 	switch req.Msg.CommandType {
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON:
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_CORDONED); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to cordoned",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_CORDONED, previousStatus,
+			func() error { return s.notifier.Cordon(ctx, nodeID, reason) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cordon node: %w", err))
 		}
+
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON:
 		if node.Status != pb.NodeStatus_NODE_STATUS_CORDONED {
-			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", req.Msg.NodeId, node.Status.String()))
+			return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("node %s is not cordoned (current status: %s)", nodeID, node.Status.String()))
 		}
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_ACTIVE); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to active",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_ACTIVE, previousStatus,
+			func() error { return s.notifier.Uncordon(ctx, nodeID) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to uncordon node: %w", err))
 		}
+
 	case pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN:
-		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
-			s.logger.ErrorContext(ctx, "failed to update node status to draining",
-				slog.String("node_id", req.Msg.NodeId),
-				slog.String("error", err.Error()),
-			)
+		err := s.updateStatusAndNotify(ctx, nodeID, pb.NodeStatus_NODE_STATUS_DRAINING, previousStatus,
+			func() error { return s.notifier.Drain(ctx, nodeID, reason) })
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to drain node: %w", err))
 		}
 	}
 
+	// Cordon/uncordon/drain are control-plane-only operations.
+	// Record them in the DB for audit trail, but mark as "completed" so they
+	// don't appear in GetPendingCommands (nodes don't need to act on them).
+	if req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_CORDON ||
+		req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_UNCORDON ||
+		req.Msg.CommandType == pb.NodeCommandType_NODE_COMMAND_TYPE_DRAIN {
+
+		commandID := uuid.New().String()
+		issuedAt := s.clock.Now()
+
+		record := &db.CommandRecord{
+			CommandID:  commandID,
+			NodeID:     nodeID,
+			Type:       req.Msg.CommandType,
+			Parameters: req.Msg.Parameters,
+			IssuedAt:   issuedAt,
+			Status:     "completed", // CP-only: don't queue to node
+		}
+
+		if err := s.db.CreateCommand(ctx, record); err != nil {
+			s.logger.ErrorContext(ctx, "failed to record command",
+				slog.String("command_id", commandID),
+				slog.String("node_id", nodeID),
+				slog.String("error", err.Error()),
+			)
+			// Non-fatal: command succeeded, just failed to record
+		}
+
+		s.logger.InfoContext(ctx, "processed control plane command",
+			slog.String("command_id", commandID),
+			slog.String("node_id", nodeID),
+			slog.String("command_type", req.Msg.CommandType.String()),
+		)
+
+		return connect.NewResponse(&pb.IssueCommandResponse{
+			CommandId: commandID,
+			IssuedAt:  timestamppb.New(issuedAt),
+		}), nil
+	}
+
+	// For other command types, queue to the node agent
 	commandID := uuid.New().String()
 	issuedAt := s.clock.Now()
 
@@ -595,4 +645,35 @@ func (s *Server) instanceRecordToProto(record *db.InstanceRecord) *pb.InstanceIn
 	}
 
 	return info
+}
+
+// updateStatusAndNotify updates a node's status and notifies the external system.
+// If notification fails, the status change is rolled back.
+func (s *Server) updateStatusAndNotify(
+	ctx context.Context,
+	nodeID string,
+	newStatus pb.NodeStatus,
+	previousStatus pb.NodeStatus,
+	notify func() error,
+) error {
+	if err := s.db.UpdateNodeStatus(ctx, nodeID, newStatus); err != nil {
+		return err
+	}
+
+	if s.notifier != nil && notify != nil {
+		if err := notify(); err != nil {
+			s.logger.ErrorContext(ctx, "notifier failed, rolling back status",
+				slog.String("node_id", nodeID),
+				slog.String("error", err.Error()),
+			)
+			if rbErr := s.db.UpdateNodeStatus(ctx, nodeID, previousStatus); rbErr != nil {
+				s.logger.ErrorContext(ctx, "failed to roll back node status",
+					slog.String("node_id", nodeID),
+					slog.String("error", rbErr.Error()),
+				)
+			}
+			return err
+		}
+	}
+	return nil
 }
