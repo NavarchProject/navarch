@@ -1,0 +1,36 @@
+{{define "instances_table.html"}}
+<table>
+    <thead>
+        <tr>
+            <th>Instance ID</th>
+            <th>Provider</th>
+            <th>Region</th>
+            <th>Pool</th>
+            <th>Instance Type</th>
+            <th>State</th>
+            <th>Node</th>
+            <th>Created</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{if .Instances}}
+        {{range .Instances}}
+        <tr>
+            <td class="mono">{{.InstanceID}}</td>
+            <td>{{.Provider}}</td>
+            <td>{{.Region}}</td>
+            <td>{{if .PoolName}}{{.PoolName}}{{else}}-{{end}}</td>
+            <td>{{.InstanceType}}</td>
+            <td><span class="badge {{instanceStateClass .State}}">{{instanceStateName .State}}</span></td>
+            <td>{{if .NodeID}}<a href="/ui/nodes/{{.NodeID}}">{{.NodeID}}</a>{{else}}-{{end}}</td>
+            <td>{{formatDuration .CreatedAt}}</td>
+        </tr>
+        {{end}}
+        {{else}}
+        <tr>
+            <td colspan="8" class="empty">No instances found</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

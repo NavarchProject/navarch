@@ -226,3 +226,55 @@ func TestMiddleware_GenericErrorMessage(t *testing.T) {
 		t.Errorf("Response should be generic 'unauthorized', got %q", body)
 	}
 }
+
+func TestMiddleware_ExcludedPrefixes(t *testing.T) {
+	auth := NewBearerTokenAuthenticator("secret", "user:test", nil)
+	middleware := NewMiddleware(auth,
+		WithExcludedPrefixes("/ui/"),
+		WithRequireAuth(true),
+	)
+
+	handlerCalled := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	wrapped := middleware.Wrap(handler)
+
+	// These should all be excluded (no auth required)
+	excludedPaths := []string{"/ui/", "/ui/nodes", "/ui/nodes/node-1", "/ui/static/style.css"}
+	for _, path := range excludedPaths {
+		t.Run("excluded_"+path, func(t *testing.T) {
+			handlerCalled = false
+			req := httptest.NewRequest("GET", path, nil)
+			// No Authorization header
+			rec := httptest.NewRecorder()
+
+			wrapped.ServeHTTP(rec, req)
+
+			if !handlerCalled {
+				t.Errorf("Handler should be called for excluded prefix path %s", path)
+			}
+			if rec.Code != http.StatusOK {
+				t.Errorf("Expected status 200 for %s, got %d", path, rec.Code)
+			}
+		})
+	}
+
+	// This should NOT be excluded
+	t.Run("not_excluded", func(t *testing.T) {
+		handlerCalled = false
+		req := httptest.NewRequest("GET", "/api/nodes", nil)
+		rec := httptest.NewRecorder()
+
+		wrapped.ServeHTTP(rec, req)
+
+		if handlerCalled {
+			t.Error("Handler should not be called for non-excluded path without auth")
+		}
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 for /api/nodes, got %d", rec.Code)
+		}
+	})
+}

@@ -1,0 +1,32 @@
+{{define "instances.html"}}
+{{template "header" dict "Title" "Instances"}}
+
+<h1>Cloud Instances</h1>
+
+<div class="filters">
+    <label for="state-filter">State:</label>
+    <select id="state-filter"
+            hx-get="/ui/instances"
+            hx-target="#instances-table"
+            hx-trigger="change"
+            name="state">
+        <option value="" {{if eq .StateFilter ""}}selected{{end}}>All</option>
+        <option value="Provisioning" {{if eq .StateFilter "Provisioning"}}selected{{end}}>Provisioning</option>
+        <option value="Pending" {{if eq .StateFilter "Pending"}}selected{{end}}>Pending</option>
+        <option value="Running" {{if eq .StateFilter "Running"}}selected{{end}}>Running</option>
+        <option value="Terminating" {{if eq .StateFilter "Terminating"}}selected{{end}}>Terminating</option>
+        <option value="Terminated" {{if eq .StateFilter "Terminated"}}selected{{end}}>Terminated</option>
+        <option value="Failed" {{if eq .StateFilter "Failed"}}selected{{end}}>Failed</option>
+    </select>
+    <span class="node-count">{{len .Instances}} instances</span>
+</div>
+
+<div id="instances-table"
+     hx-get="/ui/instances{{if .StateFilter}}?state={{.StateFilter}}{{end}}"
+     hx-trigger="every 5s"
+     hx-swap="innerHTML">
+    {{template "instances_table.html" .}}
+</div>
+
+{{template "footer"}}
+{{end}}

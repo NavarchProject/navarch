@@ -19,6 +19,7 @@ import (
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
+	"github.com/NavarchProject/navarch/pkg/ui"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
@@ -483,6 +484,13 @@ func (r *Runner) startControlPlane(ctx context.Context) error {
 	mux := http.NewServeMux()
 	path, handler := protoconnect.NewControlPlaneServiceHandler(r.cpServer)
 	mux.Handle(path, handler)
+
+	// Register web UI
+	uiHandler, err := ui.NewHandler(r.database, r.logger.With(slog.String("component", "ui")))
+	if err != nil {
+		return fmt.Errorf("failed to initialize UI handler: %w", err)
+	}
+	uiHandler.RegisterRoutes(mux)
 
 	// Use port 8080 by default for interactive mode, otherwise random port
 	listenAddr := ":8080"

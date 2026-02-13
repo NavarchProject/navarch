@@ -19,14 +19,15 @@ import (
 	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/config"
 	"github.com/NavarchProject/navarch/pkg/controlplane"
-	"github.com/NavarchProject/navarch/pkg/notifier"
 	"github.com/NavarchProject/navarch/pkg/controlplane/db"
 	"github.com/NavarchProject/navarch/pkg/health"
+	"github.com/NavarchProject/navarch/pkg/notifier"
 	"github.com/NavarchProject/navarch/pkg/pool"
 	"github.com/NavarchProject/navarch/pkg/provider"
 	"github.com/NavarchProject/navarch/pkg/provider/fake"
 	"github.com/NavarchProject/navarch/pkg/provider/gcp"
 	"github.com/NavarchProject/navarch/pkg/provider/lambda"
+	"github.com/NavarchProject/navarch/pkg/ui"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
 )
 
@@ -133,6 +134,15 @@ func main() {
 	mux.HandleFunc("/readyz", readyzHandler(database, logger))
 	mux.Handle("/metrics", promhttp.Handler())
 
+	// Register web UI
+	uiHandler, err := ui.NewHandler(database, logger.With(slog.String("component", "ui")))
+	if err != nil {
+		logger.Error("failed to initialize UI handler", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	uiHandler.RegisterRoutes(mux)
+	logger.Info("web UI enabled", slog.String("path", "/ui/"))
+
 	// Setup authentication middleware
 	var httpHandler http.Handler = mux
 	if token != "" {
@@ -144,10 +154,11 @@ func main() {
 			slog.Any("methods", authenticator.Methods()),
 		)
 		logger.Info("authentication exempt paths",
-			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics"}),
+			slog.Any("paths", []string{"/healthz", "/readyz", "/metrics", "/ui/"}),
 		)
 		middleware := auth.NewMiddleware(authenticator,
 			auth.WithExcludedPaths("/healthz", "/readyz", "/metrics"),
+			auth.WithExcludedPrefixes("/ui/"),
 		)
 		httpHandler = middleware.Wrap(mux)
 	} else {
