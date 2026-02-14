@@ -37,6 +37,7 @@ func main() {
 	rootCmd.AddCommand(cordonCmd())
 	rootCmd.AddCommand(drainCmd())
 	rootCmd.AddCommand(uncordonCmd())
+	rootCmd.AddCommand(runCmd())
 	rootCmd.AddCommand(versionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
