@@ -66,6 +66,7 @@ type Pool struct {
 	config            Config
 	providers         []ProviderConfig
 	selector          ProviderSelector
+	zoneDistributor   *ZoneDistributor
 	clock             clock.Clock
 	logger            *slog.Logger
 	mu                sync.RWMutex
@@ -181,10 +182,17 @@ func NewWithOptions(opts NewPoolOptions) (*Pool, error) {
 		logger = slog.Default()
 	}
 
+	// Initialize zone distributor if zones are configured
+	var zd *ZoneDistributor
+	if len(opts.Config.Zones) > 0 {
+		zd = NewZoneDistributor(opts.Config.Zones)
+	}
+
 	return &Pool{
 		config:            opts.Config,
 		providers:         opts.Providers,
 		selector:          selector,
+		zoneDistributor:   zd,
 		clock:             clk,
 		logger:            logger,
 		nodes:             make(map[string]*ManagedNode),
@@ -463,21 +471,69 @@ func (p *Pool) provisionWithFallback(ctx context.Context, nodeNum int) (*provide
 			region = candidate.Regions[0]
 		}
 
+		// Select zone using zone distributor if configured
+		zone := p.selectZone(*candidate)
+
 		node, err := candidate.Provider.Provision(ctx, provider.ProvisionRequest{
 			Name:         fmt.Sprintf("%s-%d", p.config.Name, nodeNum),
 			InstanceType: candidate.InstanceType,
 			Region:       region,
+			Zone:         zone,
 			SSHKeyNames:  p.config.SSHKeyNames,
 			Labels:       p.config.Labels,
 		})
 		if err != nil {
-			p.selector.RecordFailure(candidate.Name, err)
+			p.recordProvisionFailure(candidate.Name, zone, err)
 			lastErr = fmt.Errorf("%s: %w", candidate.Name, err)
 			continue
 		}
 
-		p.selector.RecordSuccess(candidate.Name)
+		p.recordProvisionSuccess(candidate.Name, zone)
 		return node, candidate.Name, nil
+	}
+}
+
+// selectZone returns the next zone to use for provisioning.
+func (p *Pool) selectZone(candidate ProviderCandidate) string {
+	// Use zone distributor if configured for even distribution
+	if p.zoneDistributor != nil {
+		return p.zoneDistributor.NextZone()
+	}
+
+	// Fall back to candidate zones or config zones
+	if len(candidate.Zones) > 0 {
+		return candidate.Zones[0]
+	}
+	if len(p.config.Zones) > 0 {
+		return p.config.Zones[0]
+	}
+
+	return ""
+}
+
+// recordProvisionFailure records a provisioning failure, optionally at zone level.
+func (p *Pool) recordProvisionFailure(providerName, zone string, err error) {
+	if fs, ok := p.selector.(*FailoverSelector); ok && zone != "" {
+		fs.RecordZoneFailure(providerName, zone, err)
+	} else {
+		p.selector.RecordFailure(providerName, err)
+	}
+}
+
+// recordProvisionSuccess records a successful provisioning, optionally at zone level.
+func (p *Pool) recordProvisionSuccess(providerName, zone string) {
+	if fs, ok := p.selector.(*FailoverSelector); ok && zone != "" {
+		fs.RecordZoneSuccess(providerName, zone)
+		// Track zone distribution
+		if p.zoneDistributor != nil {
+			p.zoneDistributor.RecordProvisioned(zone)
+		}
+	} else {
+		p.selector.RecordSuccess(providerName)
+		// Track zone distribution even without failover selector
+		if p.zoneDistributor != nil && zone != "" {
+			p.zoneDistributor.RecordProvisioned(zone)
+		}
 	}
 }
 
