@@ -6,14 +6,17 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/NavarchProject/navarch/pkg/auth"
 	"github.com/NavarchProject/navarch/pkg/clock"
 	"github.com/NavarchProject/navarch/pkg/gpu"
 	"github.com/NavarchProject/navarch/pkg/node/metrics"
+	"github.com/NavarchProject/navarch/pkg/preemption"
 	"github.com/NavarchProject/navarch/pkg/retry"
 	pb "github.com/NavarchProject/navarch/proto"
 	"github.com/NavarchProject/navarch/proto/protoconnect"
@@ -53,6 +56,9 @@ type Config struct {
 
 	// AuthToken is the authentication token for control plane communication.
 	AuthToken string
+
+	// Spot indicates this is a spot/preemptible instance that should monitor for preemption.
+	Spot bool
 }
 
 // Node represents the node daemon that communicates with the control plane.
@@ -71,6 +77,10 @@ type Node struct {
 
 	// Command handling
 	commandDispatcher *CommandDispatcher
+
+	// Preemption detection (for spot instances)
+	preemptionMu     sync.RWMutex
+	preemptionStatus *preemption.Status
 }
 
 // New creates a new Node. If logger is nil, slog.Default() is used.
@@ -183,6 +193,11 @@ func (n *Node) Start(ctx context.Context) error {
 	go n.heartbeatLoop(ctx)
 	go n.healthCheckLoop(ctx)
 	go n.commandPollLoop(ctx)
+
+	// Start preemption monitoring for spot instances
+	if n.config.Spot {
+		go n.preemptionLoop(ctx)
+	}
 
 	return nil
 }
@@ -340,10 +355,21 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 		nodeMetrics = &pb.NodeMetrics{}
 	}
 
-	req := connect.NewRequest(&pb.HeartbeatRequest{
+	heartbeat := &pb.HeartbeatRequest{
 		NodeId:  n.config.NodeID,
 		Metrics: nodeMetrics,
-	})
+	}
+
+	// Include preemption status if available
+	if status := n.getPreemptionStatus(); status != nil {
+		heartbeat.Preemption = &pb.PreemptionStatus{
+			Preempted:   status.Preempted,
+			TerminateAt: timestamppb.New(status.TerminateAt),
+			Provider:    status.Provider,
+		}
+	}
+
+	req := connect.NewRequest(heartbeat)
 
 	resp, err := n.client.SendHeartbeat(ctx, req)
 	if err != nil {
@@ -647,4 +673,54 @@ func (n *Node) IsCordoned() bool {
 // IsDraining returns whether the node is currently draining.
 func (n *Node) IsDraining() bool {
 	return n.commandDispatcher.IsDraining()
+}
+
+// preemptionLoop monitors for spot/preemptible instance termination notices.
+func (n *Node) preemptionLoop(ctx context.Context) {
+	n.logger.InfoContext(ctx, "starting preemption detection for spot instance")
+
+	// Create detector based on provider
+	var detector preemption.Detector
+	switch n.config.Provider {
+	case "aws":
+		detector = preemption.NewAWSDetector(n.config.NodeID)
+	case "gcp":
+		detector = preemption.NewGCPDetector(n.config.NodeID)
+	default:
+		// Use multi-detector for unknown providers (tries all)
+		detector = preemption.NewMultiDetector(n.config.NodeID)
+	}
+
+	watcher := preemption.NewWatcher(detector, 5*time.Second, func(status preemption.Status) {
+		n.logger.WarnContext(ctx, "PREEMPTION NOTICE RECEIVED",
+			slog.String("provider", status.Provider),
+			slog.Time("terminate_at", status.TerminateAt),
+			slog.String("instance_id", status.InstanceID),
+		)
+
+		// Store preemption status for heartbeat reporting
+		n.preemptionMu.Lock()
+		n.preemptionStatus = &status
+		n.preemptionMu.Unlock()
+
+		// Send an immediate heartbeat to notify control plane
+		if err := n.sendHeartbeat(ctx); err != nil {
+			n.logger.ErrorContext(ctx, "failed to send preemption heartbeat",
+				slog.String("error", err.Error()),
+			)
+		}
+	})
+
+	if err := watcher.Watch(ctx); err != nil && err != context.Canceled {
+		n.logger.ErrorContext(ctx, "preemption watcher stopped with error",
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+// getPreemptionStatus returns the current preemption status (if any).
+func (n *Node) getPreemptionStatus() *preemption.Status {
+	n.preemptionMu.RLock()
+	defer n.preemptionMu.RUnlock()
+	return n.preemptionStatus
 }

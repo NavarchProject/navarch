@@ -304,6 +304,24 @@ func (s *Server) SendHeartbeat(ctx context.Context, req *connect.Request[pb.Hear
 		}
 	}
 
+	// Handle preemption notice from spot instances
+	if req.Msg.Preemption != nil && req.Msg.Preemption.Preempted {
+		s.logger.WarnContext(ctx, "PREEMPTION NOTICE: spot instance terminating",
+			slog.String("node_id", req.Msg.NodeId),
+			slog.String("provider", req.Msg.Preemption.Provider),
+			slog.Time("terminate_at", req.Msg.Preemption.TerminateAt.AsTime()),
+		)
+
+		// Mark the node as draining so the pool can provision a replacement
+		// and workloads can be migrated before termination
+		if err := s.db.UpdateNodeStatus(ctx, req.Msg.NodeId, pb.NodeStatus_NODE_STATUS_DRAINING); err != nil {
+			s.logger.ErrorContext(ctx, "failed to update node status on preemption",
+				slog.String("node_id", req.Msg.NodeId),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
 	return connect.NewResponse(&pb.HeartbeatResponse{
 		Acknowledged: true,
 	}), nil

@@ -387,6 +387,21 @@ message HeartbeatRequest {
 
   // Optional basic metrics (lightweight, doesn't require health checks).
   NodeMetrics metrics = 3;
+
+  // Preemption status (for spot/preemptible instances).
+  PreemptionStatus preemption = 4;
+}
+
+// PreemptionStatus reports spot/preemptible instance termination notice.
+message PreemptionStatus {
+  // True if a preemption notice has been received.
+  bool preempted = 1;
+
+  // When the instance will be terminated (if preempted).
+  google.protobuf.Timestamp terminate_at = 2;
+
+  // Which provider detected the preemption (e.g., "aws", "gcp").
+  string provider = 3;
 }
 
 // HeartbeatResponse acknowledges receipt of heartbeat.
