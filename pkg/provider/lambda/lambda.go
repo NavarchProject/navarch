@@ -60,6 +60,8 @@ func (p *Provider) Name() string {
 }
 
 // Provision creates a new GPU instance on Lambda Labs.
+// Note: Lambda Labs doesn't offer spot instances - all instances are on-demand.
+// The Spot field in the request is ignored.
 func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest) (*provider.Node, error) {
 	launchReq := launchRequest{
 		InstanceTypeName: req.InstanceType,

@@ -15,6 +15,7 @@ type Node struct {
 	GPUCount     int               // Number of GPUs attached
 	GPUType      string            // GPU model description (e.g., "NVIDIA H100 80GB")
 	Labels       map[string]string // User-defined key-value labels
+	Spot         bool              // True if this is a spot/preemptible instance
 }
 
 // ProvisionRequest contains parameters for provisioning a node.
@@ -26,6 +27,7 @@ type ProvisionRequest struct {
 	SSHKeyNames  []string          // SSH key names to authorize
 	Labels       map[string]string // Labels to apply to the instance
 	UserData     string            // Startup script (cloud-init format)
+	Spot         bool              // Use spot/preemptible instances for cost savings
 }
 
 // Provider abstracts cloud-specific provisioning operations.

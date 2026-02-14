@@ -21,6 +21,7 @@ type Config struct {
 	Region       string   // Default region for provisioning
 	Zones        []string // Availability zones for multi-zone pools
 	SSHKeyNames  []string // SSH key names to install on instances
+	Spot         bool     // Use spot/preemptible instances for cost savings
 
 	MinNodes int // Minimum nodes to maintain (hard floor)
 	MaxNodes int // Maximum nodes allowed (hard ceiling)
@@ -469,6 +470,7 @@ func (p *Pool) provisionWithFallback(ctx context.Context, nodeNum int) (*provide
 			Region:       region,
 			SSHKeyNames:  p.config.SSHKeyNames,
 			Labels:       p.config.Labels,
+			Spot:         p.config.Spot,
 		})
 		if err != nil {
 			p.selector.RecordFailure(candidate.Name, err)

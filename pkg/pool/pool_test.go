@@ -12,9 +12,10 @@ import (
 
 // mockProvider implements provider.Provider for testing.
 type mockProvider struct {
-	nodes       map[string]*provider.Node
-	nextID      int
-	failOn      string // "provision", "terminate", "list"
+	nodes          map[string]*provider.Node
+	nextID         int
+	failOn         string // "provision", "terminate", "list"
+	lastRequest    *provider.ProvisionRequest
 }
 
 func newMockProvider() *mockProvider {
@@ -24,6 +25,7 @@ func newMockProvider() *mockProvider {
 func (m *mockProvider) Name() string { return "mock" }
 
 func (m *mockProvider) Provision(ctx context.Context, req provider.ProvisionRequest) (*provider.Node, error) {
+	m.lastRequest = &req
 	if m.failOn == "provision" {
 		return nil, fmt.Errorf("mock provision error")
 	}
@@ -34,6 +36,7 @@ func (m *mockProvider) Provision(ctx context.Context, req provider.ProvisionRequ
 		InstanceType: req.InstanceType,
 		Region:       req.Region,
 		Status:       "running",
+		Spot:         req.Spot,
 	}
 	m.nodes[node.ID] = node
 	return node, nil
@@ -566,6 +569,84 @@ func TestPool_MultiProvider_RoundRobin(t *testing.T) {
 	// Round-robin should distribute evenly (2 each)
 	if len(provider1.nodes)+len(provider2.nodes) != 4 {
 		t.Errorf("total nodes should be 4, got %d", len(provider1.nodes)+len(provider2.nodes))
+	}
+}
+
+func TestPool_SpotInstances(t *testing.T) {
+	prov := newMockProvider()
+
+	pool, err := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "spot-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+			Spot:         true,
+		},
+		Providers: []ProviderConfig{
+			{Name: "mock", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	ctx := context.Background()
+	nodes, err := pool.ScaleUp(ctx, 1)
+	if err != nil {
+		t.Fatalf("ScaleUp() error = %v", err)
+	}
+
+	// Verify spot flag was passed to provider
+	if prov.lastRequest == nil {
+		t.Fatal("expected provision request to be captured")
+	}
+	if !prov.lastRequest.Spot {
+		t.Error("expected Spot=true in provision request")
+	}
+
+	// Verify node is marked as spot
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 node, got %d", len(nodes))
+	}
+	if !nodes[0].Spot {
+		t.Error("expected node to be marked as spot instance")
+	}
+}
+
+func TestPool_OnDemandInstances(t *testing.T) {
+	prov := newMockProvider()
+
+	pool, err := NewWithOptions(NewPoolOptions{
+		Config: Config{
+			Name:         "ondemand-pool",
+			MinNodes:     0,
+			MaxNodes:     10,
+			InstanceType: "h100-8x",
+			Spot:         false, // Explicitly on-demand
+		},
+		Providers: []ProviderConfig{
+			{Name: "mock", Provider: prov, Priority: 1},
+		},
+		ProviderStrategy: "priority",
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	ctx := context.Background()
+	_, err = pool.ScaleUp(ctx, 1)
+	if err != nil {
+		t.Fatalf("ScaleUp() error = %v", err)
+	}
+
+	// Verify spot flag was NOT set
+	if prov.lastRequest == nil {
+		t.Fatal("expected provision request to be captured")
+	}
+	if prov.lastRequest.Spot {
+		t.Error("expected Spot=false in provision request")
 	}
 }
 

@@ -76,6 +76,7 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		GPUCount:     p.config.GPUCount,
 		GPUType:      "NVIDIA H100 80GB HBM3 (fake)",
 		Labels:       req.Labels,
+		Spot:         req.Spot,
 	}
 
 	agentLogger := p.logger.With(slog.String("node_id", id))
