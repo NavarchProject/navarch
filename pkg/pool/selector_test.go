@@ -3,6 +3,7 @@ package pool
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -169,6 +170,183 @@ func TestCostSelector(t *testing.T) {
 	if c.Name != "cheap" {
 		t.Errorf("Select() = %s, want cheap", c.Name)
 	}
+}
+
+func TestCostSelector_MaxPrice(t *testing.T) {
+	cheapProvider := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 10.0},
+		},
+	}
+	expensiveProvider := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 50.0},
+		},
+	}
+
+	candidates := []ProviderCandidate{
+		{Name: "expensive", Provider: expensiveProvider, InstanceType: "gpu_8x_h100"},
+		{Name: "cheap", Provider: cheapProvider, InstanceType: "gpu_8x_h100"},
+	}
+
+	// Max price of $15/hr - should only select cheap provider
+	selector := NewCostSelector(WithMaxPrice(15.0))
+	ctx := context.Background()
+
+	c, err := selector.Select(ctx, candidates)
+	if err != nil {
+		t.Fatalf("Select() error = %v", err)
+	}
+	if c.Name != "cheap" {
+		t.Errorf("Select() = %s, want cheap", c.Name)
+	}
+
+	// After cheap fails, expensive exceeds max price
+	selector.RecordFailure("cheap", nil)
+	_, err = selector.Select(ctx, candidates)
+	if err == nil {
+		t.Error("Select() should fail when remaining providers exceed max price")
+	}
+}
+
+func TestCostSelector_PriceCache(t *testing.T) {
+	callCount := 0
+	provider := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 10.0},
+		},
+	}
+
+	// Wrap to count calls
+	countingProvider := &countingProviderWrapper{
+		mockProviderWithTypes: provider,
+		callCount:             &callCount,
+	}
+
+	candidates := []ProviderCandidate{
+		{Name: "test", Provider: countingProvider, InstanceType: "gpu_8x_h100"},
+	}
+
+	now := time.Now()
+	clock := func() time.Time { return now }
+
+	selector := NewCostSelector(
+		WithPriceCacheTTL(1*time.Minute),
+		WithCostClock(clock),
+	)
+	ctx := context.Background()
+
+	// First call should query the provider
+	_, _ = selector.Select(ctx, candidates)
+	if callCount != 1 {
+		t.Errorf("expected 1 API call, got %d", callCount)
+	}
+
+	// Reset for next selection
+	selector.RecordSuccess("test")
+
+	// Second call within TTL should use cache
+	_, _ = selector.Select(ctx, candidates)
+	if callCount != 1 {
+		t.Errorf("expected 1 API call (cached), got %d", callCount)
+	}
+
+	// After cache expires, should query again
+	now = now.Add(2 * time.Minute)
+	selector.RecordSuccess("test")
+	_, _ = selector.Select(ctx, candidates)
+	if callCount != 2 {
+		t.Errorf("expected 2 API calls (cache expired), got %d", callCount)
+	}
+}
+
+func TestCostSelector_NoPriceInfo(t *testing.T) {
+	providerWithPrice := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 50.0},
+		},
+	}
+	// Provider without InstanceTypeLister interface
+	providerNoPrice := &mockProvider{}
+
+	candidates := []ProviderCandidate{
+		{Name: "no-price", Provider: providerNoPrice, InstanceType: "gpu_8x_h100"},
+		{Name: "has-price", Provider: providerWithPrice, InstanceType: "gpu_8x_h100"},
+	}
+
+	selector := NewCostSelector()
+	ctx := context.Background()
+
+	// Should prefer provider with known price
+	c, err := selector.Select(ctx, candidates)
+	if err != nil {
+		t.Fatalf("Select() error = %v", err)
+	}
+	if c.Name != "has-price" {
+		t.Errorf("Select() = %s, want has-price (known price preferred)", c.Name)
+	}
+
+	// After known price fails, falls back to unknown price
+	selector.RecordFailure("has-price", nil)
+	c, err = selector.Select(ctx, candidates)
+	if err != nil {
+		t.Fatalf("Select() error = %v", err)
+	}
+	if c.Name != "no-price" {
+		t.Errorf("Select() = %s, want no-price (fallback)", c.Name)
+	}
+}
+
+func TestCostSelector_Fallback(t *testing.T) {
+	cheapProvider := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 10.0},
+		},
+	}
+	expensiveProvider := &mockProviderWithTypes{
+		instanceTypes: []provider.InstanceType{
+			{Name: "gpu_8x_h100", Available: true, PricePerHr: 50.0},
+		},
+	}
+
+	candidates := []ProviderCandidate{
+		{Name: "expensive", Provider: expensiveProvider, InstanceType: "gpu_8x_h100"},
+		{Name: "cheap", Provider: cheapProvider, InstanceType: "gpu_8x_h100"},
+	}
+
+	selector := NewCostSelector()
+	ctx := context.Background()
+
+	// First: cheap
+	c, _ := selector.Select(ctx, candidates)
+	if c.Name != "cheap" {
+		t.Errorf("Select() = %s, want cheap", c.Name)
+	}
+
+	// After cheap fails: expensive
+	selector.RecordFailure("cheap", nil)
+	c, _ = selector.Select(ctx, candidates)
+	if c.Name != "expensive" {
+		t.Errorf("Select() = %s, want expensive (fallback)", c.Name)
+	}
+
+	// After both fail: error
+	selector.RecordFailure("expensive", nil)
+	_, err := selector.Select(ctx, candidates)
+	if err == nil {
+		t.Error("Select() should fail when all providers exhausted")
+	}
+}
+
+// countingProviderWrapper wraps a provider to count ListInstanceTypes calls
+type countingProviderWrapper struct {
+	*mockProviderWithTypes
+	callCount *int
+}
+
+func (c *countingProviderWrapper) ListInstanceTypes(ctx context.Context) ([]provider.InstanceType, error) {
+	*c.callCount++
+	return c.mockProviderWithTypes.ListInstanceTypes(ctx)
 }
 
 func TestNewSelector(t *testing.T) {

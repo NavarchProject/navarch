@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -232,19 +233,63 @@ func (s *AvailabilitySelector) RecordFailure(providerName string, err error) {
 }
 
 // CostSelector queries providers for pricing and selects the cheapest.
+// Caches prices to avoid repeated API calls and supports max price thresholds.
 type CostSelector struct {
 	baseSelector
+	priceCache map[string]cachedPrice
+	cacheTTL   time.Duration
+	maxPrice   float64 // Maximum acceptable price per hour (0 = no limit)
+	clock      func() time.Time
 }
 
-func NewCostSelector() *CostSelector {
-	return &CostSelector{
-		baseSelector: newBaseSelector(),
+type cachedPrice struct {
+	price     float64
+	fetchedAt time.Time
+}
+
+// CostSelectorOption configures the CostSelector.
+type CostSelectorOption func(*CostSelector)
+
+// WithPriceCacheTTL sets how long prices are cached (default: 5 minutes).
+func WithPriceCacheTTL(ttl time.Duration) CostSelectorOption {
+	return func(s *CostSelector) {
+		s.cacheTTL = ttl
 	}
+}
+
+// WithMaxPrice sets the maximum acceptable price per hour.
+// Providers exceeding this price will be skipped.
+func WithMaxPrice(maxPrice float64) CostSelectorOption {
+	return func(s *CostSelector) {
+		s.maxPrice = maxPrice
+	}
+}
+
+// WithCostClock sets a custom clock for testing.
+func WithCostClock(clock func() time.Time) CostSelectorOption {
+	return func(s *CostSelector) {
+		s.clock = clock
+	}
+}
+
+func NewCostSelector(opts ...CostSelectorOption) *CostSelector {
+	s := &CostSelector{
+		baseSelector: newBaseSelector(),
+		priceCache:   make(map[string]cachedPrice),
+		cacheTTL:     5 * time.Minute,
+		clock:        time.Now,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidate) (*ProviderCandidate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	now := s.clock()
 
 	type pricedCandidate struct {
 		candidate *ProviderCandidate
@@ -258,18 +303,11 @@ func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidat
 			continue
 		}
 
-		price := float64(-1)
-		lister, ok := candidates[i].Provider.(provider.InstanceTypeLister)
-		if ok {
-			types, err := lister.ListInstanceTypes(ctx)
-			if err == nil {
-				for _, t := range types {
-					if t.Name == candidates[i].InstanceType && t.Available && t.PricePerHr > 0 {
-						price = t.PricePerHr
-						break
-					}
-				}
-			}
+		price := s.getPrice(ctx, &candidates[i], now)
+
+		// Skip if price exceeds max threshold
+		if s.maxPrice > 0 && price > 0 && price > s.maxPrice {
+			continue
 		}
 
 		priced = append(priced, pricedCandidate{
@@ -279,7 +317,7 @@ func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidat
 	}
 
 	if len(priced) == 0 {
-		return nil, errors.New("all providers exhausted")
+		return nil, errors.New("all providers exhausted or exceed max price")
 	}
 
 	sort.Slice(priced, func(i, j int) bool {
@@ -293,6 +331,53 @@ func (s *CostSelector) Select(ctx context.Context, candidates []ProviderCandidat
 	})
 
 	return priced[0].candidate, nil
+}
+
+// getPrice returns the cached price or fetches it from the provider.
+func (s *CostSelector) getPrice(ctx context.Context, c *ProviderCandidate, now time.Time) float64 {
+	cacheKey := c.Name + ":" + c.InstanceType
+
+	// Check cache
+	if cached, ok := s.priceCache[cacheKey]; ok {
+		if now.Sub(cached.fetchedAt) < s.cacheTTL {
+			return cached.price
+		}
+	}
+
+	// Fetch from provider
+	price := float64(-1)
+	lister, ok := c.Provider.(provider.InstanceTypeLister)
+	if ok {
+		types, err := lister.ListInstanceTypes(ctx)
+		if err == nil {
+			for _, t := range types {
+				if t.Name == c.InstanceType && t.Available && t.PricePerHr > 0 {
+					price = t.PricePerHr
+					break
+				}
+			}
+		}
+	}
+
+	// Cache the result
+	s.priceCache[cacheKey] = cachedPrice{
+		price:     price,
+		fetchedAt: now,
+	}
+
+	return price
+}
+
+// GetCachedPrice returns the cached price for a provider/instance type, or -1 if not cached.
+func (s *CostSelector) GetCachedPrice(providerName, instanceType string) float64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cacheKey := providerName + ":" + instanceType
+	if cached, ok := s.priceCache[cacheKey]; ok {
+		return cached.price
+	}
+	return -1
 }
 
 func (s *CostSelector) RecordSuccess(providerName string) {
