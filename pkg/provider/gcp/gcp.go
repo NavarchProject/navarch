@@ -146,6 +146,7 @@ func (p *Provider) Provision(ctx context.Context, req provider.ProvisionRequest)
 		GPUCount:     gpuCount,
 		GPUType:      gpuType,
 		Labels:       req.Labels,
+		Spot:         req.Spot,
 	}, nil
 }
 
@@ -227,6 +228,12 @@ func (p *Provider) List(ctx context.Context) ([]*provider.Node, error) {
 
 			gpuCount, gpuType := p.extractGPUInfo(inst)
 
+			// Detect if instance is spot/preemptible
+			isSpot := false
+			if inst.Scheduling != nil {
+				isSpot = inst.Scheduling.Preemptible || inst.Scheduling.ProvisioningModel == "SPOT"
+			}
+
 			node := &provider.Node{
 				ID:           inst.Name,
 				Provider:     "gcp",
@@ -237,6 +244,7 @@ func (p *Provider) List(ctx context.Context) ([]*provider.Node, error) {
 				GPUCount:     gpuCount,
 				GPUType:      gpuType,
 				Labels:       inst.Labels,
+				Spot:         isSpot,
 			}
 
 			// Get external IP if available
@@ -368,6 +376,16 @@ func (p *Provider) getInstanceInZone(ctx context.Context, name, zone string) (*i
 func (p *Provider) buildInstanceRequest(req provider.ProvisionRequest, zone string) instanceRequest {
 	machineType := fmt.Sprintf("zones/%s/machineTypes/%s", zone, req.InstanceType)
 
+	// Configure scheduling based on spot request
+	sched := &scheduling{
+		OnHostMaintenance: "TERMINATE",
+		AutomaticRestart:  false,
+	}
+	if req.Spot {
+		sched.ProvisioningModel = "SPOT"
+		sched.Preemptible = true
+	}
+
 	instance := instanceRequest{
 		Name:        req.Name,
 		MachineType: machineType,
@@ -403,10 +421,7 @@ func (p *Provider) buildInstanceRequest(req provider.ProvisionRequest, zone stri
 				},
 			},
 		},
-		Scheduling: &scheduling{
-			OnHostMaintenance: "TERMINATE",
-			AutomaticRestart:  false,
-		},
+		Scheduling: sched,
 	}
 
 	// Add SSH keys if provided
@@ -656,6 +671,8 @@ type metadataItem struct {
 type scheduling struct {
 	OnHostMaintenance string `json:"onHostMaintenance"`
 	AutomaticRestart  bool   `json:"automaticRestart"`
+	Preemptible       bool   `json:"preemptible,omitempty"`
+	ProvisioningModel string `json:"provisioningModel,omitempty"` // STANDARD or SPOT
 }
 
 type accelerator struct {
@@ -687,6 +704,7 @@ type instanceData struct {
 	NetworkInterfaces []networkInterface `json:"networkInterfaces"`
 	Labels            map[string]string  `json:"labels"`
 	GuestAccelerators []accelerator      `json:"guestAccelerators"`
+	Scheduling        *scheduling        `json:"scheduling"`
 }
 
 type machineTypesResponse struct {
