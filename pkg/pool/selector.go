@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/NavarchProject/navarch/pkg/provider"
 )
@@ -30,6 +31,7 @@ type ProviderCandidate struct {
 	Priority     int
 	Weight       int
 	Regions      []string
+	Zones        []string // Availability zones for zone-aware distribution
 	InstanceType string
 }
 
@@ -308,10 +310,19 @@ func (s *CostSelector) RecordFailure(providerName string, err error) {
 }
 
 // NewSelector creates a ProviderSelector based on strategy name.
+//
+// Strategies:
+//   - "priority" (default): Try providers in priority order. Automatically backs off
+//     from providers that fail repeatedly to avoid hammering broken endpoints.
+//   - "round-robin": Distribute provisioning evenly across providers using weights.
+//   - "availability": Query providers for capacity and pick first with availability.
+//   - "cost": Query providers for pricing and pick the cheapest option.
 func NewSelector(strategy string, candidates []ProviderCandidate) (ProviderSelector, error) {
 	switch strategy {
 	case "", "priority":
-		return NewPrioritySelector(), nil
+		// Priority selector with smart backoff - providers that fail repeatedly
+		// are temporarily skipped to avoid hammering broken endpoints
+		return NewFailoverSelector(NewPrioritySelector()), nil
 	case "round-robin":
 		return NewRoundRobinSelector(candidates), nil
 	case "availability":
@@ -321,5 +332,199 @@ func NewSelector(strategy string, candidates []ProviderCandidate) (ProviderSelec
 	default:
 		return nil, fmt.Errorf("unknown provider strategy: %s", strategy)
 	}
+}
+
+// FailoverSelector wraps another selector and adds failure tracking with exponential backoff.
+// Providers that fail repeatedly are temporarily excluded from selection.
+type FailoverSelector struct {
+	inner   ProviderSelector
+	tracker *FailureTracker
+	clock   func() time.Time
+	mu      sync.Mutex
+}
+
+// FailoverSelectorOption configures the FailoverSelector.
+type FailoverSelectorOption func(*FailoverSelector)
+
+// WithFailureTracker sets a custom failure tracker.
+func WithFailureTracker(ft *FailureTracker) FailoverSelectorOption {
+	return func(fs *FailoverSelector) {
+		fs.tracker = ft
+	}
+}
+
+// WithClock sets a custom clock for testing.
+func WithClock(clock func() time.Time) FailoverSelectorOption {
+	return func(fs *FailoverSelector) {
+		fs.clock = clock
+	}
+}
+
+// NewFailoverSelector creates a failover selector that wraps the given selector.
+func NewFailoverSelector(inner ProviderSelector, opts ...FailoverSelectorOption) *FailoverSelector {
+	fs := &FailoverSelector{
+		inner:   inner,
+		tracker: NewFailureTracker(),
+		clock:   time.Now,
+	}
+	for _, opt := range opts {
+		opt(fs)
+	}
+	return fs
+}
+
+func (fs *FailoverSelector) Select(ctx context.Context, candidates []ProviderCandidate) (*ProviderCandidate, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	now := fs.clock()
+
+	// Filter out excluded candidates (those in backoff)
+	available := make([]ProviderCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		key := fs.candidateKey(c)
+		if !fs.tracker.IsExcluded(key, now) {
+			available = append(available, c)
+		}
+	}
+
+	// If all providers are in backoff, use original list but don't reset
+	// inner tracking - let the inner selector's "all exhausted" error propagate
+	if len(available) == 0 {
+		available = candidates
+	}
+
+	return fs.inner.Select(ctx, available)
+}
+
+func (fs *FailoverSelector) RecordSuccess(providerName string) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	fs.tracker.RecordSuccess(providerName, fs.clock())
+	fs.inner.RecordSuccess(providerName)
+}
+
+func (fs *FailoverSelector) RecordFailure(providerName string, err error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	fs.tracker.RecordFailure(providerName, fs.clock())
+	fs.inner.RecordFailure(providerName, err)
+}
+
+// RecordZoneFailure records a failure for a specific provider:zone combination.
+func (fs *FailoverSelector) RecordZoneFailure(providerName, zone string, err error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	key := providerName + ":" + zone
+	fs.tracker.RecordFailure(key, fs.clock())
+	// Also record at provider level
+	fs.tracker.RecordFailure(providerName, fs.clock())
+	fs.inner.RecordFailure(providerName, err)
+}
+
+// RecordZoneSuccess records success for a specific provider:zone combination.
+func (fs *FailoverSelector) RecordZoneSuccess(providerName, zone string) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	key := providerName + ":" + zone
+	fs.tracker.RecordSuccess(key, fs.clock())
+	fs.tracker.RecordSuccess(providerName, fs.clock())
+	fs.inner.RecordSuccess(providerName)
+}
+
+// GetFailureStats returns current failure statistics.
+func (fs *FailoverSelector) GetFailureStats() []FailureStats {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.tracker.GetStats(fs.clock())
+}
+
+// IsProviderExcluded returns true if a provider is currently in backoff.
+func (fs *FailoverSelector) IsProviderExcluded(providerName string) bool {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.tracker.IsExcluded(providerName, fs.clock())
+}
+
+// IsZoneExcluded returns true if a provider:zone is currently in backoff.
+func (fs *FailoverSelector) IsZoneExcluded(providerName, zone string) bool {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	key := providerName + ":" + zone
+	return fs.tracker.IsExcluded(key, fs.clock())
+}
+
+func (fs *FailoverSelector) candidateKey(c ProviderCandidate) string {
+	return c.Name
+}
+
+// ZoneDistributor helps distribute nodes across zones for high availability.
+type ZoneDistributor struct {
+	zones     []string
+	counts    map[string]int
+	nextIndex int
+	mu        sync.Mutex
+}
+
+// NewZoneDistributor creates a distributor for the given zones.
+func NewZoneDistributor(zones []string) *ZoneDistributor {
+	return &ZoneDistributor{
+		zones:  zones,
+		counts: make(map[string]int),
+	}
+}
+
+// NextZone returns the next zone to use, preferring zones with fewer nodes.
+func (zd *ZoneDistributor) NextZone() string {
+	zd.mu.Lock()
+	defer zd.mu.Unlock()
+
+	if len(zd.zones) == 0 {
+		return ""
+	}
+
+	// Find zone with minimum count
+	minCount := -1
+	var minZone string
+	for _, z := range zd.zones {
+		count := zd.counts[z]
+		if minCount < 0 || count < minCount {
+			minCount = count
+			minZone = z
+		}
+	}
+
+	return minZone
+}
+
+// RecordProvisioned records that a node was provisioned in the given zone.
+func (zd *ZoneDistributor) RecordProvisioned(zone string) {
+	zd.mu.Lock()
+	defer zd.mu.Unlock()
+	zd.counts[zone]++
+}
+
+// RecordTerminated records that a node was terminated in the given zone.
+func (zd *ZoneDistributor) RecordTerminated(zone string) {
+	zd.mu.Lock()
+	defer zd.mu.Unlock()
+	if zd.counts[zone] > 0 {
+		zd.counts[zone]--
+	}
+}
+
+// GetDistribution returns the current node count per zone.
+func (zd *ZoneDistributor) GetDistribution() map[string]int {
+	zd.mu.Lock()
+	defer zd.mu.Unlock()
+	result := make(map[string]int, len(zd.counts))
+	for k, v := range zd.counts {
+		result[k] = v
+	}
+	return result
 }
 
