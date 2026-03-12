@@ -14,6 +14,15 @@ import (
 	"github.com/NavarchProject/navarch/pkg/clock"
 )
 
+// MetricsListener receives real-time notifications from StressMetrics.
+type MetricsListener interface {
+	OnNodeStart(spec NodeSpec)
+	OnFailure(event FailureEvent)
+	OnHealthChange(nodeID, status string)
+	OnRecovery(nodeID, failureType string)
+	OnSample(sample WebSampleEvent)
+}
+
 // StressMetrics collects metrics during stress testing.
 type StressMetrics struct {
 	mu        sync.RWMutex
@@ -54,6 +63,9 @@ type StressMetrics struct {
 
 	// Policy rule tracking
 	policyRuleHits map[string]*PolicyRuleHit
+
+	// Real-time listener (e.g., web view)
+	listener MetricsListener
 }
 
 // PolicyRuleHit tracks how many times a policy rule was triggered.
@@ -179,6 +191,13 @@ func NewStressMetrics(clk clock.Clock, logger *slog.Logger) *StressMetrics {
 	}
 }
 
+// SetListener sets the real-time event listener for live streaming.
+func (m *StressMetrics) SetListener(l MetricsListener) {
+	m.mu.Lock()
+	m.listener = l
+	m.mu.Unlock()
+}
+
 // RecordPolicyRuleHit records that a policy rule was triggered.
 func (m *StressMetrics) RecordPolicyRuleHit(ruleName, result string, priority int) {
 	m.mu.Lock()
@@ -221,7 +240,13 @@ func (m *StressMetrics) RecordNodeStart(nodeID string) {
 		Status:    "healthy",
 		Message:   "Node started successfully",
 	})
+	spec := m.nodeSpecs[nodeID]
+	listener := m.listener
 	m.mu.Unlock()
+
+	if listener != nil {
+		listener.OnNodeStart(spec)
+	}
 	atomic.AddInt64(&m.nodesHealthy, 1)
 }
 
@@ -242,7 +267,8 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 	m.mu.Lock()
 	oldStatus := m.nodeStatus[nodeID]
 	m.nodeStatus[nodeID] = status
-	if oldStatus != status {
+	changed := oldStatus != status
+	if changed {
 		m.nodeEvents[nodeID] = append(m.nodeEvents[nodeID], NodeEvent{
 			Timestamp: m.clock.Now(),
 			Type:      "status_change",
@@ -250,9 +276,10 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 			Message:   fmt.Sprintf("Status changed from %s to %s", oldStatus, status),
 		})
 	}
+	listener := m.listener
 	m.mu.Unlock()
 
-	if oldStatus != status {
+	if changed {
 		switch oldStatus {
 		case "healthy":
 			atomic.AddInt64(&m.nodesHealthy, -1)
@@ -269,6 +296,10 @@ func (m *StressMetrics) RecordNodeHealth(nodeID, status string) {
 			atomic.AddInt64(&m.nodesUnhealthy, 1)
 		case "degraded":
 			atomic.AddInt64(&m.nodesDegraded, 1)
+		}
+
+		if listener != nil {
+			listener.OnHealthChange(nodeID, status)
 		}
 	}
 }
@@ -321,7 +352,12 @@ func (m *StressMetrics) RecordFailure(event FailureEvent) {
 		PolicyRule:  ruleName,
 		RuleResult:  result,
 	})
+	listener := m.listener
 	m.mu.Unlock()
+
+	if listener != nil {
+		listener.OnFailure(event)
+	}
 }
 
 // inferPolicyRule determines which policy rule would fire for a given failure.
@@ -374,7 +410,12 @@ func (m *StressMetrics) RecordRecovery(nodeID, failureType string) {
 		FailureType: failureType,
 		Message:     fmt.Sprintf("Recovered from %s", failureType),
 	})
+	listener := m.listener
 	m.mu.Unlock()
+
+	if listener != nil {
+		listener.OnRecovery(nodeID, failureType)
+	}
 }
 
 // RecordOutage records an outage event.
@@ -420,7 +461,21 @@ func (m *StressMetrics) TakeSample() {
 
 	m.mu.Lock()
 	m.samples = append(m.samples, sample)
+	listener := m.listener
 	m.mu.Unlock()
+
+	if listener != nil {
+		listener.OnSample(WebSampleEvent{
+			TotalNodes: sample.TotalNodes,
+			Healthy:    sample.HealthyNodes,
+			Unhealthy:  sample.UnhealthyNodes,
+			Degraded:   sample.DegradedNodes,
+			Failures:   sample.FailuresTotal,
+			Cascading:  atomic.LoadInt64(&m.cascadingFailures),
+			Recoveries: sample.RecoveriesTotal,
+			Outages:    atomic.LoadInt64(&m.outages),
+		})
+	}
 }
 
 // StartSampling begins periodic metric sampling.

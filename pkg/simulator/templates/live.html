@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navarch Simulator — Live</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --surface2: #1a1a1a;
+            --border: #2a2a2a;
+            --border-subtle: #1e1e1e;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --text-dim: #52525b;
+            --accent: #3b82f6;
+            --healthy: #3b82f6;
+            --healthy-dim: #1e3a5f;
+            --degraded: #f59e0b;
+            --degraded-dim: #5c3d0e;
+            --unhealthy: #ef4444;
+            --unhealthy-dim: #5c1616;
+            --success: #22c55e;
+            --cascade: #a855f7;
+            --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', ui-monospace, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.5;
+            overflow: hidden;
+            height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Layout */
+        .app {
+            display: grid;
+            grid-template-rows: auto auto 1fr auto;
+            height: 100vh;
+        }
+
+        /* Top Bar */
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-height: 44px;
+        }
+        .topbar-title {
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+        .topbar-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 500;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .topbar-badge.live {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            animation: pulse-live 2s infinite;
+        }
+        .topbar-badge.done {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .topbar-spacer { flex: 1; }
+        .topbar-stat {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .topbar-stat span {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* Stats Bar */
+        .statsbar {
+            background: var(--bg);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 8px 16px;
+            display: flex;
+            gap: 4px;
+        }
+        .stat-card {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 8px 12px;
+            min-width: 0;
+        }
+        .stat-label {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 2px;
+        }
+        .stat-value {
+            font-family: var(--mono);
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2;
+        }
+        .stat-value.healthy { color: var(--healthy); }
+        .stat-value.unhealthy { color: var(--unhealthy); }
+        .stat-value.degraded { color: var(--degraded); }
+        .stat-value.cascade { color: var(--cascade); }
+
+        /* Main content - timeline + detail */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr;
+            overflow: hidden;
+            position: relative;
+        }
+        .main.with-detail {
+            grid-template-columns: 1fr 360px;
+        }
+
+        /* Timeline container */
+        .timeline-container {
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+        .timeline-container:active { cursor: grabbing; }
+        .timeline-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Minimap */
+        .minimap {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 200px;
+            height: 40px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            opacity: 0.85;
+        }
+        .minimap canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .minimap-viewport {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(59, 130, 246, 0.15);
+            border-left: 1px solid var(--accent);
+            border-right: 1px solid var(--accent);
+            pointer-events: none;
+        }
+
+        /* Detail panel */
+        .detail-panel {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            display: none;
+        }
+        .main.with-detail .detail-panel { display: block; }
+        .detail-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            z-index: 1;
+        }
+        .detail-header h3 {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .detail-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .detail-close:hover { background: var(--surface2); color: var(--text); }
+        .detail-section {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .detail-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+        }
+        .detail-key {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .detail-val {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .detail-status {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .detail-status.healthy { background: var(--healthy-dim); color: var(--healthy); }
+        .detail-status.degraded { background: var(--degraded-dim); color: var(--degraded); }
+        .detail-status.unhealthy { background: var(--unhealthy-dim); color: var(--unhealthy); }
+
+        .detail-event {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 11px;
+        }
+        .detail-event:last-child { border-bottom: none; }
+        .detail-event-time {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+        .detail-event-type {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin: 0 4px;
+        }
+        .detail-event-type.failure { background: var(--unhealthy-dim); color: var(--unhealthy); }
+        .detail-event-type.recovery { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+        .detail-event-type.health_change { background: var(--surface2); color: var(--text-muted); }
+        .detail-event-type.node_start { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+        .detail-event-msg {
+            color: var(--text-muted);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        /* Bottom bar */
+        .bottombar {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .bottombar-item span { color: var(--text-muted); }
+        .zoom-controls {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .zoom-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+        .zoom-btn:hover { background: var(--border); color: var(--text); }
+
+        /* Search overlay */
+        .search-overlay {
+            display: none;
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+        .search-overlay.visible { display: block; }
+        .search-input {
+            font-family: var(--mono);
+            font-size: 13px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 8px;
+            width: 320px;
+            outline: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .search-input:focus { border-color: var(--accent); }
+        .search-input::placeholder { color: var(--text-dim); }
+
+        /* Tooltip */
+        .tooltip {
+            display: none;
+            position: absolute;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text);
+            pointer-events: none;
+            z-index: 50;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            max-width: 300px;
+        }
+        .tooltip.visible { display: block; }
+        .tooltip-title { font-weight: 600; margin-bottom: 4px; }
+        .tooltip-row { color: var(--text-muted); }
+        .tooltip-row span { color: var(--text); }
+
+        /* Connection status */
+        .connection-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+        .connection-dot.disconnected { background: var(--unhealthy); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Top Bar -->
+        <div class="topbar">
+            <div class="topbar-title" id="scenario-name">Navarch Simulator</div>
+            <div class="topbar-badge live" id="status-badge">LIVE</div>
+            <div class="topbar-spacer"></div>
+            <div class="connection-dot" id="connection-dot"></div>
+            <div class="topbar-stat">elapsed <span id="elapsed">0.0s</span></div>
+            <div class="topbar-stat">nodes <span id="total-nodes">0</span></div>
+            <div class="topbar-stat">rate <span id="failure-rate">—</span></div>
+            <div class="topbar-stat">seed <span id="seed">—</span></div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="statsbar">
+            <div class="stat-card">
+                <div class="stat-label">Healthy</div>
+                <div class="stat-value healthy" id="stat-healthy">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Degraded</div>
+                <div class="stat-value degraded" id="stat-degraded">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unhealthy</div>
+                <div class="stat-value unhealthy" id="stat-unhealthy">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Failures</div>
+                <div class="stat-value" id="stat-failures">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cascading</div>
+                <div class="stat-value cascade" id="stat-cascading">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Recoveries</div>
+                <div class="stat-value" id="stat-recoveries">0</div>
+            </div>
+        </div>
+
+        <!-- Main: Timeline + Detail -->
+        <div class="main" id="main">
+            <div class="timeline-container" id="timeline-container">
+                <canvas id="timeline"></canvas>
+                <!-- Search -->
+                <div class="search-overlay" id="search-overlay">
+                    <input type="text" class="search-input" id="search-input" placeholder="Search nodes... (Esc to close)">
+                </div>
+                <!-- Tooltip -->
+                <div class="tooltip" id="tooltip">
+                    <div class="tooltip-title" id="tooltip-title"></div>
+                    <div id="tooltip-body"></div>
+                </div>
+            </div>
+            <!-- Detail Panel -->
+            <div class="detail-panel" id="detail-panel">
+                <div class="detail-header">
+                    <h3 id="detail-title">Node Details</h3>
+                    <button class="detail-close" id="detail-close">&times;</button>
+                </div>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Bar -->
+        <div class="bottombar">
+            <div class="bottombar-item"><span>Scroll</span> pan</div>
+            <div class="bottombar-item"><span>Ctrl+Scroll</span> zoom</div>
+            <div class="bottombar-item"><span>Click</span> inspect</div>
+            <div class="bottombar-item"><span>Cmd+F</span> search</div>
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-fit">Fit</button>
+                <button class="zoom-btn" id="zoom-in">+</button>
+                <button class="zoom-btn" id="zoom-out">−</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================================================
+// State
+// ============================================================================
+const state = {
+    nodes: new Map(),       // nodeID -> { id, provider, region, zone, instanceType, gpuCount, gpuType, status, events: [], startElapsed }
+    nodeOrder: [],          // sorted array of nodeIDs for y-axis
+    searchFilter: '',       // filter string for nodes
+    filteredOrder: null,    // filtered+sorted nodeIDs (null = use nodeOrder)
+    selectedNode: null,     // currently selected nodeID
+    maxElapsed: 10,         // current max elapsed time in seconds
+    simDuration: 0,         // expected total duration from init
+    simComplete: false,
+    connected: false,
+
+    // Stats
+    healthy: 0,
+    degraded: 0,
+    unhealthy: 0,
+    failures: 0,
+    cascading: 0,
+    recoveries: 0,
+    elapsed: 0,
+};
+
+// ============================================================================
+// Timeline Renderer (Canvas)
+// ============================================================================
+const ROW_HEIGHT = 22;
+const ROW_GAP = 2;
+const ROW_TOTAL = ROW_HEIGHT + ROW_GAP;
+const LABEL_WIDTH = 180;
+const RULER_HEIGHT = 28;
+const MIN_PX_PER_SEC = 2;
+const MAX_PX_PER_SEC = 800;
+const EVENT_RADIUS = 4;
+
+const view = {
+    pxPerSec: 40,           // horizontal zoom level
+    scrollX: 0,             // horizontal scroll offset in px
+    scrollY: 0,             // vertical scroll offset in px
+    width: 0,
+    height: 0,
+    dpr: window.devicePixelRatio || 1,
+    isDragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragStartScrollX: 0,
+    dragStartScrollY: 0,
+    hoveredNode: null,
+    hoveredEvent: null,
+};
+
+const canvas = document.getElementById('timeline');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    const container = document.getElementById('timeline-container');
+    const rect = container.getBoundingClientRect();
+    view.width = rect.width;
+    view.height = rect.height;
+    canvas.width = rect.width * view.dpr;
+    canvas.height = rect.height * view.dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+}
+
+function getVisibleNodes() {
+    const order = state.filteredOrder || state.nodeOrder;
+    const startIdx = Math.max(0, Math.floor(view.scrollY / ROW_TOTAL));
+    const visibleCount = Math.ceil((view.height - RULER_HEIGHT) / ROW_TOTAL) + 1;
+    const endIdx = Math.min(order.length, startIdx + visibleCount);
+    return { order, startIdx, endIdx };
+}
+
+function getTimeRange() {
+    const startSec = view.scrollX / view.pxPerSec;
+    const visibleSec = (view.width - LABEL_WIDTH) / view.pxPerSec;
+    return { startSec, endSec: startSec + visibleSec, visibleSec };
+}
+
+function secToX(sec) {
+    return LABEL_WIDTH + (sec * view.pxPerSec) - view.scrollX;
+}
+
+function xToSec(x) {
+    return (x - LABEL_WIDTH + view.scrollX) / view.pxPerSec;
+}
+
+function yToNodeIndex(y) {
+    return Math.floor((y - RULER_HEIGHT + view.scrollY) / ROW_TOTAL);
+}
+
+// ---- Drawing ----
+
+function draw() {
+    ctx.clearRect(0, 0, view.width, view.height);
+
+    drawRuler();
+    drawRows();
+    drawLabels();
+    drawPlayhead();
+}
+
+function drawRuler() {
+    // Background
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, view.width, RULER_HEIGHT);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, RULER_HEIGHT - 1, view.width, 1);
+
+    const { startSec, endSec } = getTimeRange();
+
+    // Choose tick interval based on zoom
+    let tickInterval = 1;
+    const pxPerTick = view.pxPerSec * tickInterval;
+    if (pxPerTick < 40) tickInterval = 5;
+    if (pxPerTick < 8) tickInterval = 10;
+    if (pxPerTick < 4) tickInterval = 30;
+    if (pxPerTick < 2) tickInterval = 60;
+    if (view.pxPerSec * tickInterval < 40) tickInterval = Math.ceil(40 / view.pxPerSec);
+
+    const firstTick = Math.floor(startSec / tickInterval) * tickInterval;
+
+    ctx.textBaseline = 'middle';
+    ctx.font = '10px "SF Mono", "Cascadia Code", ui-monospace, monospace';
+
+    for (let t = firstTick; t <= endSec; t += tickInterval) {
+        const x = secToX(t);
+        if (x < LABEL_WIDTH - 10) continue;
+        if (x > view.width + 10) break;
+
+        // Major tick
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(x, RULER_HEIGHT - 8, 1, 8);
+
+        // Label
+        ctx.fillStyle = '#71717a';
+        ctx.textAlign = 'center';
+        ctx.fillText(formatTime(t), x, RULER_HEIGHT / 2);
+
+        // Grid line (subtle)
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x, RULER_HEIGHT, 1, view.height - RULER_HEIGHT);
+    }
+
+    // Sub-ticks
+    const subInterval = tickInterval / 5;
+    if (view.pxPerSec * subInterval >= 4) {
+        for (let t = firstTick; t <= endSec; t += subInterval) {
+            const x = secToX(t);
+            if (x < LABEL_WIDTH) continue;
+            if (x > view.width) break;
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(x, RULER_HEIGHT - 4, 1, 4);
+        }
+    }
+
+    // Label area background
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, LABEL_WIDTH, RULER_HEIGHT);
+    ctx.fillStyle = '#71717a';
+    ctx.textAlign = 'left';
+    ctx.fillText('NODES', 12, RULER_HEIGHT / 2);
+}
+
+function drawRows() {
+    const { order, startIdx, endIdx } = getVisibleNodes();
+    const { startSec, endSec } = getTimeRange();
+    const contentTop = RULER_HEIGHT;
+
+    // Clip to content area
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(LABEL_WIDTH, contentTop, view.width - LABEL_WIDTH, view.height - contentTop);
+    ctx.clip();
+
+    for (let i = startIdx; i < endIdx; i++) {
+        const nodeID = order[i];
+        const node = state.nodes.get(nodeID);
+        if (!node) continue;
+
+        const y = contentTop + (i * ROW_TOTAL) - view.scrollY;
+
+        // Row background (alternating)
+        if (i % 2 === 0) {
+            ctx.fillStyle = '#0d0d0d';
+            ctx.fillRect(LABEL_WIDTH, y, view.width - LABEL_WIDTH, ROW_HEIGHT);
+        }
+
+        // Highlight selected
+        if (nodeID === state.selectedNode) {
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
+            ctx.fillRect(LABEL_WIDTH, y, view.width - LABEL_WIDTH, ROW_HEIGHT);
+        }
+
+        // Highlight hovered
+        if (nodeID === view.hoveredNode && nodeID !== state.selectedNode) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.fillRect(LABEL_WIDTH, y, view.width - LABEL_WIDTH, ROW_HEIGHT);
+        }
+
+        // Draw health segments
+        drawNodeSegments(node, y, startSec, endSec);
+
+        // Draw event markers
+        drawNodeEvents(node, y, startSec, endSec);
+    }
+
+    ctx.restore();
+}
+
+function drawNodeSegments(node, y, startSec, endSec) {
+    // Build segments from events
+    const segments = buildSegments(node);
+
+    for (const seg of segments) {
+        if (seg.end < startSec || seg.start > endSec) continue;
+
+        const x1 = Math.max(secToX(seg.start), LABEL_WIDTH);
+        const x2 = seg.end === Infinity ? view.width : Math.min(secToX(seg.end), view.width);
+
+        if (x2 <= x1) continue;
+
+        const barY = y + 3;
+        const barH = ROW_HEIGHT - 6;
+        const radius = 2;
+
+        ctx.fillStyle = getStatusColor(seg.status);
+        roundRect(ctx, x1, barY, x2 - x1, barH, radius);
+        ctx.fill();
+
+        // Subtle border for depth
+        ctx.strokeStyle = getStatusBorderColor(seg.status);
+        ctx.lineWidth = 0.5;
+        roundRect(ctx, x1, barY, x2 - x1, barH, radius);
+        ctx.stroke();
+
+        // If wide enough, draw status text
+        if (x2 - x1 > 60) {
+            ctx.fillStyle = getStatusTextColor(seg.status);
+            ctx.font = '9px "SF Mono", ui-monospace, monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            const label = seg.failureType || seg.status;
+            const maxChars = Math.floor((x2 - x1 - 8) / 5.5);
+            const text = label.length > maxChars ? label.slice(0, maxChars - 1) + '…' : label;
+            ctx.fillText(text, x1 + 4, barY + barH / 2);
+        }
+    }
+}
+
+function drawNodeEvents(node, y, startSec, endSec) {
+    for (const ev of node.events) {
+        if (ev.elapsed < startSec || ev.elapsed > endSec) continue;
+        if (ev.type !== 'failure' && ev.type !== 'recovery') continue;
+
+        const x = secToX(ev.elapsed);
+        const cy = y + ROW_HEIGHT / 2;
+
+        ctx.beginPath();
+        ctx.arc(x, cy, EVENT_RADIUS, 0, Math.PI * 2);
+
+        if (ev.type === 'failure') {
+            ctx.fillStyle = ev.isCascade ? '#a855f7' : '#ef4444';
+        } else {
+            ctx.fillStyle = '#22c55e';
+        }
+        ctx.fill();
+
+        // Border
+        ctx.strokeStyle = '#0a0a0a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+}
+
+function drawLabels() {
+    const { order, startIdx, endIdx } = getVisibleNodes();
+    const contentTop = RULER_HEIGHT;
+
+    // Label column background
+    ctx.fillStyle = '#0e0e0e';
+    ctx.fillRect(0, contentTop, LABEL_WIDTH, view.height - contentTop);
+
+    // Right border
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(LABEL_WIDTH - 1, contentTop, 1, view.height - contentTop);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, contentTop, LABEL_WIDTH, view.height - contentTop);
+    ctx.clip();
+
+    ctx.font = '11px "SF Mono", ui-monospace, monospace';
+    ctx.textBaseline = 'middle';
+
+    for (let i = startIdx; i < endIdx; i++) {
+        const nodeID = order[i];
+        const node = state.nodes.get(nodeID);
+        if (!node) continue;
+
+        const y = contentTop + (i * ROW_TOTAL) - view.scrollY;
+
+        // Status dot
+        const dotY = y + ROW_HEIGHT / 2;
+        ctx.beginPath();
+        ctx.arc(12, dotY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = getStatusDotColor(node.status);
+        ctx.fill();
+
+        // Label text
+        ctx.fillStyle = nodeID === state.selectedNode ? '#e4e4e7' : '#a1a1aa';
+        ctx.textAlign = 'left';
+        const maxChars = Math.floor((LABEL_WIDTH - 28) / 6.6);
+        const label = nodeID.length > maxChars ? '…' + nodeID.slice(-(maxChars - 1)) : nodeID;
+        ctx.fillText(label, 22, dotY);
+    }
+
+    ctx.restore();
+}
+
+function drawPlayhead() {
+    if (!state.simComplete) {
+        const x = secToX(state.elapsed);
+        if (x >= LABEL_WIDTH && x <= view.width) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+            ctx.fillRect(x, RULER_HEIGHT, 1, view.height - RULER_HEIGHT);
+
+            // Playhead triangle
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(x - 4, RULER_HEIGHT - 1);
+            ctx.lineTo(x + 4, RULER_HEIGHT - 1);
+            ctx.lineTo(x, RULER_HEIGHT + 5);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+}
+
+// ---- Helpers ----
+
+function buildSegments(node) {
+    const segments = [];
+    if (node.events.length === 0) {
+        segments.push({ start: node.startElapsed || 0, end: Infinity, status: node.status || 'healthy', failureType: '' });
+        return segments;
+    }
+
+    let currentStatus = 'healthy';
+    let currentStart = node.startElapsed || 0;
+    let currentFailureType = '';
+
+    for (const ev of node.events) {
+        if (ev.newStatus && ev.newStatus !== currentStatus) {
+            segments.push({ start: currentStart, end: ev.elapsed, status: currentStatus, failureType: currentFailureType });
+            currentStatus = ev.newStatus;
+            currentStart = ev.elapsed;
+            currentFailureType = ev.failureType || '';
+        } else if (ev.type === 'failure' && !ev.newStatus) {
+            // Failure without explicit status change
+            if (currentStatus === 'healthy') {
+                segments.push({ start: currentStart, end: ev.elapsed, status: currentStatus, failureType: '' });
+                currentStatus = 'unhealthy';
+                currentStart = ev.elapsed;
+                currentFailureType = ev.failureType || '';
+            }
+        }
+    }
+
+    segments.push({ start: currentStart, end: Infinity, status: currentStatus, failureType: currentFailureType });
+    return segments;
+}
+
+function getStatusColor(status) {
+    switch (status) {
+        case 'healthy': return '#1e3a5f';
+        case 'degraded': return '#5c3d0e';
+        case 'unhealthy': return '#5c1616';
+        default: return '#1a1a1a';
+    }
+}
+
+function getStatusBorderColor(status) {
+    switch (status) {
+        case 'healthy': return '#2563eb40';
+        case 'degraded': return '#d97706a0';
+        case 'unhealthy': return '#dc2626a0';
+        default: return '#2a2a2a';
+    }
+}
+
+function getStatusTextColor(status) {
+    switch (status) {
+        case 'healthy': return '#60a5fa';
+        case 'degraded': return '#fbbf24';
+        case 'unhealthy': return '#f87171';
+        default: return '#71717a';
+    }
+}
+
+function getStatusDotColor(status) {
+    switch (status) {
+        case 'healthy': return '#3b82f6';
+        case 'degraded': return '#f59e0b';
+        case 'unhealthy': return '#ef4444';
+        default: return '#52525b';
+    }
+}
+
+function formatTime(seconds) {
+    if (seconds < 60) return seconds.toFixed(seconds % 1 === 0 ? 0 : 1) + 's';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    if (seconds < 3600) return m + 'm' + (s > 0 ? s + 's' : '');
+    const h = Math.floor(seconds / 3600);
+    return h + 'h' + (m % 60) + 'm';
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+
+function getTotalContentHeight() {
+    const order = state.filteredOrder || state.nodeOrder;
+    return order.length * ROW_TOTAL;
+}
+
+function getTotalContentWidth() {
+    return state.maxElapsed * view.pxPerSec;
+}
+
+function clampScroll() {
+    const maxScrollX = Math.max(0, getTotalContentWidth() - (view.width - LABEL_WIDTH) + 100);
+    const maxScrollY = Math.max(0, getTotalContentHeight() - (view.height - RULER_HEIGHT));
+    view.scrollX = Math.max(0, Math.min(view.scrollX, maxScrollX));
+    view.scrollY = Math.max(0, Math.min(view.scrollY, maxScrollY));
+}
+
+// ============================================================================
+// Interaction
+// ============================================================================
+
+const container = document.getElementById('timeline-container');
+
+// Wheel: scroll / zoom
+container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+
+    if (e.ctrlKey || e.metaKey) {
+        // Zoom horizontally around cursor
+        const mouseX = e.offsetX;
+        const secUnderMouse = xToSec(mouseX);
+        const zoomFactor = e.deltaY > 0 ? 0.85 : 1.18;
+
+        view.pxPerSec = Math.max(MIN_PX_PER_SEC, Math.min(MAX_PX_PER_SEC, view.pxPerSec * zoomFactor));
+        view.scrollX = secUnderMouse * view.pxPerSec - (mouseX - LABEL_WIDTH);
+    } else {
+        // Pan
+        view.scrollX += e.deltaX;
+        view.scrollY += e.deltaY;
+    }
+
+    clampScroll();
+    requestDraw();
+}, { passive: false });
+
+// Drag to pan
+container.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    view.isDragging = true;
+    view.dragStartX = e.clientX;
+    view.dragStartY = e.clientY;
+    view.dragStartScrollX = view.scrollX;
+    view.dragStartScrollY = view.scrollY;
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (view.isDragging) {
+        view.scrollX = view.dragStartScrollX - (e.clientX - view.dragStartX);
+        view.scrollY = view.dragStartScrollY - (e.clientY - view.dragStartY);
+        clampScroll();
+        requestDraw();
+        return;
+    }
+
+    // Hover detection
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    handleHover(x, y);
+});
+
+window.addEventListener('mouseup', (e) => {
+    if (view.isDragging) {
+        const dx = Math.abs(e.clientX - view.dragStartX);
+        const dy = Math.abs(e.clientY - view.dragStartY);
+
+        // If barely moved, treat as click
+        if (dx < 3 && dy < 3) {
+            const rect = canvas.getBoundingClientRect();
+            handleClick(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        view.isDragging = false;
+    }
+});
+
+function handleHover(x, y) {
+    const order = state.filteredOrder || state.nodeOrder;
+    let newHovered = null;
+    let newHoveredEvent = null;
+
+    if (y > RULER_HEIGHT && x > LABEL_WIDTH) {
+        const idx = yToNodeIndex(y);
+        if (idx >= 0 && idx < order.length) {
+            newHovered = order[idx];
+
+            // Check if hovering over an event marker
+            const node = state.nodes.get(newHovered);
+            if (node) {
+                const sec = xToSec(x);
+                for (const ev of node.events) {
+                    if (ev.type !== 'failure' && ev.type !== 'recovery') continue;
+                    const evX = secToX(ev.elapsed);
+                    if (Math.abs(evX - x) <= EVENT_RADIUS + 2) {
+                        newHoveredEvent = ev;
+                        break;
+                    }
+                }
+            }
+        }
+    } else if (y > RULER_HEIGHT && x < LABEL_WIDTH) {
+        const idx = yToNodeIndex(y);
+        if (idx >= 0 && idx < order.length) {
+            newHovered = order[idx];
+        }
+    }
+
+    if (newHovered !== view.hoveredNode || newHoveredEvent !== view.hoveredEvent) {
+        view.hoveredNode = newHovered;
+        view.hoveredEvent = newHoveredEvent;
+        updateTooltip(x, y, newHovered, newHoveredEvent);
+        requestDraw();
+    }
+}
+
+function handleClick(x, y) {
+    if (y <= RULER_HEIGHT) return;
+
+    const order = state.filteredOrder || state.nodeOrder;
+    const idx = yToNodeIndex(y);
+
+    if (idx >= 0 && idx < order.length) {
+        const nodeID = order[idx];
+        if (state.selectedNode === nodeID) {
+            state.selectedNode = null;
+            document.getElementById('main').classList.remove('with-detail');
+        } else {
+            state.selectedNode = nodeID;
+            document.getElementById('main').classList.add('with-detail');
+            updateDetailPanel(nodeID);
+        }
+        resizeCanvas();
+        requestDraw();
+    }
+}
+
+function updateTooltip(mx, my, nodeID, event) {
+    const tooltip = document.getElementById('tooltip');
+    if (!nodeID) {
+        tooltip.classList.remove('visible');
+        return;
+    }
+
+    const node = state.nodes.get(nodeID);
+    if (!node) {
+        tooltip.classList.remove('visible');
+        return;
+    }
+
+    const title = document.getElementById('tooltip-title');
+    const body = document.getElementById('tooltip-body');
+
+    if (event) {
+        title.textContent = event.type === 'failure' ? 'Failure' : 'Recovery';
+        let html = `<div class="tooltip-row">at <span>${formatTime(event.elapsed)}</span></div>`;
+        if (event.failureType) html += `<div class="tooltip-row">type <span>${event.failureType}</span></div>`;
+        if (event.xidCode) html += `<div class="tooltip-row">XID <span>${event.xidCode}</span></div>`;
+        if (event.message) html += `<div class="tooltip-row"><span>${event.message}</span></div>`;
+        if (event.isCascade) html += `<div class="tooltip-row" style="color:#a855f7">cascading failure</div>`;
+        body.innerHTML = html;
+    } else {
+        title.textContent = nodeID;
+        let html = `<div class="tooltip-row">status <span style="color:${getStatusDotColor(node.status)}">${node.status}</span></div>`;
+        html += `<div class="tooltip-row">provider <span>${node.provider || '—'}</span></div>`;
+        html += `<div class="tooltip-row">gpu <span>${node.gpuCount || '?'}x ${node.gpuType || '?'}</span></div>`;
+        html += `<div class="tooltip-row">events <span>${node.events.length}</span></div>`;
+        body.innerHTML = html;
+    }
+
+    // Position tooltip
+    let tx = mx + 12;
+    let ty = my - 10;
+    if (tx + 260 > view.width) tx = mx - 260;
+    if (ty + 100 > view.height) ty = my - 100;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top = ty + 'px';
+    tooltip.classList.add('visible');
+}
+
+// ---- Detail Panel ----
+
+function updateDetailPanel(nodeID) {
+    const node = state.nodes.get(nodeID);
+    if (!node) return;
+
+    document.getElementById('detail-title').textContent = nodeID;
+
+    const content = document.getElementById('detail-content');
+    let html = '';
+
+    // Info section
+    html += `<div class="detail-section">
+        <div class="detail-section-title">Node Info</div>
+        <div class="detail-row"><span class="detail-key">Status</span><span class="detail-status ${node.status}">${node.status}</span></div>
+        <div class="detail-row"><span class="detail-key">Provider</span><span class="detail-val">${node.provider || '—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Region</span><span class="detail-val">${node.region || '—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Zone</span><span class="detail-val">${node.zone || '—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Instance</span><span class="detail-val">${node.instanceType || '—'}</span></div>
+        <div class="detail-row"><span class="detail-key">GPUs</span><span class="detail-val">${node.gpuCount || '?'}x ${node.gpuType || '?'}</span></div>
+        <div class="detail-row"><span class="detail-key">Started</span><span class="detail-val">${formatTime(node.startElapsed || 0)}</span></div>
+    </div>`;
+
+    // Stats
+    const failureCount = node.events.filter(e => e.type === 'failure').length;
+    const recoveryCount = node.events.filter(e => e.type === 'recovery').length;
+    const cascadeCount = node.events.filter(e => e.isCascade).length;
+    html += `<div class="detail-section">
+        <div class="detail-section-title">Statistics</div>
+        <div class="detail-row"><span class="detail-key">Failures</span><span class="detail-val" style="color:var(--unhealthy)">${failureCount}</span></div>
+        <div class="detail-row"><span class="detail-key">Recoveries</span><span class="detail-val" style="color:var(--success)">${recoveryCount}</span></div>
+        <div class="detail-row"><span class="detail-key">Cascading</span><span class="detail-val" style="color:var(--cascade)">${cascadeCount}</span></div>
+    </div>`;
+
+    // Events timeline
+    html += `<div class="detail-section">
+        <div class="detail-section-title">Events (${node.events.length})</div>`;
+
+    // Show events in reverse chronological order
+    const reversedEvents = [...node.events].reverse();
+    for (const ev of reversedEvents.slice(0, 100)) {
+        html += `<div class="detail-event">
+            <span class="detail-event-time">${formatTime(ev.elapsed)}</span>
+            <span class="detail-event-type ${ev.type}">${ev.type}</span>
+            ${ev.isCascade ? '<span class="detail-event-type" style="background:rgba(168,85,247,0.15);color:#a855f7">cascade</span>' : ''}
+            <div class="detail-event-msg">${ev.message || ev.failureType || ev.newStatus || ''}</div>
+        </div>`;
+    }
+    if (reversedEvents.length > 100) {
+        html += `<div class="detail-event" style="color:var(--text-dim)">+ ${reversedEvents.length - 100} more events</div>`;
+    }
+
+    html += `</div>`;
+    content.innerHTML = html;
+}
+
+document.getElementById('detail-close').addEventListener('click', () => {
+    state.selectedNode = null;
+    document.getElementById('main').classList.remove('with-detail');
+    resizeCanvas();
+    requestDraw();
+});
+
+// ---- Search ----
+
+const searchOverlay = document.getElementById('search-overlay');
+const searchInput = document.getElementById('search-input');
+
+document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        searchOverlay.classList.add('visible');
+        searchInput.focus();
+        searchInput.select();
+    }
+    if (e.key === 'Escape') {
+        searchOverlay.classList.remove('visible');
+        state.searchFilter = '';
+        state.filteredOrder = null;
+        searchInput.value = '';
+        requestDraw();
+    }
+});
+
+searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    state.searchFilter = query;
+
+    if (!query) {
+        state.filteredOrder = null;
+    } else {
+        state.filteredOrder = state.nodeOrder.filter(id => {
+            const node = state.nodes.get(id);
+            if (!node) return false;
+            return id.toLowerCase().includes(query)
+                || (node.provider && node.provider.toLowerCase().includes(query))
+                || (node.region && node.region.toLowerCase().includes(query))
+                || (node.status && node.status.toLowerCase().includes(query))
+                || (node.gpuType && node.gpuType.toLowerCase().includes(query));
+        });
+    }
+
+    view.scrollY = 0;
+    requestDraw();
+});
+
+// ---- Zoom Controls ----
+
+document.getElementById('zoom-in').addEventListener('click', () => {
+    const centerSec = xToSec(LABEL_WIDTH + (view.width - LABEL_WIDTH) / 2);
+    view.pxPerSec = Math.min(MAX_PX_PER_SEC, view.pxPerSec * 1.5);
+    view.scrollX = centerSec * view.pxPerSec - (view.width - LABEL_WIDTH) / 2;
+    clampScroll();
+    requestDraw();
+});
+
+document.getElementById('zoom-out').addEventListener('click', () => {
+    const centerSec = xToSec(LABEL_WIDTH + (view.width - LABEL_WIDTH) / 2);
+    view.pxPerSec = Math.max(MIN_PX_PER_SEC, view.pxPerSec / 1.5);
+    view.scrollX = centerSec * view.pxPerSec - (view.width - LABEL_WIDTH) / 2;
+    clampScroll();
+    requestDraw();
+});
+
+document.getElementById('zoom-fit').addEventListener('click', () => {
+    if (state.maxElapsed <= 0) return;
+    view.pxPerSec = Math.max(MIN_PX_PER_SEC, (view.width - LABEL_WIDTH - 40) / state.maxElapsed);
+    view.scrollX = 0;
+    view.scrollY = 0;
+    clampScroll();
+    requestDraw();
+});
+
+// ---- Resize ----
+
+const resizeObserver = new ResizeObserver(() => {
+    resizeCanvas();
+    requestDraw();
+});
+resizeObserver.observe(document.getElementById('timeline-container'));
+
+// ---- Render Loop ----
+
+let drawScheduled = false;
+function requestDraw() {
+    if (!drawScheduled) {
+        drawScheduled = true;
+        requestAnimationFrame(() => {
+            drawScheduled = false;
+            draw();
+        });
+    }
+}
+
+// ============================================================================
+// SSE Connection
+// ============================================================================
+
+function connectSSE() {
+    const evtSource = new EventSource('/events');
+
+    evtSource.onopen = () => {
+        state.connected = true;
+        document.getElementById('connection-dot').classList.remove('disconnected');
+    };
+
+    evtSource.onerror = () => {
+        state.connected = false;
+        document.getElementById('connection-dot').classList.add('disconnected');
+    };
+
+    evtSource.onmessage = (e) => {
+        try {
+            const event = JSON.parse(e.data);
+            handleEvent(event);
+        } catch (err) {
+            console.error('Failed to parse event:', err);
+        }
+    };
+}
+
+function handleEvent(event) {
+    const elapsed = event.elapsed || 0;
+    state.elapsed = Math.max(state.elapsed, elapsed);
+    state.maxElapsed = Math.max(state.maxElapsed, elapsed + 5);
+
+    switch (event.type) {
+        case 'init':
+            handleInit(event.data);
+            break;
+        case 'node_start':
+            handleNodeStart(event.data, elapsed);
+            break;
+        case 'failure':
+            handleFailure(event.data, elapsed);
+            break;
+        case 'health_change':
+            handleHealthChange(event.data, elapsed);
+            break;
+        case 'recovery':
+            handleRecovery(event.data, elapsed);
+            break;
+        case 'sample':
+            handleSample(event.data, elapsed);
+            break;
+        case 'complete':
+            handleComplete();
+            break;
+    }
+
+    updateTopStats();
+    requestDraw();
+}
+
+function handleInit(data) {
+    document.getElementById('scenario-name').textContent = data.scenario_name || 'Navarch Simulator';
+    document.getElementById('total-nodes').textContent = data.total_nodes || '—';
+    document.getElementById('failure-rate').textContent = data.failure_rate ? data.failure_rate.toFixed(1) + '/m/1k' : '—';
+    document.getElementById('seed').textContent = data.seed || 'random';
+    state.simDuration = data.duration_seconds || 0;
+    if (state.simDuration > 0) {
+        state.maxElapsed = state.simDuration + 5;
+    }
+}
+
+function handleNodeStart(data, elapsed) {
+    const node = getOrCreateNode(data.node_id);
+    node.provider = data.provider || node.provider;
+    node.region = data.region || node.region;
+    node.zone = data.zone || node.zone;
+    node.instanceType = data.instance_type || node.instanceType;
+    node.gpuCount = data.gpu_count || node.gpuCount;
+    node.gpuType = data.gpu_type || node.gpuType;
+    node.status = 'healthy';
+    node.startElapsed = elapsed;
+    node.events.push({
+        type: 'node_start',
+        elapsed,
+        message: 'Node started',
+        newStatus: 'healthy',
+    });
+}
+
+function handleFailure(data, elapsed) {
+    const node = getOrCreateNode(data.node_id);
+    const oldStatus = node.status;
+    node.status = data.status || 'unhealthy';
+    node.events.push({
+        type: 'failure',
+        elapsed,
+        failureType: data.failure_type,
+        xidCode: data.xid_code,
+        message: data.message,
+        isCascade: data.is_cascade,
+        newStatus: node.status !== oldStatus ? node.status : null,
+    });
+    state.failures++;
+    if (data.is_cascade) state.cascading++;
+
+    // Update detail panel if selected
+    if (state.selectedNode === data.node_id) {
+        updateDetailPanel(data.node_id);
+    }
+}
+
+function handleHealthChange(data, elapsed) {
+    const node = getOrCreateNode(data.node_id);
+    const oldStatus = node.status;
+    node.status = data.status;
+    if (oldStatus !== data.status) {
+        node.events.push({
+            type: 'health_change',
+            elapsed,
+            newStatus: data.status,
+            message: `${oldStatus} → ${data.status}`,
+        });
+    }
+
+    if (state.selectedNode === data.node_id) {
+        updateDetailPanel(data.node_id);
+    }
+}
+
+function handleRecovery(data, elapsed) {
+    const node = getOrCreateNode(data.node_id);
+    const oldStatus = node.status;
+    node.status = 'healthy';
+    node.events.push({
+        type: 'recovery',
+        elapsed,
+        failureType: data.failure_type,
+        message: `Recovered from ${data.failure_type}`,
+        newStatus: oldStatus !== 'healthy' ? 'healthy' : null,
+    });
+    state.recoveries++;
+
+    if (state.selectedNode === data.node_id) {
+        updateDetailPanel(data.node_id);
+    }
+}
+
+function handleSample(data, elapsed) {
+    state.healthy = data.healthy || 0;
+    state.degraded = data.degraded || 0;
+    state.unhealthy = data.unhealthy || 0;
+    // Use server-side totals for aggregate counters
+    if (data.failures !== undefined) state.failures = data.failures;
+    if (data.cascading !== undefined) state.cascading = data.cascading;
+    if (data.recoveries !== undefined) state.recoveries = data.recoveries;
+}
+
+function handleComplete() {
+    state.simComplete = true;
+    const badge = document.getElementById('status-badge');
+    badge.textContent = 'DONE';
+    badge.classList.remove('live');
+    badge.classList.add('done');
+}
+
+function getOrCreateNode(nodeID) {
+    let node = state.nodes.get(nodeID);
+    if (!node) {
+        node = {
+            id: nodeID,
+            provider: '',
+            region: '',
+            zone: '',
+            instanceType: '',
+            gpuCount: 0,
+            gpuType: '',
+            status: 'healthy',
+            events: [],
+            startElapsed: state.elapsed,
+        };
+        state.nodes.set(nodeID, node);
+        state.nodeOrder.push(nodeID);
+        state.nodeOrder.sort();
+        // Re-apply filter
+        if (state.searchFilter) {
+            searchInput.dispatchEvent(new Event('input'));
+        }
+    }
+    return node;
+}
+
+function updateTopStats() {
+    document.getElementById('elapsed').textContent = formatTime(state.elapsed);
+    document.getElementById('stat-healthy').textContent = state.healthy;
+    document.getElementById('stat-degraded').textContent = state.degraded;
+    document.getElementById('stat-unhealthy').textContent = state.unhealthy;
+    document.getElementById('stat-failures').textContent = state.failures;
+    document.getElementById('stat-cascading').textContent = state.cascading;
+    document.getElementById('stat-recoveries').textContent = state.recoveries;
+}
+
+// ============================================================================
+// Auto-follow playhead
+// ============================================================================
+
+let autoFollow = true;
+
+container.addEventListener('wheel', () => { autoFollow = false; });
+container.addEventListener('mousedown', () => { autoFollow = false; });
+
+setInterval(() => {
+    if (!state.simComplete && autoFollow && state.elapsed > 0) {
+        // Keep playhead at ~75% of visible width
+        const targetX = state.elapsed * view.pxPerSec - (view.width - LABEL_WIDTH) * 0.75;
+        if (targetX > view.scrollX) {
+            view.scrollX += (targetX - view.scrollX) * 0.15;
+            clampScroll();
+            requestDraw();
+        }
+    }
+
+    // Update elapsed display
+    document.getElementById('elapsed').textContent = formatTime(state.elapsed);
+}, 100);
+
+// ============================================================================
+// Init
+// ============================================================================
+
+resizeCanvas();
+requestDraw();
+connectSSE();
+
+</script>
+</body>
+</html>

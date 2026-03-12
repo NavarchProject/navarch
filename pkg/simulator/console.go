@@ -183,6 +183,10 @@ func (c *Console) PrintError(msg string) {
 	pterm.Error.Println(msg)
 }
 
+func (c *Console) PrintWebView(addr string) {
+	pterm.Info.Printfln("Live web view: %s", addr)
+}
+
 func (c *Console) PrintRunning(duration time.Duration) {
 	pterm.Info.Printfln("Running stress test for %s...", duration)
 	fmt.Println()
