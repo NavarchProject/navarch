@@ -2,14 +2,16 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 )
 
 // Middleware provides HTTP middleware for authentication.
 type Middleware struct {
-	authenticator  Authenticator
-	excludedPaths  map[string]bool
-	requireAuth    bool
-	onUnauthorized func(w http.ResponseWriter, r *http.Request, err error)
+	authenticator    Authenticator
+	excludedPaths    map[string]bool
+	excludedPrefixes []string
+	requireAuth      bool
+	onUnauthorized   func(w http.ResponseWriter, r *http.Request, err error)
 }
 
 // MiddlewareOption configures the authentication middleware.
@@ -23,6 +25,15 @@ func WithExcludedPaths(paths ...string) MiddlewareOption {
 		for _, p := range paths {
 			m.excludedPaths[p] = true
 		}
+	}
+}
+
+// WithExcludedPrefixes sets path prefixes that bypass authentication.
+// Any path starting with one of these prefixes will be accessible without authentication.
+// Example: WithExcludedPrefixes("/ui/") will exclude /ui/nodes, /ui/instances, etc.
+func WithExcludedPrefixes(prefixes ...string) MiddlewareOption {
+	return func(m *Middleware) {
+		m.excludedPrefixes = append(m.excludedPrefixes, prefixes...)
 	}
 }
 
@@ -78,6 +89,14 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		if m.excludedPaths[r.URL.Path] {
 			next.ServeHTTP(w, r)
 			return
+		}
+
+		// Check if path matches an excluded prefix
+		for _, prefix := range m.excludedPrefixes {
+			if strings.HasPrefix(r.URL.Path, prefix) {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 
 		// Attempt authentication

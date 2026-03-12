@@ -1,0 +1,36 @@
+{{define "nodes_table.html"}}
+<table>
+    <thead>
+        <tr>
+            <th>Node ID</th>
+            <th>Provider</th>
+            <th>Region</th>
+            <th>Instance Type</th>
+            <th>GPUs</th>
+            <th>Status</th>
+            <th>Health</th>
+            <th>Last Heartbeat</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{if .Nodes}}
+        {{range .Nodes}}
+        <tr>
+            <td><a href="/ui/nodes/{{.NodeID}}">{{.NodeID}}</a></td>
+            <td>{{.Provider}}</td>
+            <td>{{.Region}}</td>
+            <td>{{.InstanceType}}</td>
+            <td>{{len .GPUs}}</td>
+            <td><span class="badge {{statusClass .Status}}">{{statusName .Status}}</span></td>
+            <td><span class="badge {{healthClass .HealthStatus}}">{{healthName .HealthStatus}}</span></td>
+            <td>{{formatDuration .LastHeartbeat}}</td>
+        </tr>
+        {{end}}
+        {{else}}
+        <tr>
+            <td colspan="8" class="empty">No nodes found</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

@@ -1,0 +1,127 @@
+{{define "node.html"}}
+{{template "header" dict "Title" .Node.NodeID}}
+
+<h1>Node: {{.Node.NodeID}}</h1>
+
+{{if .Message}}
+<div class="alert alert-success">{{.Message}}</div>
+{{end}}
+{{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}}
+
+<div class="node-info">
+    <div class="info-section">
+        <h2>Status</h2>
+        <dl>
+            <dt>Status</dt>
+            <dd><span class="badge {{statusClass .Node.Status}}">{{statusName .Node.Status}}</span></dd>
+            <dt>Health</dt>
+            <dd><span class="badge {{healthClass .Node.HealthStatus}}">{{healthName .Node.HealthStatus}}</span></dd>
+            <dt>Last Heartbeat</dt>
+            <dd>{{formatTime .Node.LastHeartbeat}} ({{formatDuration .Node.LastHeartbeat}})</dd>
+            <dt>Registered</dt>
+            <dd>{{formatTime .Node.RegisteredAt}}</dd>
+        </dl>
+    </div>
+
+    <div class="info-section">
+        <h2>Infrastructure</h2>
+        <dl>
+            <dt>Provider</dt>
+            <dd>{{.Node.Provider}}</dd>
+            <dt>Region</dt>
+            <dd>{{.Node.Region}}</dd>
+            <dt>Zone</dt>
+            <dd>{{.Node.Zone}}</dd>
+            <dt>Instance Type</dt>
+            <dd>{{.Node.InstanceType}}</dd>
+        </dl>
+    </div>
+
+    {{if .Node.Metadata}}
+    <div class="info-section">
+        <h2>Metadata</h2>
+        <dl>
+            <dt>Hostname</dt>
+            <dd>{{.Node.Metadata.Hostname}}</dd>
+            <dt>Internal IP</dt>
+            <dd>{{.Node.Metadata.InternalIp}}</dd>
+            {{if .Node.Metadata.ExternalIp}}
+            <dt>External IP</dt>
+            <dd>{{.Node.Metadata.ExternalIp}}</dd>
+            {{end}}
+            <dt>Kernel</dt>
+            <dd>{{.Node.Metadata.KernelVersion}}</dd>
+        </dl>
+        {{if .Node.Metadata.Labels}}
+        <h3>Labels</h3>
+        <dl>
+            {{range $k, $v := .Node.Metadata.Labels}}
+            <dt>{{$k}}</dt>
+            <dd>{{$v}}</dd>
+            {{end}}
+        </dl>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+
+{{if .Node.GPUs}}
+<h2>GPUs ({{len .Node.GPUs}})</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Index</th>
+            <th>Name</th>
+            <th>UUID</th>
+            <th>Memory</th>
+            <th>Driver</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Node.GPUs}}
+        <tr>
+            <td>{{.Index}}</td>
+            <td>{{.Name}}</td>
+            <td class="mono">{{.Uuid}}</td>
+            <td>{{printf "%.0f" (divf .MemoryTotal 1073741824)}} GB</td>
+            <td>{{.DriverVersion}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
+
+<h2>Actions</h2>
+<div class="actions">
+    {{if eq (statusName .Node.Status) "Active"}}
+    <form method="POST" class="action-form">
+        <input type="hidden" name="action" value="cordon">
+        <input type="text" name="reason" placeholder="Reason (optional)">
+        <button type="submit" class="btn btn-warning">Cordon</button>
+    </form>
+    <form method="POST" class="action-form">
+        <input type="hidden" name="action" value="drain">
+        <input type="text" name="reason" placeholder="Reason (optional)">
+        <button type="submit" class="btn btn-danger">Drain</button>
+    </form>
+    {{else if eq (statusName .Node.Status) "Cordoned"}}
+    <form method="POST" class="action-form">
+        <input type="hidden" name="action" value="uncordon">
+        <button type="submit" class="btn btn-success">Uncordon</button>
+    </form>
+    <form method="POST" class="action-form">
+        <input type="hidden" name="action" value="drain">
+        <input type="text" name="reason" placeholder="Reason (optional)">
+        <button type="submit" class="btn btn-danger">Drain</button>
+    </form>
+    {{else}}
+    <p class="muted">No actions available for nodes in {{statusName .Node.Status}} status.</p>
+    {{end}}
+</div>
+
+<p><a href="/ui/nodes">&larr; Back to Nodes</a></p>
+
+{{template "footer"}}
+{{end}}

@@ -1,0 +1,67 @@
+{{define "dashboard.html"}}
+{{template "header" dict "Title" "Dashboard"}}
+
+<h1>Fleet Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{.TotalNodes}}</div>
+        <div class="stat-label">Total Nodes</div>
+    </div>
+    <div class="stat-card stat-active">
+        <div class="stat-value">{{.ActiveNodes}}</div>
+        <div class="stat-label">Active</div>
+    </div>
+    <div class="stat-card stat-cordoned">
+        <div class="stat-value">{{.CordonedNodes}}</div>
+        <div class="stat-label">Cordoned</div>
+    </div>
+    <div class="stat-card stat-draining">
+        <div class="stat-value">{{.DrainingNodes}}</div>
+        <div class="stat-label">Draining</div>
+    </div>
+    <div class="stat-card stat-unhealthy">
+        <div class="stat-value">{{.UnhealthyNodes}}</div>
+        <div class="stat-label">Unhealthy</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{.TotalGPUs}}</div>
+        <div class="stat-label">Total GPUs</div>
+    </div>
+</div>
+
+{{if .UnhealthyList}}
+<h2>Unhealthy Nodes</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Node ID</th>
+            <th>Provider</th>
+            <th>Region</th>
+            <th>Instance Type</th>
+            <th>Last Heartbeat</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .UnhealthyList}}
+        <tr>
+            <td><a href="/ui/nodes/{{.NodeID}}">{{.NodeID}}</a></td>
+            <td>{{.Provider}}</td>
+            <td>{{.Region}}</td>
+            <td>{{.InstanceType}}</td>
+            <td>{{formatDuration .LastHeartbeat}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}
+
+<div class="quick-links">
+    <h2>Quick Links</h2>
+    <a href="/ui/nodes" class="btn">View All Nodes</a>
+    <a href="/ui/nodes?status=Unhealthy" class="btn btn-warning">Unhealthy Nodes</a>
+    <a href="/ui/instances" class="btn">View Instances</a>
+</div>
+
+{{template "footer"}}
+{{end}}

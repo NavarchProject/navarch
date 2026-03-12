@@ -1,0 +1,30 @@
+{{define "nodes.html"}}
+{{template "header" dict "Title" "Nodes"}}
+
+<h1>Nodes</h1>
+
+<div class="filters">
+    <label for="status-filter">Status:</label>
+    <select id="status-filter"
+            hx-get="/ui/nodes"
+            hx-target="#nodes-table"
+            hx-trigger="change"
+            name="status">
+        <option value="" {{if eq .StatusFilter ""}}selected{{end}}>All</option>
+        <option value="Active" {{if eq .StatusFilter "Active"}}selected{{end}}>Active</option>
+        <option value="Cordoned" {{if eq .StatusFilter "Cordoned"}}selected{{end}}>Cordoned</option>
+        <option value="Draining" {{if eq .StatusFilter "Draining"}}selected{{end}}>Draining</option>
+        <option value="Unhealthy" {{if eq .StatusFilter "Unhealthy"}}selected{{end}}>Unhealthy</option>
+    </select>
+    <span class="node-count">{{len .Nodes}} nodes</span>
+</div>
+
+<div id="nodes-table"
+     hx-get="/ui/nodes{{if .StatusFilter}}?status={{.StatusFilter}}{{end}}"
+     hx-trigger="every 5s"
+     hx-swap="innerHTML">
+    {{template "nodes_table.html" .}}
+</div>
+
+{{template "footer"}}
+{{end}}
